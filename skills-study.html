@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Skills do CV — Estudo</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  html, body {
+    background: #0a0a0f;
+    color: #e2e8f0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .shell { max-width: 1100px; margin: 0 auto; padding: 60px 60px 100px }
+  @media (max-width: 768px) { .shell { padding: 40px 24px 80px } }
+
+  .back { display: inline-block; margin-bottom: 32px; color: #64748b; text-decoration: none; font-size: 13px; transition: color .15s }
+  .back:hover { color: #e2e8f0 }
+
+  /* Header */
+  .hdr-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #ef4444;
+    letter-spacing: .22em; text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hdr-label .ln { width: 36px; height: 1px; background: #ef4444; opacity: .4 }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(28px, 3.5vw, 44px);
+    font-weight: 900; letter-spacing: -.03em;
+    line-height: 1.06; margin-bottom: 12px;
+  }
+  h1 em { color: #ef4444; font-style: normal }
+  .desc {
+    color: #94a3b8; font-size: .95rem;
+    line-height: 1.7; max-width: 580px;
+    margin-bottom: 48px;
+  }
+
+  /* Tier rows */
+  .tier {
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding: 22px 0;
+  }
+  .tier:last-child { border-bottom: 1px solid rgba(255,255,255,.06) }
+
+  .tier-hd {
+    display: flex; align-items: center;
+    gap: 14px; margin-bottom: 14px;
+  }
+  .tier-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .62rem; color: #ef4444;
+    letter-spacing: .16em; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tier-ln { flex: 1; height: 1px; background: rgba(239,68,68,.1) }
+  .tier-ct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .58rem; color: #64748b;
+    white-space: nowrap; opacity: .55;
+  }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 10px 16px;
+    background: #111118;
+    border: 1px solid rgba(239,68,68,.15);
+    border-radius: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .78rem; color: #e2e8f0;
+    cursor: default; user-select: none;
+    transition: border-color .2s, background .2s, color .2s, box-shadow .2s, transform .15s;
+  }
+  .chip:hover {
+    border-color: rgba(239,68,68,.7);
+    background: rgba(239,68,68,.06);
+    color: #ef4444;
+    box-shadow: 0 0 12px rgba(239,68,68,.2);
+    transform: translateY(-1px);
+  }
+  .chip img {
+    width: 16px; height: 16px; flex-shrink: 0;
+    border-radius: 2px;
+  }
+
+  /* Priority dot */
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dot.p1 { background: #ef4444 }
+  .dot.p2 { background: #eab308 }
+  .dot.p3 { background: #64748b }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    margin-bottom: 28px; font-size: 12px; color: #64748b;
+    align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px }
+
+  @media print {
+    body { background: #fff; color: #000 }
+    .chip { border-color: #ccc; background: #f5f5f5; color: #000 }
+    .chip:hover { transform: none; box-shadow: none }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <a href="index.html" class="back">← Dossie</a>
+
+  <p class="hdr-label"><span class="ln"></span> mapa de estudo</p>
+  <h1>Tudo que preciso <em>estudar</em></h1>
+  <p class="desc">Skills dos CVs, LinkedIn e gaps identificados no mercado 2025-2026. Ordenadas por relevancia dentro de cada area.</p>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot p1"></span> Essencial — estudar primeiro</div>
+    <div class="legend-item"><span class="dot p2"></span> Importante — complementa stack</div>
+    <div class="legend-item"><span class="dot p3"></span> Bonus — ja sei ou baixa urgencia</div>
+    <span id="total" style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:#64748b;letter-spacing:.04em;margin-left:auto"></span>
+  </div>
+
+  <div id="tiers"></div>
+
+</div>
+
+<script>
+const ICON_BASE = 'https://cdn.simpleicons.org/'
+
+// Map skill name → Simple Icons slug + hex
+const ICON_MAP = {
+  'React':            ['react',            '61DAFB'],
+  'TypeScript':       ['typescript',       '3178C6'],
+  'Vue':              ['vuedotjs',         '4FC08D'],
+  'Next.js':          ['nextdotjs',        'e2e8f0'],
+  'Nuxt':             ['nuxtdotjs',        '00DC82'],
+  'Vite':             ['vite',             '646CFF'],
+  'Tailwind CSS':     ['tailwindcss',      '06B6D4'],
+  'shadcn/ui':        ['shadcnui',         'e2e8f0'],
+  'MUI':              ['mui',              '007FFF'],
+  'Styled Components':['styledcomponents', 'DB7093'],
+  'Vuetify':          ['vuetify',          '1867C0'],
+  'Radix UI':         ['radixui',          'e2e8f0'],
+  'Framer Motion':    ['framer',           '0055FF'],
+  'SCSS':             ['sass',             'CC6699'],
+  'Bootstrap':        ['bootstrap',        '7952B3'],
+  'Jotai':            ['jotai',            'e2e8f0'],
+  'Zustand':          ['react',            '764ABC'],
+  'Vuex':             ['vuedotjs',         '4FC08D'],
+  'Pinia':            ['vuedotjs',         '4FC08D'],
+  'React Query':      ['reactquery',       'FF4154'],
+  'SWR':              ['vercel',           'e2e8f0'],
+  'Apollo Client':    ['apollographql',    '311C87'],
+  'Axios':            ['axios',            '5A29E4'],
+  'Recharts':         ['react',            '22b5bf'],
+  'ApexCharts':       ['apachespark',      'E25A1C'],
+  'ECharts':          ['apacheecharts',    'AA344D'],
+  'TanStack Table':   ['react',            'FF4154'],
+  'MUI DataGrid':     ['mui',              '007FFF'],
+  'ExcelJS':          ['microsoftexcel',   '217346'],
+  'jsPDF':            ['adobeacrobatreader','EC1C24'],
+  'Formik':           ['react',            'e2e8f0'],
+  'Yup':              ['react',            'e2e8f0'],
+  'Zod':              ['zod',              '3E67B1'],
+  'Vuelidate':        ['vuedotjs',         '4FC08D'],
+  'JavaScript':       ['javascript',       'F7DF1E'],
+  'HTML':             ['html5',            'E34F26'],
+  'CSS':              ['css3',             '1572B6'],
+  'Redux':            ['redux',            '764ABC'],
+  'Svelte':           ['svelte',           'FF3E00'],
+  'AngularJS':        ['angular',          '0F0F11'],
+  'React Native':     ['react',            '61DAFB'],
+  'Webpack':          ['webpack',          '8DD6F9'],
+  'Responsive Design':['css3',             '1572B6'],
+  'SEO':              ['google',           '4285F4'],
+
+  'Node.js':          ['nodedotjs',        '5FA04E'],
+  'PHP':              ['php',              '777BB4'],
+  'Laravel':          ['laravel',          'FF2D20'],
+  'Express':          ['express',          'e2e8f0'],
+  'GraphQL':          ['graphql',          'E10098'],
+  'Python':           ['python',           '3776AB'],
+  'Prisma':           ['prisma',           '2D3748'],
+  'Drizzle':          ['drizzle',          'C5F74F'],
+  'Eloquent':         ['laravel',          'FF2D20'],
+  'Sequelize':        ['sequelize',        '52B0E7'],
+  'NextAuth / Auth.js':['auth0',           'e2e8f0'],
+  'WebSocket':        ['socketdotio',      'e2e8f0'],
+  'Socket.io':        ['socketdotio',      '010101'],
+  'BullMQ':           ['redis',            'FF4438'],
+  'RabbitMQ':         ['rabbitmq',         'FF6600'],
+  'Apache Thrift':    ['apache',           'D22128'],
+  'FHIR / HL7':       ['apachespark',      'e2e8f0'],
+  'REST APIs':        ['openapiinitiative', '6BA539'],
+  'Webhooks':         ['webhook',          'e2e8f0'],
+  'JWT':              ['jsonwebtokens',    'e2e8f0'],
+  'OAuth 2.0':        ['auth0',            'EB5424'],
+  'Sanctum':          ['laravel',          'FF2D20'],
+  'Firebase Auth':    ['firebase',         'DD2C00'],
+  'Stripe':           ['stripe',           '008CDD'],
+  'Mercado Pago':     ['mercadopago',      '00B1EA'],
+  'NestJS':           ['nestjs',           'E0234E'],
+  'Fastify':          ['fastify',          'e2e8f0'],
+  'TypeORM':          ['typeorm',          'FE0803'],
+  'Swagger':          ['swagger',          '85EA2D'],
+  'Resend':           ['resend',           'e2e8f0'],
+  'Agora.io':         ['agora',            '099DFD'],
+  'Bash':             ['gnubash',          '4EAA25'],
+  'gramJS / Telethon':['telegram',         '26A5E4'],
+  'Leaflet':          ['leaflet',          '199900'],
+  'OpenStreetMap':    ['openstreetmap',    '7EBC6F'],
+  'Revit (Python)':   ['autodesk',         'e2e8f0'],
+
+  'MySQL':            ['mysql',            '4479A1'],
+  'MariaDB':          ['mariadb',          '003545'],
+  'PostgreSQL':       ['postgresql',       '4169E1'],
+  'SQLite':           ['sqlite',           '003B57'],
+  'Redis':            ['redis',            'FF4438'],
+  'Firebase':         ['firebase',         'DD2C00'],
+  'pgvector':         ['postgresql',       '4169E1'],
+  'Qdrant':           ['qdrant',           'DC244C'],
+  'Elasticsearch':    ['elasticsearch',    '005571'],
+
+  'Docker':           ['docker',           '2496ED'],
+  'Nginx':            ['nginx',            '009639'],
+  'PM2':              ['pm2',              '2B037A'],
+  'Git':              ['git',              'F05032'],
+  'GitHub':           ['github',           'e2e8f0'],
+  'GitLab':           ['gitlab',           'FC6D26'],
+  'Azure DevOps':     ['azuredevops',      '0078D7'],
+  'GitLab CI/CD':     ['gitlab',           'FC6D26'],
+  'SonarQube':        ['sonarqube',        '4E9BCD'],
+  'Playwright':       ['playwright',       '2EAD33'],
+  'Jest':             ['jest',             'C21325'],
+  'PHPUnit':          ['php',              '777BB4'],
+  'Pest':             ['php',              '777BB4'],
+  'Vitest':           ['vitest',           '6E9F18'],
+  'Cypress':          ['cypress',          '69D3A7'],
+  'TDD':              ['testinglibrary',   'E33332'],
+  'GitFlow':          ['git',              'F05032'],
+  'Scrum':            ['scrumalliance',    '009FDA'],
+  'Kanban':           ['trello',           '0052CC'],
+  'Figma':            ['figma',            'F24E1E'],
+  'VS Code':          ['visualstudiocode', '007ACC'],
+  'Cursor':           ['cursor',           'e2e8f0'],
+  'Linux':            ['linux',            'FCC624'],
+  'Docker Compose':   ['docker',           '2496ED'],
+  'Kubernetes':       ['kubernetes',       '326CE5'],
+  'GitHub Actions':   ['githubactions',    '2088FF'],
+
+  'Anthropic SDK':    ['anthropic',        'D97757'],
+  'OpenAI SDK':       ['openai',           '412991'],
+  'Prompt Engineering':['openai',          '412991'],
+  'RAG':              ['openai',           'a855f7'],
+  'Function Calling': ['openai',           '412991'],
+  'Agentic Workflows':['anthropic',        'D97757'],
+  'MCP':              ['anthropic',        'D97757'],
+  'Multimodal':       ['openai',           '412991'],
+  'Ollama':           ['ollama',           'e2e8f0'],
+  'Telegram Bots':    ['telegram',         '26A5E4'],
+  'Cheerio':          ['nodedotjs',        '5FA04E'],
+
+  'Clean Architecture':['archlinux',       '1793D1'],
+  'HMVC':             ['archlinux',        '1793D1'],
+  'DDD':              ['archlinux',        '1793D1'],
+  'Repository Pattern':['archlinux',       '1793D1'],
+  'Event-Driven':     ['archlinux',        '1793D1'],
+  'Microservices':    ['archlinux',        '1793D1'],
+  'SOA':              ['archlinux',        '1793D1'],
+  'Dependency Injection':['archlinux',     '1793D1'],
+  'MVC':              ['archlinux',        '1793D1'],
+  'Multi-tenant':     ['archlinux',        '1793D1'],
+
+  'eSUS / PEC':       ['apachespark',      'e2e8f0'],
+  'RNDS':             ['apachespark',      'e2e8f0'],
+  'LGPD':             ['gnuprivacyguard',  '0093DD'],
+  'Ingles':           ['duolingo',         '58CC02'],
+  'Espanhol':         ['duolingo',         '58CC02'],
+  'Portugues':        ['duolingo',         '58CC02'],
+  'SISREG':           ['apachespark',      'e2e8f0'],
+  'SISAB':            ['apachespark',      'e2e8f0'],
+  'DATASUS':          ['apachespark',      'e2e8f0'],
+  'CID-10':           ['apachespark',      'e2e8f0'],
+  'CIAP-2':           ['apachespark',      'e2e8f0'],
+  'CBO':              ['apachespark',      'e2e8f0'],
+  'SIGTAP':           ['apachespark',      'e2e8f0'],
+  'SOLID':            ['archlinux',        '1793D1'],
+  'Clean Code':       ['archlinux',        '1793D1'],
+  'Design Patterns':  ['archlinux',        '1793D1'],
+  'System Design':    ['archlinux',        '1793D1'],
+  'Code Review':      ['github',           'e2e8f0'],
+  'Comunicacao':      ['slack',            '4A154B'],
+  'Lideranca':        ['slack',            '4A154B'],
+
+  // Cloud & IaC
+  'AWS':              ['amazonwebservices','FF9900'],
+  'EC2':              ['amazonec2',        'FF9900'],
+  'S3':               ['amazons3',         '569A31'],
+  'Lambda':           ['awslambda',        'FF9900'],
+  'RDS':              ['amazonrds',        '527FFF'],
+  'IAM':              ['amazoniam',        'DD344C'],
+  'VPC':              ['amazonwebservices','FF9900'],
+  'Terraform':        ['terraform',        '844FBA'],
+  'Pulumi':           ['pulumi',           '8A3391'],
+
+  // Languages
+  'Go':               ['go',               '00ADD8'],
+  'Rust':             ['rust',             'e2e8f0'],
+
+  // Observability
+  'OpenTelemetry':    ['opentelemetry',    'e2e8f0'],
+  'Prometheus':       ['prometheus',       'E6522C'],
+  'Grafana':          ['grafana',          'F46800'],
+
+  // CS Fundamentals
+  'Algoritmos & DS':  ['leetcode',         'FFA116'],
+  'Big-O':            ['leetcode',         'FFA116'],
+  'Dynamic Programming':['leetcode',       'FFA116'],
+  'Grafos':           ['leetcode',         'FFA116'],
+  'TCP/IP & DNS':     ['cloudflare',       'F38020'],
+  'TLS / HTTPS':      ['letsencrypt',      '003A70'],
+  'HTTP/2 & HTTP/3':  ['cloudflare',       'F38020'],
+  'Event Loop':       ['nodedotjs',        '5FA04E'],
+  'Processos & Threads':['linux',          'FCC624'],
+  'Memory Management':['linux',            'FCC624'],
+  'B-tree & LSM-tree':['postgresql',       '4169E1'],
+  'MVCC':             ['postgresql',       '4169E1'],
+  'EXPLAIN ANALYZE':  ['postgresql',       '4169E1'],
+  'CAP Theorem':      ['apache',           'D22128'],
+  'Raft / Paxos':     ['apache',           'D22128'],
+  'CRDTs':            ['apache',           'D22128'],
+  'Consistent Hashing':['apache',          'D22128'],
+
+  // AI advanced
+  'Fine-tuning (LoRA)':['huggingface',     'FFD21E'],
+  'LLMOps':           ['mlflow',           '0194E2'],
+  'LangSmith':        ['langchain',        '1C3C3C'],
+  'LangGraph':        ['langchain',        '1C3C3C'],
+  'CrewAI':           ['langchain',        '1C3C3C'],
+  'RAGAS':            ['openai',           '412991'],
+  'AI Guardrails':    ['openai',           '412991'],
+  'Quantizacao (GGUF)':['ollama',          'e2e8f0'],
+  'HNSW / IVF':       ['qdrant',           'DC244C'],
+  'vLLM':             ['python',           '3776AB'],
+  'Hugging Face':     ['huggingface',      'FFD21E'],
+
+  // Event Streaming
+  'Apache Kafka':     ['apachekafka',      '231F20'],
+  'CDC (Debezium)':   ['apachekafka',      '231F20'],
+  'CQRS':             ['archlinux',        '1793D1'],
+
+  // System Design
+  'Circuit Breakers': ['archlinux',        '1793D1'],
+  'Rate Limiting':    ['archlinux',        '1793D1'],
+  'Sharding':         ['archlinux',        '1793D1'],
+  'Chaos Engineering':['archlinux',        '1793D1'],
+
+  // Security
+  'OWASP Top 10':     ['owasp',            'e2e8f0'],
+  'OWASP API Top 10': ['owasp',            'e2e8f0'],
+  'Threat Modeling':  ['owasp',            'e2e8f0'],
+  'SAST (Semgrep)':   ['semgrep',          'e2e8f0'],
+  'DAST (ZAP)':       ['owasp',            'e2e8f0'],
+  'Snyk / Dependabot':['snyk',             '4C4A73'],
+  'Secrets Management':['vault',           'FFEC6E'],
+  'GitLeaks':         ['git',              'F05032'],
+
+  // Tooling
+  'Turborepo':        ['turborepo',        'e2e8f0'],
+  'Feature Flags':    ['launchdarkly',     '3DD6F5'],
+  'k6 (Load Testing)':['k6',              '7D64FF'],
+  'Nx':               ['nx',              '143055'],
+
+  // New additions
+  'tRPC':             ['trpc',             '2596BE'],
+  'Server Components (RSC)':['react',      '61DAFB'],
+  'Web Vitals':       ['googlechrome',     '4285F4'],
+  'Accessibility (a11y)':['w3c',           '005A9C'],
+  'Design Systems':   ['storybook',        'FF4785'],
+  'Technical Writing':['readthedocs',      '8CA1AF'],
+  'ADRs / RFCs':      ['readthedocs',      '8CA1AF'],
+  'SLIs / SLOs / SLAs':['prometheus',      'E6522C'],
+  'Caching Strategies':['redis',           'FF4438'],
+  'API Versioning':   ['openapiinitiative', '6BA539'],
+  'Concurrency':      ['nodedotjs',        '5FA04E'],
+  'Tradeoff Analysis':['archlinux',        '1793D1'],
+}
+
+function iconUrl(name) {
+  const entry = ICON_MAP[name]
+  if (!entry) return null
+  return ICON_BASE + entry[0] + '/' + entry[1]
+}
+
+// p: 1 = essencial, 2 = importante, 3 = bonus (ja sei / baixa urgencia)
+// Skills ordered by priority within each category
+const DATA = [
+  {
+    label: 'Frontend',
+    skills: [
+      // p1 — core stack, precisa dominar profundamente
+      ['React', 1], ['TypeScript', 1], ['Next.js', 1], ['Vue', 1],
+      ['Tailwind CSS', 1], ['Zod', 1], ['React Query', 1],
+      ['Server Components (RSC)', 1], ['tRPC', 1],
+      ['Web Vitals', 1], ['Accessibility (a11y)', 1],
+      // p2 — uso frequente, reforcar
+      ['Nuxt', 2], ['Vite', 2], ['shadcn/ui', 2], ['Zustand', 2],
+      ['Radix UI', 2], ['Framer Motion', 2], ['Redux', 2],
+      ['Formik', 2], ['Yup', 2],
+      ['Design Systems', 2],
+      // p3 — ja sei ou uso raro
+      ['JavaScript', 3], ['HTML', 3], ['CSS', 3],
+      ['MUI', 3], ['Styled Components', 3], ['Vuetify', 3],
+      ['SCSS', 3], ['Bootstrap', 3], ['Responsive Design', 3],
+      ['Jotai', 3], ['Vuex', 3], ['Pinia', 3],
+      ['SWR', 3], ['Apollo Client', 3], ['Axios', 3],
+      ['Recharts', 3], ['ApexCharts', 3], ['ECharts', 3],
+      ['TanStack Table', 3], ['MUI DataGrid', 3],
+      ['ExcelJS', 3], ['jsPDF', 3], ['Vuelidate', 3],
+      ['Svelte', 3], ['AngularJS', 3], ['React Native', 3],
+      ['Webpack', 3], ['SEO', 3],
+    ],
+  },
+  {
+    label: 'Backend',
+    skills: [
+      // p1 — core, aprofundar
+      ['Node.js', 1], ['TypeORM', 1], ['NestJS', 1], ['PostgreSQL', 1],
+      ['GraphQL', 1], ['Prisma', 1],
+      ['Concurrency', 1], ['Caching Strategies', 1], ['API Versioning', 1],
+      // p2 — uso real, vale reforcar
+      ['Laravel', 2], ['Express', 2], ['Python', 2], ['Fastify', 2],
+      ['REST APIs', 2], ['WebSocket', 2], ['Swagger', 2],
+      ['Drizzle', 2], ['Sequelize', 2],
+      ['JWT', 2], ['OAuth 2.0', 2], ['NextAuth / Auth.js', 2],
+      ['BullMQ', 2], ['RabbitMQ', 2],
+      ['Apache Kafka', 2], ['CDC (Debezium)', 2],
+      ['Bash', 2],
+      // p3 — ja sei, dominio pratico
+      ['PHP', 3], ['Eloquent', 3], ['Sanctum', 3], ['Firebase Auth', 3],
+      ['Socket.io', 3], ['Webhooks', 3],
+      ['Apache Thrift', 3], ['FHIR / HL7', 3], ['Agora.io', 3],
+      ['Stripe', 3], ['Mercado Pago', 3], ['Resend', 3],
+      ['Leaflet', 3], ['OpenStreetMap', 3], ['Revit (Python)', 3],
+      ['Go', 3], ['Rust', 3],
+    ],
+  },
+  {
+    label: 'Database',
+    skills: [
+      // p1 — entender internals muda tudo
+      ['PostgreSQL', 1], ['EXPLAIN ANALYZE', 1], ['MVCC', 1],
+      ['B-tree & LSM-tree', 1],
+      // p2
+      ['Redis', 2], ['Elasticsearch', 2],
+      ['pgvector', 2], ['Qdrant', 2],
+      // p3
+      ['MySQL', 3], ['MariaDB', 3], ['SQLite', 3], ['Firebase', 3],
+    ],
+  },
+  {
+    label: 'Cloud & Infra',
+    skills: [
+      // p1 — maior gap vs mercado
+      ['AWS', 1], ['EC2', 1], ['S3', 1], ['Lambda', 1],
+      ['RDS', 1], ['IAM', 1], ['VPC', 1],
+      ['Terraform', 1],
+      // p2
+      ['Pulumi', 2],
+    ],
+  },
+  {
+    label: 'DevOps & Tooling',
+    skills: [
+      // p1
+      ['Docker', 1], ['Docker Compose', 1], ['GitHub Actions', 1],
+      ['TDD', 1], ['Playwright', 1],
+      // p2
+      ['Kubernetes', 2], ['Linux', 2], ['Nginx', 2],
+      ['GitLab CI/CD', 2], ['Jest', 2], ['Vitest', 2],
+      ['Turborepo', 2], ['Feature Flags', 2], ['k6 (Load Testing)', 2],
+      // p3
+      ['Git', 3], ['PM2', 3],
+      ['GitHub', 3], ['GitLab', 3], ['Azure DevOps', 3], ['GitFlow', 3],
+      ['PHPUnit', 3], ['Pest', 3], ['Cypress', 3], ['SonarQube', 3],
+      ['Nx', 3], ['Scrum', 3], ['Kanban', 3],
+      ['VS Code', 3], ['Cursor', 3], ['Figma', 3],
+    ],
+  },
+  {
+    label: 'Observabilidade',
+    skills: [
+      // p1 — gap critico pra senior
+      ['OpenTelemetry', 1], ['Prometheus', 1], ['Grafana', 1],
+      ['SLIs / SLOs / SLAs', 1],
+    ],
+  },
+  {
+    label: 'AI & LLM',
+    skills: [
+      // p1 — diferencial de mercado agora
+      ['Agentic Workflows', 1], ['RAG', 1], ['Function Calling', 1],
+      ['MCP', 1], ['LangGraph', 1],
+      ['Fine-tuning (LoRA)', 1], ['LLMOps', 1], ['RAGAS', 1],
+      // p2
+      ['Anthropic SDK', 2], ['OpenAI SDK', 2],
+      ['Prompt Engineering', 2], ['Multimodal', 2],
+      ['CrewAI', 2], ['Hugging Face', 2],
+      ['Quantizacao (GGUF)', 2], ['vLLM', 2],
+      ['LangSmith', 2], ['AI Guardrails', 2], ['HNSW / IVF', 2],
+      // p3
+      ['Ollama', 3],
+      ['Telegram Bots', 3], ['gramJS / Telethon', 3], ['Cheerio', 3],
+    ],
+  },
+  {
+    label: 'Arquitetura & System Design',
+    skills: [
+      // p1 — gate-keeper de entrevista senior
+      ['System Design', 1], ['SOLID', 1], ['Clean Architecture', 1],
+      ['DDD', 1], ['Microservices', 1], ['CQRS', 1],
+      ['Circuit Breakers', 1], ['Rate Limiting', 1],
+      ['Tradeoff Analysis', 1],
+      // p2
+      ['Event-Driven', 2], ['Design Patterns', 2],
+      ['Dependency Injection', 2], ['Sharding', 2], ['Chaos Engineering', 2],
+      // p3
+      ['HMVC', 3], ['MVC', 3], ['SOA', 3],
+      ['Repository Pattern', 3], ['Multi-tenant', 3],
+      ['Clean Code', 3], ['Code Review', 3],
+    ],
+  },
+  {
+    label: 'Fundamentos CS',
+    skills: [
+      // p1 — base que nunca expira
+      ['Algoritmos & DS', 1], ['Big-O', 1], ['Dynamic Programming', 1], ['Grafos', 1],
+      ['TCP/IP & DNS', 1], ['TLS / HTTPS', 1],
+      ['Event Loop', 1], ['Memory Management', 1],
+      ['CAP Theorem', 1],
+      // p2
+      ['HTTP/2 & HTTP/3', 2], ['Processos & Threads', 2],
+      ['Raft / Paxos', 2], ['CRDTs', 2], ['Consistent Hashing', 2],
+    ],
+  },
+  {
+    label: 'Seguranca',
+    skills: [
+      // p1
+      ['OWASP Top 10', 1], ['OWASP API Top 10', 1], ['Threat Modeling', 1],
+      // p2
+      ['SAST (Semgrep)', 2], ['DAST (ZAP)', 2], ['Snyk / Dependabot', 2],
+      ['Secrets Management', 2], ['GitLeaks', 2],
+    ],
+  },
+  {
+    label: 'Idiomas & Soft Skills',
+    skills: [
+      // p1
+      ['Ingles', 1],
+      ['Technical Writing', 1], ['ADRs / RFCs', 1],
+      // p2
+      ['Espanhol', 2],
+      ['Comunicacao', 2], ['Lideranca', 2],
+    ],
+  },
+]
+
+function render() {
+  let totalCount = 0
+  DATA.forEach(t => totalCount += t.skills.length)
+  const p1 = DATA.reduce((s, t) => s + t.skills.filter(x => x[1] === 1).length, 0)
+  const p2 = DATA.reduce((s, t) => s + t.skills.filter(x => x[1] === 2).length, 0)
+  const p3 = DATA.reduce((s, t) => s + t.skills.filter(x => x[1] === 3).length, 0)
+  document.getElementById('total').textContent =
+    totalCount + ' skills — ' + p1 + ' essenciais, ' + p2 + ' importantes, ' + p3 + ' bonus'
+
+  const container = document.getElementById('tiers')
+  container.innerHTML = DATA.map(tier => `
+    <div class="tier">
+      <div class="tier-hd">
+        <span class="tier-lbl">${tier.label}</span>
+        <span class="tier-ln"></span>
+        <span class="tier-ct">${tier.skills.length} tecnologia${tier.skills.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="chips">
+        ${tier.skills.map(([name, p]) => {
+          const url = iconUrl(name)
+          const img = url ? `<img src="${url}" alt="" loading="lazy">` : ''
+          return `<span class="chip"><span class="dot p${p}"></span>${img}${name}</span>`
+        }).join('')}
+      </div>
+    </div>
+  `).join('')
+}
+
+render()
+</script>
+</body>
+</html>
