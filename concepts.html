@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Conceitos visuais — CareerStudy</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .hero-c {
+    background: linear-gradient(135deg, rgba(239,68,68,.06), rgba(59,130,246,.05));
+    border: 1px solid var(--scarlet-soft);
+    border-radius: 16px;
+    padding: 32px 36px;
+    margin-bottom: 28px;
+    position: relative; overflow: hidden;
+  }
+  .hero-c::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 90% 0%, rgba(239,68,68,.12), transparent 50%);
+    pointer-events: none;
+  }
+
+  .toc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 32px;
+    position: sticky; top: 78px; z-index: 30;
+    backdrop-filter: blur(12px);
+    background: rgba(17, 17, 24, .9);
+  }
+  .toc-card h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .18em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .toc-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .toc-list a {
+    padding: 5px 11px; border-radius: 6px;
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg-mute);
+    transition: all .15s;
+  }
+  .toc-list a:hover {
+    border-color: var(--scarlet);
+    color: var(--scarlet);
+    background: var(--scarlet-soft);
+  }
+  .toc-list a .num {
+    color: var(--fg-dim);
+    margin-right: 4px;
+    font-size: 9px;
+  }
+
+  /* concept card */
+  .concept {
+    margin-bottom: 28px;
+    padding: 26px 28px;
+    scroll-margin-top: 160px;
+  }
+  .concept-hd {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 18px; margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .concept-hd h2 { margin-bottom: 0; }
+  .concept-hd .badges {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .concept-tagline {
+    color: var(--fg-mute); font-size: 14px;
+    margin-bottom: 18px; line-height: 1.55;
+    max-width: 800px;
+  }
+  .concept-svg {
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .concept-svg svg {
+    width: 100%; max-width: 100%; height: auto;
+    display: block;
+  }
+  .concept-controls {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .concept-controls .btn { font-size: 11px; padding: 8px 13px; }
+  .concept-state {
+    display: inline-block; padding: 6px 12px;
+    background: var(--bg-elev);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg-mute);
+    border-radius: 6px;
+    margin-left: 8px;
+  }
+  .concept-explain {
+    color: var(--fg);
+    font-size: 14.5px;
+    line-height: 1.75;
+    background: var(--bg-card-2);
+    border-left: 2px solid var(--scarlet);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+  }
+  .concept-explain code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-elev);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: .92em;
+    color: var(--scarlet);
+  }
+  .concept-info {
+    margin-top: 14px;
+    background: var(--bg-elev);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--fg-mute);
+    line-height: 1.7;
+    min-height: 44px;
+  }
+  .concept-info strong { color: var(--scarlet); font-weight: 600; }
+  .concept-info code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-card); padding: 1px 5px;
+    border-radius: 3px; font-size: .92em; color: var(--blue);
+  }
+
+  /* SVG common */
+  .svg-bg-card { fill: var(--bg-card); }
+  text.svg-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; fill: var(--fg-mute);
+  }
+  text.svg-h {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    fill: var(--fg);
+  }
+  .svg-box {
+    fill: #15151c; stroke: rgba(255,255,255,.08);
+    stroke-width: 1;
+  }
+  .svg-box.scarlet { stroke: var(--scarlet); }
+  .svg-arrow { stroke: var(--fg-dim); stroke-width: 1.5; fill: none; }
+  .svg-arrow-h { stroke: var(--scarlet); stroke-width: 2; fill: none; }
+  .clickable { cursor: pointer; }
+  .clickable:hover .svg-box { stroke: var(--scarlet); }
+
+  /* Speaker icon */
+  .btn .spk {
+    display: inline-block; width: 11px; height: 11px;
+    border-left: 3px solid currentColor;
+    border-radius: 1px;
+    position: relative;
+    margin-right: 5px;
+  }
+  .btn .spk::after {
+    content: ''; position: absolute;
+    left: 5px; top: 1px;
+    width: 6px; height: 8px;
+    border: 1px solid currentColor;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* JWT structure pieces */
+  .jwt-piece {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    word-break: break-all;
+    margin-bottom: 10px;
+  }
+  .jwt-piece.header { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.4); color: var(--scarlet); }
+  .jwt-piece.payload { background: rgba(168,85,247,.08); border-color: rgba(168,85,247,.4); color: var(--violet); }
+  .jwt-piece.signature { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.4); color: var(--green); }
+  .jwt-piece h5 {
+    font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .jwt-piece pre {
+    margin-top: 6px; font-size: 12px; color: var(--fg);
+    white-space: pre-wrap;
+  }
+
+  /* OSI layer rows */
+  .osi-row {
+    display: grid;
+    grid-template-columns: 50px 1.2fr 2fr 1.2fr;
+    gap: 12px; align-items: center;
+    padding: 10px 14px; margin-bottom: 6px;
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .osi-row:hover { border-color: var(--scarlet); transform: translateX(3px); }
+  .osi-row.active { border-color: var(--scarlet); background: rgba(239,68,68,.06); }
+  .osi-row .num {
+    text-align: center;
+    color: var(--scarlet); font-weight: 700;
+    font-size: 14px;
+  }
+  .osi-row .name { color: var(--fg); font-weight: 600; }
+  .osi-row .desc { color: var(--fg-mute); font-size: 11.5px; }
+  .osi-row .proto { color: var(--blue); font-size: 11px; }
+
+  /* CAP buttons */
+  .cap-pairs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .cap-pairs .btn { font-size: 11px; }
+  .cap-pairs .btn.active { border-color: var(--scarlet); color: var(--scarlet); background: var(--scarlet-soft); }
+
+  /* Diagram intro grid */
+  .legend-strip {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg-dim);
+    margin-bottom: 14px;
+  }
+  .legend-strip span {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .legend-strip .sw {
+    width: 10px; height: 10px; border-radius: 3px;
+    display: inline-block;
+  }
+
+  /* circuit breaker pulse */
+  @keyframes pulse-stroke {
+    0%, 100% { stroke-opacity: 1; }
+    50% { stroke-opacity: .35; }
+  }
+  .pulse { animation: pulse-stroke 1.6s ease-in-out infinite; }
+
+  /* Animations on event loop */
+  .step-anim {
+    transition: transform .35s ease, opacity .35s ease, fill .35s ease;
+  }
+
+  /* HTTP comparison columns */
+  .http-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px; margin-bottom: 14px;
+  }
+  @media (max-width: 760px) { .http-row { grid-template-columns: 1fr; } }
+  .http-col {
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .http-col h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--scarlet);
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  /* RAG pipeline list */
+  .rag-step {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 12px 16px;
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .rag-step:hover, .rag-step.active {
+    border-color: var(--scarlet);
+    background: rgba(239,68,68,.05);
+  }
+  .rag-step .idx {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--scarlet-soft);
+    color: var(--scarlet);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rag-step.active .idx { background: var(--scarlet); color: #fff; }
+  .rag-step .body { flex: 1; }
+  .rag-step .body h5 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; margin-bottom: 4px;
+    color: var(--fg);
+  }
+  .rag-step .body p {
+    font-size: 12.5px; color: var(--fg-mute);
+    line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+<div class="shell-wide">
+
+  <div id="nav"></div>
+
+  <div class="hero-c">
+    <p class="hdr-label"><span class="ln"></span> conceitos visuais</p>
+    <h1>Conceitos <em>visuais</em></h1>
+    <p class="desc" style="margin-bottom:0;max-width:780px">
+      Diagramas interativos pra entender e defender em entrevista. Click nos elementos, avance passo a passo, ouve a explicacao em portugues. Foco em teoria que cai pra senior backend/fullstack.
+    </p>
+  </div>
+
+  <div class="toc-card">
+    <h4>indice — pula pro diagrama</h4>
+    <div class="toc-list">
+      <a href="#event-loop"><span class="num">01</span>event loop</a>
+      <a href="#cap-theorem"><span class="num">02</span>CAP theorem</a>
+      <a href="#mvcc"><span class="num">03</span>MVCC</a>
+      <a href="#btree-lsm"><span class="num">04</span>B-tree vs LSM</a>
+      <a href="#tls-handshake"><span class="num">05</span>TLS handshake</a>
+      <a href="#http-versions"><span class="num">06</span>HTTP/1 vs 2 vs 3</a>
+      <a href="#rag"><span class="num">07</span>RAG pipeline</a>
+      <a href="#circuit-breaker"><span class="num">08</span>circuit breaker</a>
+      <a href="#consistent-hashing"><span class="num">09</span>consistent hashing</a>
+      <a href="#osi"><span class="num">10</span>OSI / TCP-IP</a>
+      <a href="#cqrs"><span class="num">11</span>CQRS + ES</a>
+      <a href="#jwt"><span class="num">12</span>JWT</a>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 01 EVENT LOOP                                                -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="event-loop">
+    <div class="concept-hd">
+      <div>
+        <h2>01. Event Loop</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Como JavaScript faz uma so thread parecer concorrente — call stack, microtask queue e macrotask queue dancando juntos.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('event-loop')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="legend-strip">
+      <span><span class="sw" style="background:#3b82f6"></span> call stack</span>
+      <span><span class="sw" style="background:#a855f7"></span> microtasks (Promise.then)</span>
+      <span><span class="sw" style="background:#eab308"></span> macrotasks (setTimeout, IO)</span>
+      <span><span class="sw" style="background:#22c55e"></span> em execucao</span>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 380" id="el-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Call Stack -->
+        <text x="120" y="30" class="svg-h" text-anchor="middle" font-size="14">CALL STACK</text>
+        <rect x="40" y="50" width="160" height="220" class="svg-box" rx="6"/>
+        <g id="el-stack"></g>
+
+        <!-- Event Loop arrow circle -->
+        <circle cx="440" cy="190" r="65" fill="none" stroke="var(--scarlet)" stroke-width="2" stroke-dasharray="4 4" opacity=".55"/>
+        <text x="440" y="186" class="svg-h" text-anchor="middle" font-size="13">EVENT</text>
+        <text x="440" y="204" class="svg-h" text-anchor="middle" font-size="13" fill="var(--scarlet)">LOOP</text>
+        <path d="M 440 125 A 65 65 0 0 1 505 190" stroke="var(--scarlet)" stroke-width="2" fill="none"/>
+        <polygon points="505,190 500,184 510,184" fill="var(--scarlet)"/>
+
+        <!-- Microtask Queue -->
+        <text x="700" y="30" class="svg-h" text-anchor="middle" font-size="13">MICROTASK QUEUE</text>
+        <text x="700" y="46" text-anchor="middle" font-size="10" fill="var(--fg-dim)" font-family="JetBrains Mono">Promise.then • queueMicrotask</text>
+        <rect x="560" y="60" width="280" height="60" class="svg-box" rx="6" stroke="rgba(168,85,247,.35)"/>
+        <g id="el-micro"></g>
+
+        <!-- Macrotask Queue -->
+        <text x="700" y="170" class="svg-h" text-anchor="middle" font-size="13">MACROTASK QUEUE</text>
+        <text x="700" y="186" text-anchor="middle" font-size="10" fill="var(--fg-dim)" font-family="JetBrains Mono">setTimeout • IO • setInterval</text>
+        <rect x="560" y="200" width="280" height="60" class="svg-box" rx="6" stroke="rgba(234,179,8,.35)"/>
+        <g id="el-macro"></g>
+
+        <!-- Web APIs -->
+        <text x="700" y="300" class="svg-h" text-anchor="middle" font-size="13">WEB APIs / libuv</text>
+        <rect x="560" y="310" width="280" height="50" class="svg-box" rx="6" stroke="rgba(59,130,246,.35)"/>
+        <text x="700" y="338" text-anchor="middle" font-size="11" fill="var(--fg-mute)" font-family="JetBrains Mono">timers, fs, network, etc.</text>
+
+        <!-- Arrows -->
+        <path d="M 200 160 L 380 160" class="svg-arrow"/>
+        <polygon points="380,160 372,156 372,164" fill="var(--fg-dim)"/>
+        <text x="290" y="153" font-size="10" fill="var(--fg-dim)" font-family="JetBrains Mono">vazio?</text>
+
+        <path d="M 555 90 L 510 160" class="svg-arrow" stroke="var(--violet)"/>
+        <polygon points="510,160 514,153 519,160" fill="var(--violet)"/>
+        <text x="510" y="115" font-size="9" fill="var(--violet)" font-family="JetBrains Mono">drena tudo</text>
+
+        <path d="M 555 230 L 510 215" class="svg-arrow" stroke="var(--amber)"/>
+        <polygon points="510,215 519,212 514,221" fill="var(--amber)"/>
+        <text x="510" y="245" font-size="9" fill="var(--amber)" font-family="JetBrains Mono">1 por tick</text>
+
+        <text x="440" y="370" text-anchor="middle" font-size="11" fill="var(--fg-dim)" font-family="JetBrains Mono">passo atual: <tspan id="el-step-text" fill="var(--scarlet)">aguardando</tspan></text>
+      </svg>
+    </div>
+
+    <div class="concept-controls">
+      <button class="btn primary" onclick="elNext()">proximo passo →</button>
+      <button class="btn ghost" onclick="elReset()">resetar</button>
+      <span class="concept-state">passo <span id="el-step">0</span> / 8</span>
+    </div>
+
+    <div class="concept-info" id="el-info">
+      Click <strong>proximo passo</strong>. Vamos rodar este codigo: <code>console.log(1); setTimeout(()=>log(4),0); Promise.resolve().then(()=>log(3)); console.log(2)</code>
+    </div>
+
+    <p class="concept-explain">
+      O event loop e um loop infinito que so faz uma coisa: <code>se a stack ta vazia, pega proximo task</code>. A pegadinha esta na ordem das filas. Toda vez que a stack esvazia, ele <strong>drena 100%</strong> da microtask queue antes de tocar em qualquer macrotask. Por isso <code>Promise.then</code> sempre roda antes de <code>setTimeout(..., 0)</code> mesmo que voce agende o timeout primeiro. Em Node tem fases extras (timers, pending, poll, check, close), mas a regra de microtasks-primeiro vale igual.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 02 CAP                                                       -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="cap-theorem">
+    <div class="concept-hd">
+      <div>
+        <h2>02. CAP Theorem</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Em uma particao de rede, voce escolhe consistencia OU disponibilidade. Nao tem como ter as duas — e ninguem desliga a particao.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('cap-theorem')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="cap-pairs">
+      <button class="btn" onclick="capShow('CP')" id="cap-cp">CP — consistencia + tolerancia</button>
+      <button class="btn" onclick="capShow('AP')" id="cap-ap">AP — disponibilidade + tolerancia</button>
+      <button class="btn" onclick="capShow('CA')" id="cap-ca">CA — so sem rede particionada</button>
+      <button class="btn ghost" onclick="capShow(null)">limpar</button>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 800 440" id="cap-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- triangle vertices: C top, A bottom-left, P bottom-right -->
+        <polygon points="400,60 130,400 670,400" fill="rgba(239,68,68,.04)" stroke="var(--line-2)" stroke-width="1.5"/>
+
+        <!-- Edges (highlighted on selection) -->
+        <line id="cap-edge-cp" x1="400" y1="60" x2="670" y2="400" stroke="var(--line-2)" stroke-width="3"/>
+        <line id="cap-edge-ap" x1="130" y1="400" x2="670" y2="400" stroke="var(--line-2)" stroke-width="3"/>
+        <line id="cap-edge-ca" x1="400" y1="60" x2="130" y2="400" stroke="var(--line-2)" stroke-width="3"/>
+
+        <!-- C vertex -->
+        <circle cx="400" cy="60" r="36" fill="var(--bg-card-2)" stroke="var(--scarlet)" stroke-width="2"/>
+        <text x="400" y="68" text-anchor="middle" class="svg-h" font-size="22" fill="var(--scarlet)">C</text>
+        <text x="400" y="32" text-anchor="middle" class="svg-label" font-size="12" font-weight="700" fill="var(--fg)">CONSISTENCY</text>
+
+        <!-- A vertex -->
+        <circle cx="130" cy="400" r="36" fill="var(--bg-card-2)" stroke="var(--blue)" stroke-width="2"/>
+        <text x="130" y="408" text-anchor="middle" class="svg-h" font-size="22" fill="var(--blue)">A</text>
+        <text x="130" y="436" text-anchor="middle" class="svg-label" font-size="12" font-weight="700" fill="var(--fg)">AVAILABILITY</text>
+
+        <!-- P vertex -->
+        <circle cx="670" cy="400" r="36" fill="var(--bg-card-2)" stroke="var(--green)" stroke-width="2"/>
+        <text x="670" y="408" text-anchor="middle" class="svg-h" font-size="22" fill="var(--green)">P</text>
+        <text x="670" y="436" text-anchor="middle" class="svg-label" font-size="12" font-weight="700" fill="var(--fg)">PARTITION TOLERANCE</text>
+
+        <!-- Database labels (hidden until selection) -->
+        <g id="cap-cp-dbs" opacity="0">
+          <rect x="430" y="200" width="220" height="90" class="svg-box" rx="6" stroke="var(--scarlet)"/>
+          <text x="540" y="222" text-anchor="middle" class="svg-h" font-size="12" fill="var(--scarlet)">CP — escolhe consistencia</text>
+          <text x="540" y="244" text-anchor="middle" class="svg-label" font-size="11">PostgreSQL (sync replicas)</text>
+          <text x="540" y="262" text-anchor="middle" class="svg-label" font-size="11">MongoDB (majority)</text>
+          <text x="540" y="280" text-anchor="middle" class="svg-label" font-size="11">HBase, Zookeeper, etcd</text>
+        </g>
+
+        <g id="cap-ap-dbs" opacity="0">
+          <rect x="290" y="320" width="220" height="80" class="svg-box" rx="6" stroke="var(--blue)"/>
+          <text x="400" y="342" text-anchor="middle" class="svg-h" font-size="12" fill="var(--blue)">AP — escolhe disponibilidade</text>
+          <text x="400" y="364" text-anchor="middle" class="svg-label" font-size="11">Cassandra, DynamoDB</text>
+          <text x="400" y="382" text-anchor="middle" class="svg-label" font-size="11">CouchDB, Riak</text>
+        </g>
+
+        <g id="cap-ca-dbs" opacity="0">
+          <rect x="160" y="200" width="220" height="80" class="svg-box" rx="6" stroke="var(--amber)"/>
+          <text x="270" y="222" text-anchor="middle" class="svg-h" font-size="12" fill="var(--amber)">CA — so single-node</text>
+          <text x="270" y="244" text-anchor="middle" class="svg-label" font-size="11">RDBMS classico (1 maquina)</text>
+          <text x="270" y="262" text-anchor="middle" class="svg-label" font-size="11">SQLite local</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="concept-info" id="cap-info">
+      Click numa das opcoes acima pra ver quais bancos de dados ficam em cada lado do triangulo.
+    </div>
+
+    <p class="concept-explain">
+      Brewer disse: dado um <code>network partition</code> (computadores nao conseguem falar), voce so pode escolher 2 de 3. Como <strong>P (tolerancia a particao)</strong> nao e opcional em sistema distribuido (rede sempre falha), a escolha real e entre <strong>C ou A</strong>. PostgreSQL com sync replicas escolhe C (recusa write se replica caiu). Cassandra escolhe A (aceita write em qualquer no, reconcilia depois). DynamoDB e <strong>tunable</strong> — voce decide por request. PACELC estende o teorema: mesmo sem particao, <code>else</code> tradeoff entre <code>L</code>atency e <code>C</code>onsistency.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 03 MVCC                                                      -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="mvcc">
+    <div class="concept-hd">
+      <div>
+        <h2>03. MVCC (Postgres)</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Como dois clientes leem e escrevem a mesma tabela ao mesmo tempo sem travar nada — cada transacao ve um snapshot.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('mvcc')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 360" id="mvcc-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Timeline -->
+        <line x1="60" y1="60" x2="820" y2="60" stroke="var(--fg-dim)" stroke-width="1"/>
+        <text x="60" y="48" class="svg-label" font-size="10">tempo →</text>
+
+        <!-- Tx A lane -->
+        <text x="40" y="120" class="svg-h" font-size="13" text-anchor="end" fill="var(--blue)">Tx A</text>
+        <line x1="60" y1="120" x2="820" y2="120" stroke="rgba(59,130,246,.3)" stroke-width="1" stroke-dasharray="2 4"/>
+
+        <!-- Tx B lane -->
+        <text x="40" y="200" class="svg-h" font-size="13" text-anchor="end" fill="var(--violet)">Tx B</text>
+        <line x1="60" y1="200" x2="820" y2="200" stroke="rgba(168,85,247,.3)" stroke-width="1" stroke-dasharray="2 4"/>
+
+        <!-- Row versions track -->
+        <text x="40" y="290" class="svg-h" font-size="13" text-anchor="end" fill="var(--scarlet)">linha id=1</text>
+        <line x1="60" y1="290" x2="820" y2="290" stroke="rgba(239,68,68,.3)" stroke-width="1" stroke-dasharray="2 4"/>
+
+        <!-- Steps -->
+        <g id="mvcc-step-1" opacity="0">
+          <circle cx="150" cy="290" r="12" fill="var(--bg-card-2)" stroke="var(--scarlet)" stroke-width="2"/>
+          <text x="150" y="294" class="svg-label" font-size="10" text-anchor="middle">v1</text>
+          <text x="150" y="320" class="svg-label" font-size="9" text-anchor="middle">name=Ana</text>
+          <text x="150" y="332" class="svg-label" font-size="9" text-anchor="middle">xmin=100</text>
+        </g>
+
+        <g id="mvcc-step-2" opacity="0">
+          <circle cx="270" cy="120" r="10" fill="var(--blue)"/>
+          <text x="270" y="100" class="svg-label" font-size="10" text-anchor="middle" fill="var(--blue)">BEGIN A (snap=t1)</text>
+          <line x1="270" y1="130" x2="270" y2="282" stroke="var(--blue)" stroke-dasharray="3 3" opacity=".5"/>
+        </g>
+
+        <g id="mvcc-step-3" opacity="0">
+          <circle cx="380" cy="200" r="10" fill="var(--violet)"/>
+          <text x="380" y="226" class="svg-label" font-size="10" text-anchor="middle" fill="var(--violet)">BEGIN B</text>
+          <text x="380" y="186" class="svg-label" font-size="9" text-anchor="middle" fill="var(--violet)">UPDATE name=Bia</text>
+          <line x1="380" y1="210" x2="380" y2="282" stroke="var(--violet)" stroke-dasharray="3 3" opacity=".5"/>
+          <!-- new version -->
+          <circle cx="380" cy="290" r="12" fill="var(--bg-card-2)" stroke="var(--violet)" stroke-width="2"/>
+          <text x="380" y="294" class="svg-label" font-size="10" text-anchor="middle">v2</text>
+          <text x="380" y="320" class="svg-label" font-size="9" text-anchor="middle">name=Bia</text>
+          <text x="380" y="332" class="svg-label" font-size="9" text-anchor="middle">xmin=101</text>
+        </g>
+
+        <g id="mvcc-step-4" opacity="0">
+          <circle cx="500" cy="120" r="10" fill="var(--blue)"/>
+          <text x="500" y="100" class="svg-label" font-size="10" text-anchor="middle" fill="var(--blue)">SELECT por A</text>
+          <text x="500" y="142" class="svg-label" font-size="10" text-anchor="middle" fill="var(--green)">le v1: Ana ✓</text>
+        </g>
+
+        <g id="mvcc-step-5" opacity="0">
+          <circle cx="620" cy="200" r="10" fill="var(--violet)"/>
+          <text x="620" y="186" class="svg-label" font-size="10" text-anchor="middle" fill="var(--violet)">COMMIT B</text>
+          <text x="620" y="222" class="svg-label" font-size="9" text-anchor="middle" fill="var(--violet)">v2 visivel pra futuras</text>
+        </g>
+
+        <g id="mvcc-step-6" opacity="0">
+          <circle cx="730" cy="120" r="10" fill="var(--blue)"/>
+          <text x="730" y="100" class="svg-label" font-size="10" text-anchor="middle" fill="var(--blue)">SELECT por A novamente</text>
+          <text x="730" y="142" class="svg-label" font-size="10" text-anchor="middle" fill="var(--green)">ainda Ana ✓ (snapshot)</text>
+        </g>
+
+        <text x="440" y="20" text-anchor="middle" class="svg-label" font-size="10">passo: <tspan id="mvcc-step-num" fill="var(--scarlet)">0</tspan> / 6</text>
+      </svg>
+    </div>
+
+    <div class="concept-controls">
+      <button class="btn primary" onclick="mvccNext()">proximo passo →</button>
+      <button class="btn ghost" onclick="mvccReset()">resetar</button>
+    </div>
+
+    <div class="concept-info" id="mvcc-info">
+      No MVCC, <strong>cada UPDATE cria uma nova versao</strong> da linha (v2). Quem comecou antes continua vendo a versao antiga (v1) ate dar COMMIT. Sem locks pra leitura.
+    </div>
+
+    <p class="concept-explain">
+      MVCC = <strong>Multi-Version Concurrency Control</strong>. Em vez de bloquear leitores enquanto alguem escreve, o Postgres mantem multiplas versoes da mesma linha. Cada tupla tem <code>xmin</code> (transacao que criou) e <code>xmax</code> (transacao que deletou). Cada transacao recebe um <strong>snapshot</strong> no BEGIN e so enxerga versoes commitadas antes desse snapshot. Resultado: <code>readers nao bloqueiam writers, writers nao bloqueiam readers</code>. O custo e o lixo (tuplas mortas) que o <code>VACUUM</code> precisa limpar — se nao roda, a tabela incha (table bloat).
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 04 B-TREE vs LSM                                             -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="btree-lsm">
+    <div class="concept-hd">
+      <div>
+        <h2>04. B-tree vs LSM-tree</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Duas filosofias opostas pra indexar dados em disco — uma otimiza leitura, outra otimiza escrita.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('btree-lsm')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 380" id="btree-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- B-tree side -->
+        <text x="220" y="28" text-anchor="middle" class="svg-h" font-size="14" fill="var(--blue)">B-TREE (Postgres, MySQL, SQLite)</text>
+        <text x="220" y="46" text-anchor="middle" class="svg-label" font-size="10">in-place update • leitura O(log n) • write amp baixa em RAM</text>
+
+        <!-- root -->
+        <rect x="160" y="65" width="120" height="34" class="svg-box" rx="4" stroke="var(--blue)"/>
+        <text x="220" y="86" text-anchor="middle" class="svg-label" font-size="11" fill="var(--fg)">[ 25 | 50 | 75 ]</text>
+
+        <!-- intermediate -->
+        <rect x="60" y="135" width="90" height="30" class="svg-box" rx="4" stroke="var(--blue)"/>
+        <text x="105" y="155" text-anchor="middle" class="svg-label" font-size="10">[10|20]</text>
+        <rect x="170" y="135" width="90" height="30" class="svg-box" rx="4" stroke="var(--blue)"/>
+        <text x="215" y="155" text-anchor="middle" class="svg-label" font-size="10">[30|40]</text>
+        <rect x="280" y="135" width="90" height="30" class="svg-box" rx="4" stroke="var(--blue)"/>
+        <text x="325" y="155" text-anchor="middle" class="svg-label" font-size="10">[60|70]</text>
+
+        <!-- arrows root -> kids -->
+        <path d="M 200 99 L 105 135" class="svg-arrow"/>
+        <path d="M 220 99 L 215 135" class="svg-arrow"/>
+        <path d="M 250 99 L 325 135" class="svg-arrow"/>
+
+        <!-- leaves -->
+        <rect x="40" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="68" y="218" text-anchor="middle" class="svg-label" font-size="9">5,8</text>
+        <rect x="100" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="128" y="218" text-anchor="middle" class="svg-label" font-size="9">15,18</text>
+        <rect x="170" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="198" y="218" text-anchor="middle" class="svg-label" font-size="9">28,29</text>
+        <rect x="230" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="258" y="218" text-anchor="middle" class="svg-label" font-size="9">45,48</text>
+        <rect x="300" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="328" y="218" text-anchor="middle" class="svg-label" font-size="9">65,68</text>
+        <rect x="360" y="200" width="56" height="28" class="svg-box" rx="3" stroke="var(--blue)"/>
+        <text x="388" y="218" text-anchor="middle" class="svg-label" font-size="9">80,95</text>
+
+        <!-- Page split note -->
+        <text x="220" y="270" text-anchor="middle" class="svg-label" font-size="10" fill="var(--amber)">INSERT em pagina cheia → page split</text>
+        <text x="220" y="286" text-anchor="middle" class="svg-label" font-size="10" fill="var(--amber)">reescreve pagina + reorganiza pais</text>
+        <text x="220" y="306" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">leitura: 3 page reads (O(log n)) ✓</text>
+        <text x="220" y="322" text-anchor="middle" class="svg-label" font-size="10">range scan via leaf links →</text>
+
+        <!-- Divider -->
+        <line x1="450" y1="50" x2="450" y2="360" stroke="var(--line-2)" stroke-dasharray="3 3"/>
+
+        <!-- LSM side -->
+        <text x="660" y="28" text-anchor="middle" class="svg-h" font-size="14" fill="var(--green)">LSM-TREE (Cassandra, RocksDB, ScyllaDB)</text>
+        <text x="660" y="46" text-anchor="middle" class="svg-label" font-size="10">append-only • escrita rapida • leitura mais cara</text>
+
+        <!-- Memtable -->
+        <rect x="500" y="65" width="320" height="40" fill="rgba(168,85,247,.06)" stroke="var(--violet)" stroke-width="1.5" rx="4"/>
+        <text x="660" y="80" text-anchor="middle" class="svg-label" font-size="10" fill="var(--violet)">MEMTABLE (RAM, sorted)</text>
+        <text x="660" y="98" text-anchor="middle" class="svg-label" font-size="10">[10, 25, 30, 47, 60]</text>
+
+        <!-- arrow flush -->
+        <path d="M 660 110 L 660 130" class="svg-arrow" stroke="var(--violet)"/>
+        <text x="690" y="124" class="svg-label" font-size="9" fill="var(--violet)">flush</text>
+
+        <!-- SSTable L0 -->
+        <rect x="500" y="135" width="100" height="30" fill="rgba(34,197,94,.06)" stroke="var(--green)" rx="4"/>
+        <text x="550" y="154" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">SST L0a</text>
+        <rect x="610" y="135" width="100" height="30" fill="rgba(34,197,94,.06)" stroke="var(--green)" rx="4"/>
+        <text x="660" y="154" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">SST L0b</text>
+        <rect x="720" y="135" width="100" height="30" fill="rgba(34,197,94,.06)" stroke="var(--green)" rx="4"/>
+        <text x="770" y="154" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">SST L0c</text>
+
+        <!-- arrow compaction -->
+        <path d="M 660 168 L 660 195" class="svg-arrow" stroke="var(--amber)"/>
+        <text x="700" y="184" class="svg-label" font-size="9" fill="var(--amber)">compaction</text>
+
+        <!-- SSTable L1 -->
+        <rect x="510" y="200" width="300" height="30" fill="rgba(34,197,94,.06)" stroke="var(--green)" rx="4"/>
+        <text x="660" y="219" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">SST L1 (merged + dedup)</text>
+
+        <!-- L2 -->
+        <rect x="490" y="240" width="340" height="22" fill="rgba(34,197,94,.04)" stroke="var(--green)" rx="4" opacity=".7"/>
+        <text x="660" y="255" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">SST L2 (maior, mais antigo)</text>
+
+        <!-- Pros/cons -->
+        <text x="660" y="290" text-anchor="middle" class="svg-label" font-size="10" fill="var(--scarlet)">write amp ALTA (compaction)</text>
+        <text x="660" y="306" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">writes sequenciais (rapidissimo) ✓</text>
+        <text x="660" y="322" text-anchor="middle" class="svg-label" font-size="10">read = checa memtable + N SSTs</text>
+        <text x="660" y="338" text-anchor="middle" class="svg-label" font-size="10">bloom filter mitiga leitura</text>
+      </svg>
+    </div>
+
+    <div class="concept-info">
+      <strong>Regra de bolso:</strong> read-heavy + dados que mudam em lugares aleatorios → B-tree. Write-heavy + time-series ou logs → LSM. Bancos modernos misturam (ex: Postgres ja tem extensoes columnar).
+    </div>
+
+    <p class="concept-explain">
+      <strong>B-tree</strong> e in-place: cada UPDATE reescreve a pagina onde a chave mora. Bom pra leitura (3-4 IOs ate o leaf), ruim quando ha muitos writes random — page splits ficam caros. <strong>LSM</strong> nunca escreve in-place: tudo vai pra um <code>memtable</code> em RAM e, quando enche, flusha pra um SSTable imutavel. Isso da escritas <strong>sequenciais</strong> (turbinadas). O preco e ler de varios SSTables de uma vez, e o background <code>compaction</code> que merge esses arquivos gera <strong>write amplification</strong> (o mesmo dado e reescrito muitas vezes). Bloom filters ajudam a pular SSTables sem a chave.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 05 TLS HANDSHAKE                                             -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="tls-handshake">
+    <div class="concept-hd">
+      <div>
+        <h2>05. TLS Handshake</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">A dancinha entre cliente e servidor pra concordar numa chave secreta sem ninguem no meio descobrir.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('tls-handshake')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 480" id="tls-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- lanes -->
+        <text x="170" y="30" class="svg-h" font-size="14" text-anchor="middle">CLIENTE</text>
+        <text x="710" y="30" class="svg-h" font-size="14" text-anchor="middle">SERVIDOR</text>
+        <line x1="170" y1="50" x2="170" y2="450" stroke="var(--blue)" stroke-width="2"/>
+        <line x1="710" y1="50" x2="710" y2="450" stroke="var(--green)" stroke-width="2"/>
+
+        <!-- Step 1: ClientHello -->
+        <g class="clickable" onclick="tlsInfo(1)">
+          <line x1="170" y1="80" x2="710" y2="80" stroke="var(--scarlet)" stroke-width="1.5"/>
+          <polygon points="710,80 700,75 700,85" fill="var(--scarlet)"/>
+          <rect x="280" y="62" width="320" height="22" fill="var(--bg-card)" stroke="var(--scarlet-soft)" rx="4"/>
+          <text x="440" y="78" text-anchor="middle" class="svg-label" font-size="11" fill="var(--scarlet)">1. ClientHello (versions, ciphers, random)</text>
+        </g>
+
+        <!-- Step 2: ServerHello + Cert + KeyShare -->
+        <g class="clickable" onclick="tlsInfo(2)">
+          <line x1="710" y1="130" x2="170" y2="130" stroke="var(--scarlet)" stroke-width="1.5"/>
+          <polygon points="170,130 180,125 180,135" fill="var(--scarlet)"/>
+          <rect x="240" y="112" width="400" height="22" fill="var(--bg-card)" stroke="var(--scarlet-soft)" rx="4"/>
+          <text x="440" y="128" text-anchor="middle" class="svg-label" font-size="11" fill="var(--scarlet)">2. ServerHello + Certificate + KeyShare + Random</text>
+        </g>
+
+        <!-- Step 3: Verify cert + derive -->
+        <g class="clickable" onclick="tlsInfo(3)">
+          <rect x="50" y="155" width="240" height="38" fill="rgba(59,130,246,.05)" stroke="var(--blue)" rx="4"/>
+          <text x="170" y="172" text-anchor="middle" class="svg-label" font-size="10" fill="var(--blue)">3. valida cert na CA chain</text>
+          <text x="170" y="186" text-anchor="middle" class="svg-label" font-size="10" fill="var(--blue)">deriva shared secret (ECDHE)</text>
+        </g>
+
+        <!-- Step 4: Finished + ClientKeyExchange -->
+        <g class="clickable" onclick="tlsInfo(4)">
+          <line x1="170" y1="220" x2="710" y2="220" stroke="var(--scarlet)" stroke-width="1.5"/>
+          <polygon points="710,220 700,215 700,225" fill="var(--scarlet)"/>
+          <rect x="260" y="202" width="360" height="22" fill="var(--bg-card)" stroke="var(--scarlet-soft)" rx="4"/>
+          <text x="440" y="218" text-anchor="middle" class="svg-label" font-size="11" fill="var(--scarlet)">4. ClientKeyShare + ChangeCipherSpec + Finished</text>
+        </g>
+
+        <!-- Step 5: Server Finished -->
+        <g class="clickable" onclick="tlsInfo(5)">
+          <line x1="710" y1="270" x2="170" y2="270" stroke="var(--scarlet)" stroke-width="1.5"/>
+          <polygon points="170,270 180,265 180,275" fill="var(--scarlet)"/>
+          <rect x="320" y="252" width="240" height="22" fill="var(--bg-card)" stroke="var(--scarlet-soft)" rx="4"/>
+          <text x="440" y="268" text-anchor="middle" class="svg-label" font-size="11" fill="var(--scarlet)">5. Finished (HMAC do handshake)</text>
+        </g>
+
+        <!-- Encrypted -->
+        <g class="clickable" onclick="tlsInfo(6)">
+          <line x1="170" y1="330" x2="710" y2="330" stroke="var(--green)" stroke-width="2"/>
+          <polygon points="710,330 700,325 700,335" fill="var(--green)"/>
+          <line x1="710" y1="360" x2="170" y2="360" stroke="var(--green)" stroke-width="2"/>
+          <polygon points="170,360 180,355 180,365" fill="var(--green)"/>
+          <rect x="280" y="305" width="320" height="22" fill="rgba(34,197,94,.08)" stroke="var(--green)" rx="4"/>
+          <text x="440" y="321" text-anchor="middle" class="svg-label" font-size="11" fill="var(--green)">6. Application Data (cifrado AES-GCM)</text>
+        </g>
+
+        <!-- TLS 1.3 note -->
+        <rect x="100" y="400" width="680" height="40" fill="rgba(239,68,68,.04)" stroke="var(--scarlet-soft)" rx="6"/>
+        <text x="440" y="420" text-anchor="middle" class="svg-label" font-size="11" fill="var(--scarlet)">TLS 1.3: 1-RTT (vs 2-RTT do TLS 1.2). 0-RTT com session ticket no resume.</text>
+        <text x="440" y="434" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">PFS via ECDHE • AEAD ciphers obrigatorias • RSA key exchange removido</text>
+      </svg>
+    </div>
+
+    <div class="concept-info" id="tls-info">
+      Click numa das mensagens acima pra ver o que ela carrega.
+    </div>
+
+    <p class="concept-explain">
+      O TLS handshake resolve dois problemas: <strong>autenticar</strong> que voce realmente esta falando com o servidor (via certificado assinado por CA confiavel) e <strong>derivar uma chave simetrica</strong> compartilhada sem expor segredo. Em TLS 1.3 isso virou <code>1-RTT</code>: ja na primeira ida o cliente manda um <code>KeyShare</code> ECDHE, e o servidor responde com o seu, e ambos derivam a mesma chave sem nunca transmiti-la. <strong>PFS (Perfect Forward Secrecy)</strong> garante que mesmo se a chave privada do servidor vazar amanha, sessoes antigas continuam ilegiveis — porque cada handshake usa keypair efemero.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 06 HTTP versions                                             -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="http-versions">
+    <div class="concept-hd">
+      <div>
+        <h2>06. HTTP/1.1 vs HTTP/2 vs HTTP/3</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">A evolucao do head-of-line blocking — a saga de fazer o request HTTP nao parar quando um pacote se perde.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p2">P2</span>
+        <button class="btn" onclick="speak('http-versions')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 360" id="http-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- HTTP/1.1 -->
+        <text x="146" y="28" text-anchor="middle" class="svg-h" font-size="13" fill="var(--scarlet)">HTTP/1.1</text>
+        <text x="146" y="46" text-anchor="middle" class="svg-label" font-size="9">1 conexao TCP por request (ou pipelining ruim)</text>
+        <line x1="40" y1="80" x2="252" y2="80" stroke="var(--fg-dim)" stroke-width="1.5"/>
+        <text x="20" y="100" class="svg-label" font-size="10">conn 1</text>
+        <rect x="50" y="90" width="40" height="14" fill="var(--scarlet)" rx="2"/>
+        <rect x="100" y="90" width="40" height="14" fill="var(--scarlet)" opacity=".6" rx="2"/>
+        <rect x="150" y="90" width="40" height="14" fill="var(--scarlet)" opacity=".4" rx="2"/>
+        <text x="20" y="135" class="svg-label" font-size="10">conn 2</text>
+        <rect x="50" y="125" width="40" height="14" fill="var(--scarlet)" opacity=".7" rx="2"/>
+        <rect x="100" y="125" width="40" height="14" fill="var(--scarlet)" opacity=".4" rx="2"/>
+        <text x="20" y="170" class="svg-label" font-size="10">conn 3</text>
+        <rect x="50" y="160" width="40" height="14" fill="var(--scarlet)" opacity=".5" rx="2"/>
+        <text x="146" y="220" text-anchor="middle" class="svg-label" font-size="10">HOL no nivel de aplicacao</text>
+        <text x="146" y="236" text-anchor="middle" class="svg-label" font-size="10">browser limita 6 conn/host</text>
+        <text x="146" y="256" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">workaround: sharding, sprites</text>
+
+        <!-- divider -->
+        <line x1="290" y1="20" x2="290" y2="340" stroke="var(--line-2)" stroke-dasharray="3 3"/>
+
+        <!-- HTTP/2 -->
+        <text x="436" y="28" text-anchor="middle" class="svg-h" font-size="13" fill="var(--amber)">HTTP/2</text>
+        <text x="436" y="46" text-anchor="middle" class="svg-label" font-size="9">multiplexing em 1 conexao TCP, frames + streams</text>
+        <line x1="320" y1="100" x2="552" y2="100" stroke="var(--fg-dim)" stroke-width="1.5"/>
+        <text x="304" y="120" class="svg-label" font-size="10">1 TCP</text>
+        <rect x="330" y="110" width="20" height="12" fill="var(--blue)" rx="2"/>
+        <rect x="354" y="110" width="20" height="12" fill="var(--violet)" rx="2"/>
+        <rect x="378" y="110" width="20" height="12" fill="var(--green)" rx="2"/>
+        <rect x="402" y="110" width="20" height="12" fill="var(--blue)" rx="2"/>
+        <rect x="426" y="110" width="20" height="12" fill="var(--amber)" rx="2"/>
+        <rect x="450" y="110" width="20" height="12" fill="var(--violet)" rx="2"/>
+        <rect x="474" y="110" width="20" height="12" fill="var(--green)" rx="2"/>
+        <text x="436" y="160" text-anchor="middle" class="svg-label" font-size="10">streams paralelos</text>
+        <text x="436" y="176" text-anchor="middle" class="svg-label" font-size="10">HPACK comprime headers</text>
+        <text x="436" y="192" text-anchor="middle" class="svg-label" font-size="10">server push (deprecated)</text>
+        <text x="436" y="220" text-anchor="middle" class="svg-label" font-size="10" fill="var(--scarlet)">HOL no TCP ainda existe!</text>
+        <text x="436" y="236" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">1 pacote perdido trava</text>
+        <text x="436" y="252" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">todos os streams</text>
+
+        <line x1="580" y1="20" x2="580" y2="340" stroke="var(--line-2)" stroke-dasharray="3 3"/>
+
+        <!-- HTTP/3 -->
+        <text x="730" y="28" text-anchor="middle" class="svg-h" font-size="13" fill="var(--green)">HTTP/3 (QUIC sobre UDP)</text>
+        <text x="730" y="46" text-anchor="middle" class="svg-label" font-size="9">multiplexing real, sem HOL no transporte</text>
+        <line x1="610" y1="100" x2="850" y2="100" stroke="var(--fg-dim)" stroke-width="1.5"/>
+        <text x="592" y="120" class="svg-label" font-size="10">1 UDP</text>
+        <rect x="620" y="110" width="20" height="12" fill="var(--blue)" rx="2"/>
+        <rect x="644" y="110" width="20" height="12" fill="var(--violet)" rx="2"/>
+        <rect x="668" y="110" width="20" height="12" fill="var(--green)" rx="2"/>
+        <rect x="692" y="110" width="20" height="12" fill="var(--blue)" rx="2" stroke="var(--scarlet)" stroke-dasharray="2 2"/>
+        <rect x="716" y="110" width="20" height="12" fill="var(--amber)" rx="2"/>
+        <rect x="740" y="110" width="20" height="12" fill="var(--violet)" rx="2"/>
+        <rect x="764" y="110" width="20" height="12" fill="var(--green)" rx="2"/>
+
+        <text x="730" y="160" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">UDP: streams independentes</text>
+        <text x="730" y="176" text-anchor="middle" class="svg-label" font-size="10">stream blue espera, outros seguem</text>
+        <text x="730" y="192" text-anchor="middle" class="svg-label" font-size="10">handshake QUIC + TLS 1.3 = 0-RTT</text>
+        <text x="730" y="208" text-anchor="middle" class="svg-label" font-size="10">connection migration (4G→wifi)</text>
+        <text x="730" y="240" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">user space → evolui rapido ✓</text>
+        <text x="730" y="256" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">middleboxes nao sabem ler</text>
+
+        <!-- legend -->
+        <rect x="40" y="290" width="800" height="50" fill="rgba(34,197,94,.04)" stroke="var(--green)" rx="6"/>
+        <text x="60" y="310" class="svg-label" font-size="11" fill="var(--fg)" font-weight="700">Tradeoff:</text>
+        <text x="60" y="328" class="svg-label" font-size="10">H1.1 simples e ubiquo • H2 acelera mas TCP HOL te machuca em redes ruins • H3 resolve mas precisa UDP open</text>
+      </svg>
+    </div>
+
+    <div class="http-row">
+      <div class="http-col">
+        <h5>HTTP/1.1</h5>
+        <p style="font-size:13px;color:var(--fg-mute);line-height:1.6">
+          Texto plano. 1 request por conexao TCP em ordem. Pipelining quase ninguem usa por bug. Browser abre ate 6 conexoes paralelas pra mesmo host.
+        </p>
+      </div>
+      <div class="http-col">
+        <h5>HTTP/2</h5>
+        <p style="font-size:13px;color:var(--fg-mute);line-height:1.6">
+          Binario. Multiplexa varios streams numa so TCP. HPACK comprime headers. Mas como TCP entrega em ordem, 1 pacote perdido para todos os streams (TCP HOL).
+        </p>
+      </div>
+      <div class="http-col">
+        <h5>HTTP/3</h5>
+        <p style="font-size:13px;color:var(--fg-mute);line-height:1.6">
+          Roda em QUIC (sobre UDP). Streams realmente independentes. TLS embutido no transporte. 0-RTT em retomadas. Connection migration: troca de wifi sem derrubar.
+        </p>
+      </div>
+    </div>
+
+    <p class="concept-explain">
+      Cada versao tenta matar o <strong>head-of-line blocking</strong>. HTTP/1.1 trava no nivel da aplicacao (1 request por vez). HTTP/2 multiplexa, mas como tudo passa por 1 socket TCP, perda de pacote trava todo mundo no kernel — TCP entrega bytes em ordem. HTTP/3 mudou pra UDP e implementa controle de fluxo em user space, fazendo cada stream realmente independente. Bonus do QUIC: <code>connection ID</code> independe de IP — voce migra de wifi pra 4G sem dropar a conexao.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 07 RAG                                                       -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="rag">
+    <div class="concept-hd">
+      <div>
+        <h2>07. RAG Pipeline</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Como dar memoria pro LLM sem retreinar — busca semantica + prompt augmentation.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('rag')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 280" id="rag-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- nodes -->
+        <g class="clickable" onclick="ragShow(0)">
+          <rect x="20" y="100" width="110" height="60" class="svg-box" rx="8" stroke="var(--scarlet)"/>
+          <text x="75" y="125" text-anchor="middle" class="svg-h" font-size="11">Query</text>
+          <text x="75" y="143" text-anchor="middle" class="svg-label" font-size="10">"como voar?"</text>
+        </g>
+
+        <path d="M 130 130 L 165 130" class="svg-arrow"/>
+        <polygon points="165,130 158,127 158,133" fill="var(--fg-dim)"/>
+
+        <g class="clickable" onclick="ragShow(1)">
+          <rect x="170" y="100" width="110" height="60" class="svg-box" rx="8" stroke="var(--blue)"/>
+          <text x="225" y="125" text-anchor="middle" class="svg-h" font-size="11">Embed</text>
+          <text x="225" y="143" text-anchor="middle" class="svg-label" font-size="10">[0.21, -0.4...]</text>
+        </g>
+
+        <path d="M 280 130 L 315 130" class="svg-arrow"/>
+        <polygon points="315,130 308,127 308,133" fill="var(--fg-dim)"/>
+
+        <g class="clickable" onclick="ragShow(2)">
+          <rect x="320" y="100" width="120" height="60" class="svg-box" rx="8" stroke="var(--violet)"/>
+          <text x="380" y="125" text-anchor="middle" class="svg-h" font-size="11">Vector DB</text>
+          <text x="380" y="143" text-anchor="middle" class="svg-label" font-size="10">top-K kNN</text>
+        </g>
+
+        <path d="M 440 130 L 475 130" class="svg-arrow"/>
+        <polygon points="475,130 468,127 468,133" fill="var(--fg-dim)"/>
+
+        <g class="clickable" onclick="ragShow(3)">
+          <rect x="480" y="100" width="110" height="60" class="svg-box" rx="8" stroke="var(--amber)"/>
+          <text x="535" y="125" text-anchor="middle" class="svg-h" font-size="11">Rerank</text>
+          <text x="535" y="143" text-anchor="middle" class="svg-label" font-size="10">cross-encoder</text>
+        </g>
+
+        <path d="M 590 130 L 625 130" class="svg-arrow"/>
+        <polygon points="625,130 618,127 618,133" fill="var(--fg-dim)"/>
+
+        <g class="clickable" onclick="ragShow(4)">
+          <rect x="630" y="100" width="110" height="60" class="svg-box" rx="8" stroke="var(--green)"/>
+          <text x="685" y="125" text-anchor="middle" class="svg-h" font-size="11">Augment</text>
+          <text x="685" y="143" text-anchor="middle" class="svg-label" font-size="10">build prompt</text>
+        </g>
+
+        <path d="M 740 130 L 775 130" class="svg-arrow"/>
+        <polygon points="775,130 768,127 768,133" fill="var(--fg-dim)"/>
+
+        <g class="clickable" onclick="ragShow(5)">
+          <rect x="780" y="100" width="80" height="60" class="svg-box" rx="8" stroke="var(--scarlet)"/>
+          <text x="820" y="125" text-anchor="middle" class="svg-h" font-size="11">LLM</text>
+          <text x="820" y="143" text-anchor="middle" class="svg-label" font-size="10">resposta</text>
+        </g>
+
+        <!-- offline indexing path -->
+        <text x="380" y="40" text-anchor="middle" class="svg-label" font-size="11" fill="var(--fg-dim)">— pipeline offline (indexacao) —</text>
+        <rect x="170" y="50" width="100" height="32" fill="rgba(168,85,247,.05)" stroke="var(--violet)" rx="4"/>
+        <text x="220" y="70" text-anchor="middle" class="svg-label" font-size="10" fill="var(--violet)">docs → chunks</text>
+        <path d="M 270 66 L 310 78" class="svg-arrow" stroke="var(--violet)"/>
+        <rect x="320" y="50" width="120" height="32" fill="rgba(168,85,247,.05)" stroke="var(--violet)" rx="4"/>
+        <text x="380" y="70" text-anchor="middle" class="svg-label" font-size="10" fill="var(--violet)">embed e indexa</text>
+        <path d="M 380 82 L 380 100" class="svg-arrow" stroke="var(--violet)"/>
+
+        <text x="440" y="220" text-anchor="middle" class="svg-label" font-size="11" fill="var(--fg)">Click em cada caixa pra abrir o detalhe</text>
+        <text x="440" y="238" text-anchor="middle" class="svg-label" font-size="10">tradeoff classico: chunk size vs context window vs ruido</text>
+      </svg>
+    </div>
+
+    <div id="rag-steps-list">
+      <div class="rag-step" id="rag-step-0" onclick="ragShow(0)"><div class="idx">1</div><div class="body"><h5>Query</h5><p>Pergunta do usuario chega em texto natural. Pode ser reescrita (HyDE, query expansion) antes de seguir.</p></div></div>
+      <div class="rag-step" id="rag-step-1" onclick="ragShow(1)"><div class="idx">2</div><div class="body"><h5>Embed</h5><p>Modelo de embedding (text-embedding-3, e5, bge) transforma texto em vetor de 768/1536/3072 dims. Mesmo modelo usado offline pra indexar precisa ser usado online pra buscar.</p></div></div>
+      <div class="rag-step" id="rag-step-2" onclick="ragShow(2)"><div class="idx">3</div><div class="body"><h5>Vector DB — kNN</h5><p>Busca top-K vetores mais proximos por cosine/dot. ANN (HNSW, IVF, ScaNN) trocando recall por latencia. Pinecone, pgvector, Qdrant, Weaviate, Chroma sao as opcoes comuns.</p></div></div>
+      <div class="rag-step" id="rag-step-3" onclick="ragShow(3)"><div class="idx">4</div><div class="body"><h5>Rerank</h5><p>Cross-encoder (BGE reranker, Cohere rerank) reordena os candidatos com modelo mais caro mas mais preciso. K=50 → top 5. Faz diferenca real em qualidade.</p></div></div>
+      <div class="rag-step" id="rag-step-4" onclick="ragShow(4)"><div class="idx">5</div><div class="body"><h5>Augment</h5><p>Monta prompt: <code>system + contexto recuperado + pergunta</code>. Cuidado com ordem (LLMs ignoram meio do prompt — lost in the middle) e com tokens (caro).</p></div></div>
+      <div class="rag-step" id="rag-step-5" onclick="ragShow(5)"><div class="idx">6</div><div class="body"><h5>LLM</h5><p>Geracao final com citation. Considere streaming, fallback se nada relevante (sem alucinar), e logging pra avaliacao com ragas/llm-as-judge.</p></div></div>
+    </div>
+
+    <p class="concept-explain">
+      RAG (<strong>Retrieval-Augmented Generation</strong>) e o jeito padrao de injetar conhecimento privado num LLM sem fine-tuning. Voce indexa documentos uma vez (embeddings em vector DB), e em cada query: <code>recupera</code> os trechos mais parecidos, <code>aumenta</code> o prompt com eles, manda pro modelo. As pegadinhas reais: <strong>chunking</strong> (muito grande perde precisao, muito pequeno perde contexto), <strong>recall ruim</strong> (use rerank!), <strong>lost in the middle</strong> (LLM ignora meio do contexto), e <strong>avaliacao</strong> (groundedness, answer relevance, context precision).
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 08 CIRCUIT BREAKER                                           -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="circuit-breaker">
+    <div class="concept-hd">
+      <div>
+        <h2>08. Circuit Breaker</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Pare de mandar request pra um servico que ja sabemos que ta caido — falha rapido, deixa ele se recuperar.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('circuit-breaker')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 360" id="cb-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- 3 states -->
+        <circle id="cb-state-closed" cx="170" cy="150" r="64" fill="rgba(34,197,94,.08)" stroke="var(--green)" stroke-width="2.5"/>
+        <text x="170" y="148" text-anchor="middle" class="svg-h" font-size="14" fill="var(--green)">CLOSED</text>
+        <text x="170" y="166" text-anchor="middle" class="svg-label" font-size="10">deixa passar</text>
+
+        <circle id="cb-state-open" cx="710" cy="150" r="64" fill="rgba(239,68,68,.08)" stroke="var(--scarlet)" stroke-width="2.5"/>
+        <text x="710" y="148" text-anchor="middle" class="svg-h" font-size="14" fill="var(--scarlet)">OPEN</text>
+        <text x="710" y="166" text-anchor="middle" class="svg-label" font-size="10">fail fast</text>
+
+        <circle id="cb-state-half" cx="440" cy="150" r="64" fill="rgba(234,179,8,.08)" stroke="var(--amber)" stroke-width="2.5"/>
+        <text x="440" y="146" text-anchor="middle" class="svg-h" font-size="13" fill="var(--amber)">HALF-OPEN</text>
+        <text x="440" y="164" text-anchor="middle" class="svg-label" font-size="10">trial run</text>
+
+        <!-- transitions -->
+        <path d="M 234 130 Q 320 60 440 95" stroke="var(--scarlet)" stroke-width="2" fill="none" id="cb-tr-1"/>
+        <polygon points="438,95 432,90 432,100" fill="var(--scarlet)"/>
+        <text x="320" y="64" text-anchor="middle" class="svg-label" font-size="10" fill="var(--scarlet)">N falhas em janela</text>
+
+        <path d="M 504 130 Q 580 60 670 95" stroke="var(--scarlet)" stroke-width="2" fill="none"/>
+        <polygon points="668,95 662,90 662,100" fill="var(--scarlet)"/>
+        <text x="590" y="64" text-anchor="middle" class="svg-label" font-size="10" fill="var(--scarlet)">trial falhou</text>
+
+        <path d="M 646 165 Q 580 240 504 195" stroke="var(--green)" stroke-width="2" fill="none"/>
+        <polygon points="506,196 514,192 510,202" fill="var(--green)"/>
+        <text x="585" y="232" text-anchor="middle" class="svg-label" font-size="10" fill="var(--amber)">timeout passou</text>
+
+        <path d="M 376 175 Q 290 240 230 200" stroke="var(--green)" stroke-width="2" fill="none"/>
+        <polygon points="232,200 238,196 234,206" fill="var(--green)"/>
+        <text x="310" y="232" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">trial ok</text>
+
+        <!-- self loops -->
+        <path d="M 110 130 Q 80 100 130 90 Q 170 95 130 95" stroke="var(--green)" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
+        <text x="84" y="80" class="svg-label" font-size="9" fill="var(--green)">ok</text>
+
+        <path d="M 770 130 Q 800 100 750 90 Q 710 95 750 95" stroke="var(--scarlet)" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
+        <text x="800" y="80" class="svg-label" font-size="9" fill="var(--scarlet)">reject</text>
+
+        <!-- counters -->
+        <rect x="30" y="270" width="270" height="80" fill="rgba(34,197,94,.05)" stroke="var(--green)" rx="6"/>
+        <text x="165" y="290" text-anchor="middle" class="svg-h" font-size="11" fill="var(--green)">CLOSED</text>
+        <text x="50" y="310" class="svg-label" font-size="10">requests passam normalmente</text>
+        <text x="50" y="324" class="svg-label" font-size="10">conta falhas em sliding window</text>
+        <text x="50" y="338" class="svg-label" font-size="10">se erro_pct > threshold → OPEN</text>
+
+        <rect x="305" y="270" width="270" height="80" fill="rgba(234,179,8,.05)" stroke="var(--amber)" rx="6"/>
+        <text x="440" y="290" text-anchor="middle" class="svg-h" font-size="11" fill="var(--amber)">HALF-OPEN</text>
+        <text x="325" y="310" class="svg-label" font-size="10">deixa N requests trial passarem</text>
+        <text x="325" y="324" class="svg-label" font-size="10">todos ok? volta CLOSED</text>
+        <text x="325" y="338" class="svg-label" font-size="10">algum falhou? volta OPEN</text>
+
+        <rect x="580" y="270" width="270" height="80" fill="rgba(239,68,68,.05)" stroke="var(--scarlet)" rx="6"/>
+        <text x="715" y="290" text-anchor="middle" class="svg-h" font-size="11" fill="var(--scarlet)">OPEN</text>
+        <text x="600" y="310" class="svg-label" font-size="10">rejeita request sem chamar</text>
+        <text x="600" y="324" class="svg-label" font-size="10">retorna fallback ou erro 503</text>
+        <text x="600" y="338" class="svg-label" font-size="10">apos timeout → HALF-OPEN</text>
+      </svg>
+    </div>
+
+    <div class="concept-controls">
+      <button class="btn" onclick="cbSimulate('ok')">request OK</button>
+      <button class="btn" onclick="cbSimulate('fail')">request FALHA</button>
+      <button class="btn" onclick="cbSimulate('timeout')">avancar timeout</button>
+      <button class="btn ghost" onclick="cbReset()">reset</button>
+      <span class="concept-state">estado: <strong id="cb-cur">CLOSED</strong> · falhas: <span id="cb-fail">0</span>/3</span>
+    </div>
+
+    <div class="concept-info" id="cb-info">
+      Use os botoes pra simular: 3 falhas seguidas <strong>abrem</strong> o circuit. Depois do timeout vai pra HALF-OPEN. Um request OK la fecha de volta.
+    </div>
+
+    <p class="concept-explain">
+      Circuit breaker (<strong>Hystrix</strong>, resilience4j, Polly) evita o cenario classico de cascading failure: servico downstream caiu, cada request seu trava 30s no timeout, sua thread pool esgota, voce <strong>tambem</strong> cai. A maquina de 3 estados — <code>CLOSED → OPEN → HALF-OPEN → CLOSED</code> — desacopla o caller do callee. Combinado com <strong>bulkheads</strong> (pools separados), <strong>timeout</strong> agressivo e <strong>fallback</strong> sensato, te da resiliencia. Em microservicos modernos, isso geralmente vive no service mesh (Istio, Linkerd) ou em libs cliente.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 09 CONSISTENT HASHING                                        -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="consistent-hashing">
+    <div class="concept-hd">
+      <div>
+        <h2>09. Consistent Hashing</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Adicionar/remover servidor sem reorganizar 100% das chaves — o truque por tras de Cassandra, DynamoDB e CDNs.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p2">P2</span>
+        <button class="btn" onclick="speak('consistent-hashing')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 440" id="ch-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- ring -->
+        <circle cx="440" cy="220" r="170" fill="none" stroke="var(--line-2)" stroke-width="2" stroke-dasharray="3 3"/>
+        <text x="440" y="36" text-anchor="middle" class="svg-h" font-size="12" fill="var(--scarlet)">hash ring (0 - 2^32)</text>
+
+        <!-- nodes will be drawn via JS -->
+        <g id="ch-nodes"></g>
+        <g id="ch-keys"></g>
+
+        <!-- legend -->
+        <rect x="40" y="370" width="800" height="56" fill="var(--bg-elev)" stroke="var(--line)" rx="6"/>
+        <text x="60" y="390" class="svg-label" font-size="11" fill="var(--fg)" font-weight="700">como funciona:</text>
+        <text x="60" y="408" class="svg-label" font-size="10">cada chave hash(K) cai num ponto do ring → vai pro proximo no no sentido horario</text>
+        <text x="60" y="422" class="svg-label" font-size="10">add/remove no afeta so as chaves entre o no anterior e o novo (≈ 1/N reshuffle)</text>
+      </svg>
+    </div>
+
+    <div class="concept-controls">
+      <button class="btn" onclick="chAddNode()">+ add node</button>
+      <button class="btn" onclick="chRemoveNode()">− remove node</button>
+      <button class="btn" onclick="chAddKey()">+ add key</button>
+      <button class="btn ghost" onclick="chReset()">reset</button>
+      <span class="concept-state">nos: <span id="ch-count">3</span> · chaves: <span id="ch-key-count">5</span></span>
+    </div>
+
+    <div class="concept-info" id="ch-info">
+      Comece com 3 nos. Adiciona um quarto e ve quantas chaves precisaram ser realocadas — so a fatia entre o no anterior e o novo.
+    </div>
+
+    <p class="concept-explain">
+      Hash modular ingenuo (<code>node = hash(k) % N</code>) e um pesadelo: muda N de 4 pra 5 e <strong>quase 100% das chaves</strong> trocam de no. Consistent hashing mapeia tanto nos quanto chaves no mesmo anel circular (geralmente 0 a 2^32). Cada chave vai pro proximo no no sentido horario. Adicionar um no roubando uma fatia do ring afeta apenas <strong>1/N</strong> das chaves. Pra evitar hot spots usa-se <strong>virtual nodes</strong> — cada servidor fisico tem 100-200 pontos no ring, distribuindo a carga melhor. Cassandra, DynamoDB, Riak, Memcached client (Ketama), CDNs internas — tudo isso usa.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 10 OSI                                                       -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="osi">
+    <div class="concept-hd">
+      <div>
+        <h2>10. OSI / TCP-IP Layers</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Quando o entrevistador pergunta "explique o que acontece quando voce digita google.com", isso aqui e o mapa.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p2">P2</span>
+        <button class="btn" onclick="speak('osi')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div id="osi-list">
+      <div class="osi-row" data-layer="7" onclick="osiPick(this, 'L7: HTTP, gRPC, DNS, SMTP. Aplicacoes falando umas com as outras. E aqui que mora seu codigo (Express, FastAPI, Spring). Cookies, headers, JSON.')">
+        <div class="num">L7</div><div class="name">Application</div>
+        <div class="desc">aplicacoes — onde seu codigo mora</div>
+        <div class="proto">HTTP, gRPC, DNS, SMTP</div>
+      </div>
+      <div class="osi-row" data-layer="6" onclick="osiPick(this, 'L6: serializacao e cripto. Dados viram JSON, protobuf, ASCII. TLS aqui no modelo classico (na pratica, TLS roda entre L4 e L7). Compressao gzip tambem.')">
+        <div class="num">L6</div><div class="name">Presentation</div>
+        <div class="desc">serializa, comprime, criptografa</div>
+        <div class="proto">TLS, JSON, protobuf</div>
+      </div>
+      <div class="osi-row" data-layer="5" onclick="osiPick(this, 'L5: gerencia sessoes. Em pratica, OSI L5 quase nao aparece — TCP ja faz a maior parte. NetBIOS, RPC sessions, alguns sistemas legados.')">
+        <div class="num">L5</div><div class="name">Session</div>
+        <div class="desc">gerencia sessao entre apps</div>
+        <div class="proto">NetBIOS, RPC</div>
+      </div>
+      <div class="osi-row" data-layer="4" onclick="osiPick(this, 'L4: end-to-end. TCP da entrega confiavel ordenada. UDP nao da garantia mas e rapido. QUIC sentou aqui. Porta = endereco do processo. Load balancers L4 (NLB) operam neste nivel.')">
+        <div class="num">L4</div><div class="name">Transport</div>
+        <div class="desc">end-to-end, portas, confiabilidade</div>
+        <div class="proto">TCP, UDP, QUIC</div>
+      </div>
+      <div class="osi-row" data-layer="3" onclick="osiPick(this, 'L3: roteamento. IP escolhe caminho entre redes diferentes. Routers operam aqui. ICMP (ping) e L3. NAT acontece neste nivel. Endereco IP = quem voce e.')">
+        <div class="num">L3</div><div class="name">Network</div>
+        <div class="desc">roteia entre redes diferentes</div>
+        <div class="proto">IP, ICMP, BGP</div>
+      </div>
+      <div class="osi-row" data-layer="2" onclick="osiPick(this, 'L2: enderecamento dentro do mesmo segmento. MAC address. Switch e device L2. Frames Ethernet, ARP traduz IP→MAC. VLANs, STP — tudo L2.')">
+        <div class="num">L2</div><div class="name">Data Link</div>
+        <div class="desc">frames entre nodes do mesmo link</div>
+        <div class="proto">Ethernet, ARP, MAC</div>
+      </div>
+      <div class="osi-row" data-layer="1" onclick="osiPick(this, 'L1: bits viram sinal. Cabo, ondas wifi, fibra. Voltagens, frequencias, modulacao. Hubs e repeaters operam aqui. Quando alguem corta o cabo, falhou em L1.')">
+        <div class="num">L1</div><div class="name">Physical</div>
+        <div class="desc">bits virando sinal eletrico/luz</div>
+        <div class="proto">cabo, fibra, wifi</div>
+      </div>
+    </div>
+
+    <div class="concept-info" id="osi-info" style="margin-top:14px">
+      Click numa camada pra ver o que acontece nela.
+    </div>
+
+    <p class="concept-explain">
+      OSI tem 7 camadas no modelo teorico. <strong>TCP/IP real</strong> agrupa em 4 (Link, Internet, Transport, Application). A regra mental: cada camada de baixo encapsula a de cima — HTTP virou bytes, bytes viraram TCP segments, segments viraram IP packets, packets viraram Ethernet frames. Quando entrevistador pede pra voce "tracear a request", voce passeia camada por camada — DNS resolve, TCP handshake, TLS handshake, HTTP request, app responde. Saber em qual camada cada problema acontece (timeout = L4, certificado errado = L6, 500 = L7) e o que diferencia debugging amador de profissional.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 11 CQRS + ES                                                 -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="cqrs">
+    <div class="concept-hd">
+      <div>
+        <h2>11. CQRS + Event Sourcing</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Separa command (escrita) de query (leitura), e em vez de salvar estado, salva os eventos que levaram a ele.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p1">P1</span>
+        <button class="btn" onclick="speak('cqrs')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 400" id="cqrs-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Client -->
+        <rect x="30" y="170" width="100" height="60" class="svg-box" rx="8"/>
+        <text x="80" y="200" text-anchor="middle" class="svg-h" font-size="13">Client</text>
+        <text x="80" y="218" text-anchor="middle" class="svg-label" font-size="10">UI / API</text>
+
+        <!-- Command path arrow -->
+        <path d="M 130 185 L 250 110" stroke="var(--scarlet)" stroke-width="2" fill="none"/>
+        <polygon points="250,110 242,109 246,118" fill="var(--scarlet)"/>
+        <text x="190" y="135" class="svg-label" font-size="11" fill="var(--scarlet)">Command</text>
+
+        <!-- Query path -->
+        <path d="M 250 290 L 130 215" stroke="var(--green)" stroke-width="2" fill="none"/>
+        <polygon points="130,215 138,214 134,224" fill="var(--green)"/>
+        <text x="184" y="270" class="svg-label" font-size="11" fill="var(--green)">Query response</text>
+
+        <!-- Command side -->
+        <rect x="250" y="60" width="170" height="80" fill="rgba(239,68,68,.05)" stroke="var(--scarlet)" rx="8"/>
+        <text x="335" y="84" text-anchor="middle" class="svg-h" font-size="13" fill="var(--scarlet)">COMMAND SIDE</text>
+        <text x="335" y="104" text-anchor="middle" class="svg-label" font-size="10">aggregate valida</text>
+        <text x="335" y="120" text-anchor="middle" class="svg-label" font-size="10">aplica regras de negocio</text>
+        <text x="335" y="134" text-anchor="middle" class="svg-label" font-size="10">emite event</text>
+
+        <!-- Event Store -->
+        <path d="M 420 100 L 470 100" stroke="var(--scarlet)" stroke-width="1.5" fill="none"/>
+        <polygon points="470,100 462,96 462,104" fill="var(--scarlet)"/>
+        <rect x="470" y="60" width="180" height="80" fill="rgba(168,85,247,.05)" stroke="var(--violet)" rx="8"/>
+        <text x="560" y="84" text-anchor="middle" class="svg-h" font-size="13" fill="var(--violet)">EVENT STORE</text>
+        <text x="560" y="102" text-anchor="middle" class="svg-label" font-size="10">[Created, Renamed,</text>
+        <text x="560" y="116" text-anchor="middle" class="svg-label" font-size="10">Activated, Deactivated...]</text>
+        <text x="560" y="130" text-anchor="middle" class="svg-label" font-size="10">append-only • imutavel</text>
+
+        <!-- Replay -->
+        <path d="M 560 140 L 560 175 L 380 175 L 380 140" stroke="var(--violet)" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
+        <text x="430" y="170" class="svg-label" font-size="9" fill="var(--violet)">replay → aggregate state</text>
+
+        <!-- Bus / projector -->
+        <path d="M 650 100 L 700 100" stroke="var(--violet)" stroke-width="1.5" fill="none"/>
+        <polygon points="700,100 692,96 692,104" fill="var(--violet)"/>
+        <rect x="700" y="60" width="160" height="80" fill="rgba(59,130,246,.05)" stroke="var(--blue)" rx="8"/>
+        <text x="780" y="84" text-anchor="middle" class="svg-h" font-size="12" fill="var(--blue)">PROJECTOR</text>
+        <text x="780" y="104" text-anchor="middle" class="svg-label" font-size="10">consome eventos</text>
+        <text x="780" y="118" text-anchor="middle" class="svg-label" font-size="10">atualiza read models</text>
+        <text x="780" y="132" text-anchor="middle" class="svg-label" font-size="10">async, eventually consistent</text>
+
+        <!-- Read models -->
+        <path d="M 780 140 L 780 200" stroke="var(--blue)" stroke-width="1.5" fill="none"/>
+        <polygon points="780,200 776,192 784,192" fill="var(--blue)"/>
+
+        <rect x="630" y="200" width="100" height="50" fill="rgba(34,197,94,.05)" stroke="var(--green)" rx="6"/>
+        <text x="680" y="220" text-anchor="middle" class="svg-label" font-size="11" fill="var(--green)">Read Model 1</text>
+        <text x="680" y="236" text-anchor="middle" class="svg-label" font-size="9">Postgres view</text>
+
+        <rect x="745" y="200" width="100" height="50" fill="rgba(34,197,94,.05)" stroke="var(--green)" rx="6"/>
+        <text x="795" y="220" text-anchor="middle" class="svg-label" font-size="11" fill="var(--green)">Read Model 2</text>
+        <text x="795" y="236" text-anchor="middle" class="svg-label" font-size="9">Elasticsearch</text>
+
+        <!-- Query path back -->
+        <path d="M 250 320 L 700 320" stroke="var(--green)" stroke-width="1.5" fill="none"/>
+        <polygon points="250,320 258,316 258,324" fill="var(--green)"/>
+        <path d="M 700 320 L 700 250" stroke="var(--green)" stroke-width="1.5" fill="none"/>
+
+        <!-- query side label -->
+        <rect x="250" y="270" width="220" height="80" fill="rgba(34,197,94,.05)" stroke="var(--green)" rx="8"/>
+        <text x="360" y="294" text-anchor="middle" class="svg-h" font-size="13" fill="var(--green)">QUERY SIDE</text>
+        <text x="360" y="312" text-anchor="middle" class="svg-label" font-size="10">le do read model otimizado</text>
+        <text x="360" y="326" text-anchor="middle" class="svg-label" font-size="10">scaling independente</text>
+        <text x="360" y="340" text-anchor="middle" class="svg-label" font-size="10">denormalizado, rapidao</text>
+      </svg>
+    </div>
+
+    <div class="concept-info">
+      <strong>Event Sourcing</strong> = source of truth e o log de eventos (nao o estado). <strong>CQRS</strong> = comandos vao num modelo, queries em outro. Frequentemente usados juntos, mas sao independentes.
+    </div>
+
+    <p class="concept-explain">
+      <strong>CQRS</strong> (Command Query Responsibility Segregation) separa o lado de escrita do lado de leitura. Voce pode usar Postgres pra command, Elasticsearch + Redis pra query, atualizando via eventos. Vantagens: scaling independente, queries denormalizadas turbinadas, modelos otimizados pra cada uso. <strong>Event Sourcing</strong> vai mais fundo: em vez de gravar o <em>estado atual</em>, voce grava cada <em>evento</em> que mudou o estado (<code>UserCreated</code>, <code>EmailChanged</code>). O estado vira uma funcao de replay sobre o log. Beneficio brutal: <strong>auditoria total</strong>, <strong>time travel</strong>, novos read models historicos. Custo: complexidade real, eventually consistent, snapshot pra performance, schema evolution dos eventos e dor.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 12 JWT                                                       -->
+  <!-- ============================================================ -->
+  <div class="card concept" id="jwt">
+    <div class="concept-hd">
+      <div>
+        <h2>12. JWT — JSON Web Token</h2>
+        <p class="concept-tagline" style="margin-top:6px;margin-bottom:0">Three dots, three pieces — header, payload, signature. Stateless auth no formato canonico.</p>
+      </div>
+      <div class="badges">
+        <span class="tag p2">P2</span>
+        <button class="btn" onclick="speak('jwt')"><span class="spk"></span>ouvir</button>
+      </div>
+    </div>
+
+    <div class="concept-svg">
+      <svg viewBox="0 0 880 200" id="jwt-svg" xmlns="http://www.w3.org/2000/svg">
+        <text x="440" y="30" text-anchor="middle" class="svg-h" font-size="13">JWT compacto (3 partes separadas por ponto)</text>
+
+        <rect x="30" y="60" width="240" height="50" fill="rgba(239,68,68,.06)" stroke="var(--scarlet)" rx="6"/>
+        <text x="150" y="80" text-anchor="middle" class="svg-label" font-size="10" fill="var(--scarlet)">header (base64url)</text>
+        <text x="150" y="100" text-anchor="middle" class="svg-label" font-size="11" font-family="JetBrains Mono">eyJhbGciOiJIUzI1NiJ9</text>
+
+        <text x="285" y="92" text-anchor="middle" class="svg-h" font-size="22" fill="var(--fg-dim)">.</text>
+
+        <rect x="300" y="60" width="280" height="50" fill="rgba(168,85,247,.06)" stroke="var(--violet)" rx="6"/>
+        <text x="440" y="80" text-anchor="middle" class="svg-label" font-size="10" fill="var(--violet)">payload (base64url)</text>
+        <text x="440" y="100" text-anchor="middle" class="svg-label" font-size="11" font-family="JetBrains Mono">eyJzdWIiOiIxMjMiLCJleHAiOjE3MDB9</text>
+
+        <text x="595" y="92" text-anchor="middle" class="svg-h" font-size="22" fill="var(--fg-dim)">.</text>
+
+        <rect x="610" y="60" width="240" height="50" fill="rgba(34,197,94,.06)" stroke="var(--green)" rx="6"/>
+        <text x="730" y="80" text-anchor="middle" class="svg-label" font-size="10" fill="var(--green)">signature (HMAC ou RSA)</text>
+        <text x="730" y="100" text-anchor="middle" class="svg-label" font-size="11" font-family="JetBrains Mono">SflKxwRJSMeKKF2QT4...</text>
+
+        <!-- verify flow -->
+        <text x="440" y="150" text-anchor="middle" class="svg-label" font-size="11" fill="var(--fg)">Verificacao:</text>
+        <text x="440" y="170" text-anchor="middle" class="svg-label" font-size="11">HMAC( base64url(header) + "." + base64url(payload), <tspan fill="var(--scarlet)">secret</tspan> ) === signature ?</text>
+        <text x="440" y="188" text-anchor="middle" class="svg-label" font-size="10" fill="var(--fg-dim)">+ valida exp, iss, aud, nbf</text>
+      </svg>
+    </div>
+
+    <div class="jwt-piece header">
+      <h5>HEADER</h5>
+      <pre>{
+  "alg": "HS256",
+  "typ": "JWT"
+}</pre>
+    </div>
+
+    <div class="jwt-piece payload">
+      <h5>PAYLOAD (claims)</h5>
+      <pre>{
+  "sub": "1234567890",     // subject (user id)
+  "name": "Daniel",
+  "iat": 1716239022,       // issued at
+  "exp": 1716242622,       // expiration (epoch)
+  "iss": "https://auth.x", // issuer
+  "aud": "api.x"           // audience
+}</pre>
+    </div>
+
+    <div class="jwt-piece signature">
+      <h5>SIGNATURE</h5>
+      <pre>HMACSHA256(
+  base64UrlEncode(header) + "." +
+  base64UrlEncode(payload),
+  SECRET_KEY
+)</pre>
+    </div>
+
+    <div class="concept-info">
+      <strong>Atencao:</strong> payload e so base64 — <code>nao e criptografado</code>. Quem tiver o token le tudo. Se precisa esconder dado, use JWE (encrypted) ou nao bote no JWT.
+    </div>
+
+    <p class="concept-explain">
+      JWT e stateless: o servidor nao guarda sessao, todo estado vai dentro do token assinado. Cliente manda <code>Authorization: Bearer eyJhbGc...</code>, server valida assinatura com a chave (HMAC simetrica ou RSA/EC asimetrica). Vantagem: escala lindo. Desvantagens reais que cobram em entrevista: <strong>nao da pra revogar</strong> facil (e por isso voce usa expiracao curta + refresh token), <strong>algoritmo "none"</strong> e CVE classico (sempre valide alg explicitamente), confusao <strong>HS vs RS</strong> (atacante envia token assinado com a public key como se fosse HMAC), e <strong>payload visivel</strong> — qualquer um faz <code>atob(token.split(".")[1])</code> e ve seus claims.
+    </p>
+  </div>
+
+</div>
+
+<script src="assets/skills-data.js"></script>
+<script src="assets/progress.js"></script>
+<script src="assets/nav.js"></script>
+<script>
+renderNav('concepts')
+
+/* =========================================================
+ * SPEAK — Web Speech API
+ * ========================================================= */
+const EXPLANATIONS = {
+  'event-loop': "Event loop e um loop que verifica se a stack ta vazia e, quando esta, drena toda a microtask queue antes de pegar uma macrotask. Por isso Promise.then sempre roda antes de setTimeout zero.",
+  'cap-theorem': "CAP teorema. Em um sistema distribuido com particao de rede, voce escolhe entre consistencia e disponibilidade. Particao tolerance nao e opcional. Postgres com replicas sincronas e CP, Cassandra e AP, DynamoDB e tunable.",
+  'mvcc': "MVCC, multi version concurrency control. Cada update cria uma nova versao da linha. Cada transacao recebe um snapshot e so enxerga versoes commitadas antes dele. Leitores nao bloqueiam escritores.",
+  'btree-lsm': "B-tree faz update no lugar e e otimo pra leitura, mas page splits doem em writes random. LSM-tree faz append-only, escreve sequencial rapido, mas paga com compaction e write amplification. Bloom filter ajuda na leitura.",
+  'tls-handshake': "TLS handshake. Cliente manda Client Hello, servidor responde com cert e key share, deriva chave compartilhada via ECDHE. TLS 1 ponto 3 faz isso em 1 RTT, com perfect forward secrecy garantido.",
+  'http-versions': "HTTP 1 ponto 1 trava no nivel de aplicacao. HTTP 2 multiplexa em uma TCP, mas perda de pacote trava todos os streams. HTTP 3 sobre QUIC e UDP da streams realmente independentes e zero RTT em retomada.",
+  'rag': "RAG. Pega query, gera embedding, busca top K no vector DB, reranqueia com cross encoder, monta prompt com contexto e manda pro LLM. Pegadinhas: chunking, lost in the middle, recall ruim sem rerank.",
+  'circuit-breaker': "Circuit breaker. Tres estados, closed, open e half open. N falhas em janela abre o circuito, fail fast. Apos timeout vai pra half open, deixa um trial, ok volta a closed, falha volta a open.",
+  'consistent-hashing': "Consistent hashing mapeia nos e chaves no mesmo anel. Cada chave vai pro proximo no horario. Adicionar no afeta apenas 1 sobre N das chaves. Virtual nodes evitam hot spots.",
+  'osi': "OSI tem 7 camadas teoricas, TCP IP usa 4. L7 application, L6 presentation, L4 transport com TCP UDP, L3 network com IP, L2 data link com MAC, L1 fisico. Cada uma encapsula a de cima.",
+  'cqrs': "CQRS separa lado de escrita de lado de leitura. Event sourcing salva eventos em vez de estado. Combinados, voce escreve no aggregate, persiste eventos, projeta read models otimizados. Eventually consistent.",
+  'jwt': "JWT tem header ponto payload ponto signature. Header diz o algoritmo. Payload tem claims em base 64 nao criptografado. Signature e HMAC ou RSA. Pegadinhas, alg none, confusao HS RS, e nao da pra revogar facil."
+}
+
+function speak(key) {
+  if (!('speechSynthesis' in window)) { alert('Audio nao suportado'); return }
+  speechSynthesis.cancel()
+  const text = EXPLANATIONS[key] || ''
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = 'pt-BR'
+  u.rate = 1.05
+  speechSynthesis.speak(u)
+}
+
+/* =========================================================
+ * 01 EVENT LOOP
+ * ========================================================= */
+const EL_STEPS = [
+  { info: 'Codigo: <code>console.log(1); setTimeout(()=>log(4),0); Promise.resolve().then(()=>log(3)); console.log(2)</code>. Click pra comecar.', stack:[], micro:[], macro:[], note:'aguardando' },
+  { info: '<strong>console.log(1)</strong> entra na stack, executa, imprime <code>1</code>, sai.', stack:['log(1)'], micro:[], macro:[], note:'log(1) ✓ saiu' },
+  { info: '<strong>setTimeout(cb, 0)</strong> agenda callback. Web API gerencia. Quando termina, vai pra macrotask queue.', stack:['setTimeout(cb,0)'], micro:[], macro:['log(4)'], note:'agendou cb em macro' },
+  { info: '<strong>Promise.resolve().then(cb)</strong> resolve imediato e adiciona <code>cb</code> na microtask queue.', stack:['Promise.then(cb)'], micro:['log(3)'], macro:['log(4)'], note:'agendou cb em micro' },
+  { info: '<strong>console.log(2)</strong> entra, imprime <code>2</code>, sai. Stack vai zerar.', stack:['log(2)'], micro:['log(3)'], macro:['log(4)'], note:'log(2) ✓' },
+  { info: 'Stack vazia! Event loop drena <strong>toda</strong> a microtask queue antes de tocar em macro.', stack:[], micro:['log(3)'], macro:['log(4)'], note:'stack vazia, vai pra micro' },
+  { info: 'Microtask <code>log(3)</code> roda. Imprime <code>3</code>. Continua drenando ate microtask queue vazia.', stack:['log(3)'], micro:[], macro:['log(4)'], note:'log(3) ✓ — microtask' },
+  { info: 'Microtasks zeradas. Agora pega 1 (so 1!) macrotask.', stack:[], micro:[], macro:['log(4)'], note:'pega 1 macrotask' },
+  { info: 'Macrotask <code>log(4)</code> roda. Imprime <code>4</code>. Saida final: <code>1 2 3 4</code>.', stack:['log(4)'], micro:[], macro:[], note:'log(4) ✓ — concluido' }
+]
+let elStep = 0
+function elRender() {
+  const s = EL_STEPS[elStep]
+  // stack
+  let stackHtml = ''
+  s.stack.forEach((item, i) => {
+    const y = 240 - i * 30
+    const color = elStep > 0 && i === s.stack.length - 1 ? 'var(--green)' : 'var(--blue)'
+    stackHtml += `<rect x="55" y="${y}" width="130" height="22" fill="rgba(59,130,246,.1)" stroke="${color}" rx="4"/><text x="120" y="${y+15}" text-anchor="middle" font-size="10" fill="var(--fg)" font-family="JetBrains Mono">${item}</text>`
+  })
+  document.getElementById('el-stack').innerHTML = stackHtml
+
+  let microHtml = ''
+  s.micro.forEach((item, i) => {
+    microHtml += `<rect x="${575+i*92}" y="78" width="88" height="22" fill="rgba(168,85,247,.1)" stroke="var(--violet)" rx="4"/><text x="${619+i*92}" y="93" text-anchor="middle" font-size="10" fill="var(--fg)" font-family="JetBrains Mono">${item}</text>`
+  })
+  document.getElementById('el-micro').innerHTML = microHtml
+
+  let macroHtml = ''
+  s.macro.forEach((item, i) => {
+    macroHtml += `<rect x="${575+i*92}" y="218" width="88" height="22" fill="rgba(234,179,8,.1)" stroke="var(--amber)" rx="4"/><text x="${619+i*92}" y="233" text-anchor="middle" font-size="10" fill="var(--fg)" font-family="JetBrains Mono">${item}</text>`
+  })
+  document.getElementById('el-macro').innerHTML = macroHtml
+
+  document.getElementById('el-step').textContent = elStep
+  document.getElementById('el-step-text').textContent = s.note
+  document.getElementById('el-info').innerHTML = s.info
+}
+function elNext() {
+  elStep = (elStep + 1) % EL_STEPS.length
+  elRender()
+}
+function elReset() { elStep = 0; elRender() }
+elRender()
+
+/* =========================================================
+ * 02 CAP
+ * ========================================================= */
+function capShow(mode) {
+  ['cp','ap','ca'].forEach(k => {
+    document.getElementById('cap-'+k+'-dbs').style.opacity = mode === k.toUpperCase() ? '1' : '0'
+    document.getElementById('cap-'+k).classList.toggle('active', mode === k.toUpperCase())
+    const edge = document.getElementById('cap-edge-'+k)
+    if (edge) {
+      edge.setAttribute('stroke', mode === k.toUpperCase() ? 'var(--scarlet)' : 'var(--line-2)')
+      edge.setAttribute('stroke-width', mode === k.toUpperCase() ? '4' : '3')
+    }
+  })
+  const info = document.getElementById('cap-info')
+  if (mode === 'CP') info.innerHTML = '<strong>CP — Consistency + Partition tolerance.</strong> Sob particao, prefere recusar request a servir dado stale. Usado quando consistencia estrita importa: financeiro, locking distribuido, leader election.'
+  else if (mode === 'AP') info.innerHTML = '<strong>AP — Availability + Partition tolerance.</strong> Sempre responde, mesmo que com dado desatualizado. Reconcilia depois (last-write-wins, CRDTs). Bom pra carrinho de compra, social feeds, telemetria.'
+  else if (mode === 'CA') info.innerHTML = '<strong>CA — Consistency + Availability.</strong> So existe sem rede particionada — single-node. Distribuido nao tem como, porque P sempre acontece eventualmente. Por isso "CA distribuido" e mito.'
+  else info.innerHTML = 'Click numa das opcoes acima pra ver quais bancos de dados ficam em cada lado do triangulo.'
+}
+
+/* =========================================================
+ * 03 MVCC
+ * ========================================================= */
+let mvccStep = 0
+const MVCC_INFO = [
+  'Comeco do tempo. Linha id=1 tem versao v1: name=Ana, criada pela transacao xmin=100.',
+  'v1 ja existe. Nada acontece.',
+  'Tx A comeca, pega snapshot t1. Vai poder ler so o que foi commitado antes.',
+  'Tx B comeca DEPOIS. Faz UPDATE: cria v2 (name=Bia, xmin=101). v1 fica marcada com xmax=101 mas continua ali — nao e overwrite.',
+  'Tx A faz SELECT. Decide qual versao ler: v1 e visivel (xmin=100, comitada antes do snapshot). v2 nao (xmin=101, ainda nao commitou). Le <strong>Ana</strong>.',
+  'Tx B da COMMIT. v2 agora e oficial pra futuras transacoes — mas A ja tem seu snapshot.',
+  'Tx A repete o SELECT. Snapshot dela nao mudou! Continua vendo v1 = <strong>Ana</strong>. Isso e <strong>repeatable read</strong> de graca pelo MVCC.'
+]
+function mvccRender() {
+  for (let i = 1; i <= 6; i++) {
+    document.getElementById('mvcc-step-'+i).style.opacity = mvccStep >= i ? '1' : '0'
+  }
+  document.getElementById('mvcc-step-num').textContent = mvccStep
+  document.getElementById('mvcc-info').innerHTML = MVCC_INFO[mvccStep] || ''
+}
+function mvccNext() { mvccStep = Math.min(6, mvccStep + 1); mvccRender() }
+function mvccReset() { mvccStep = 0; mvccRender() }
+mvccRender()
+
+/* =========================================================
+ * 05 TLS
+ * ========================================================= */
+const TLS_INFO = {
+  1: '<strong>ClientHello.</strong> Lista de versoes TLS suportadas, lista de cipher suites (ex: TLS_AES_128_GCM_SHA256), random de 32 bytes, e em TLS 1.3 ja vai um KeyShare ECDHE. SNI (server name indication) tambem vai aqui.',
+  2: '<strong>ServerHello.</strong> Servidor escolhe versao e cipher suite, manda seu random e seu KeyShare. Junto vai o <code>Certificate</code> assinado pela CA — o cliente vai validar contra a chain dele.',
+  3: '<strong>Cliente valida o cert</strong> contra root stores (Mozilla, OS), checa SAN e CN, valida signature chain ate uma CA confiavel. Tambem usa o KeyShare do servidor + seu KeyShare pra derivar a <code>shared secret</code> via ECDHE.',
+  4: '<strong>ChangeCipherSpec + Finished.</strong> Cliente confirma que daqui pra frente vai falar cifrado. Manda Finished, que e um HMAC sobre todo o handshake — protege contra downgrade attack.',
+  5: '<strong>Server Finished.</strong> Servidor confirma a mesma coisa, fechando a negociacao. Apos isso, ambos tem a mesma chave simetrica derivada.',
+  6: '<strong>Application Data cifrado.</strong> AES-GCM ou ChaCha20-Poly1305 (AEAD). Cada record carrega seu nonce e MAC. Mesmo se atacante ouve, ve so bytes aleatorios.'
+}
+function tlsInfo(n) { document.getElementById('tls-info').innerHTML = TLS_INFO[n] }
+
+/* =========================================================
+ * 07 RAG
+ * ========================================================= */
+function ragShow(idx) {
+  document.querySelectorAll('.rag-step').forEach((el, i) => {
+    el.classList.toggle('active', i === idx)
+  })
+  document.getElementById('rag-step-'+idx).scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+/* =========================================================
+ * 08 CIRCUIT BREAKER
+ * ========================================================= */
+let cbState = 'CLOSED'
+let cbFail = 0
+let cbTrial = false
+function cbRender() {
+  document.getElementById('cb-cur').textContent = cbState
+  document.getElementById('cb-fail').textContent = cbFail
+  ;['closed', 'half', 'open'].forEach(s => {
+    const el = document.getElementById('cb-state-' + s)
+    el.classList.remove('pulse')
+  })
+  const map = { CLOSED: 'closed', 'HALF-OPEN': 'half', OPEN: 'open' }
+  document.getElementById('cb-state-' + map[cbState]).classList.add('pulse')
+}
+function cbSimulate(action) {
+  const info = document.getElementById('cb-info')
+  if (cbState === 'CLOSED') {
+    if (action === 'ok') { cbFail = 0; info.innerHTML = '<strong>OK em CLOSED.</strong> Resetou contador de falhas. Continua aceitando trafego.' }
+    else if (action === 'fail') {
+      cbFail++
+      if (cbFail >= 3) { cbState = 'OPEN'; info.innerHTML = '<strong>3 falhas — abriu o circuito!</strong> A partir de agora, todos requests sao rejeitados sem chamar o downstream. Aguardando timeout.' }
+      else info.innerHTML = `<strong>Falha em CLOSED.</strong> Falhas: ${cbFail}/3. Mais ${3 - cbFail} pra abrir.`
+    }
+    else info.innerHTML = 'Timeout nao se aplica em CLOSED. Use ok ou fail.'
+  } else if (cbState === 'OPEN') {
+    if (action === 'timeout') { cbState = 'HALF-OPEN'; cbTrial = true; info.innerHTML = '<strong>Timeout passou — vai pra HALF-OPEN.</strong> Vai deixar 1 trial passar pra ver se o downstream voltou.' }
+    else info.innerHTML = '<strong>OPEN — request rejeitado sem chamar o servico.</strong> Retorna 503 ou fallback. Avance timeout pra tentar half-open.'
+  } else if (cbState === 'HALF-OPEN') {
+    if (action === 'ok') { cbState = 'CLOSED'; cbFail = 0; info.innerHTML = '<strong>Trial OK — fecha o circuito!</strong> Volta a CLOSED, contador zerado.' }
+    else if (action === 'fail') { cbState = 'OPEN'; info.innerHTML = '<strong>Trial falhou — volta pra OPEN.</strong> Mais um round de timeout.' }
+    else info.innerHTML = 'Em HALF-OPEN espera um trial. Use ok ou fail.'
+  }
+  cbRender()
+}
+function cbReset() { cbState = 'CLOSED'; cbFail = 0; document.getElementById('cb-info').innerHTML = 'Use os botoes pra simular: 3 falhas seguidas <strong>abrem</strong> o circuit. Depois do timeout vai pra HALF-OPEN. Um request OK la fecha de volta.'; cbRender() }
+cbRender()
+
+/* =========================================================
+ * 09 CONSISTENT HASHING
+ * ========================================================= */
+const CH_COLORS = ['var(--scarlet)', 'var(--blue)', 'var(--green)', 'var(--violet)', 'var(--amber)', '#14b8a6', '#ec4899']
+let chNodes = [
+  { angle: 30, name: 'A' },
+  { angle: 150, name: 'B' },
+  { angle: 270, name: 'C' },
+]
+let chKeys = [
+  { angle: 80, label: 'k1' },
+  { angle: 110, label: 'k2' },
+  { angle: 200, label: 'k3' },
+  { angle: 240, label: 'k4' },
+  { angle: 320, label: 'k5' },
+]
+const CH_CX = 440, CH_CY = 220, CH_R = 170
+
+function chOwner(keyAngle) {
+  // ring direction: clockwise = increasing angle modulo 360
+  const sorted = [...chNodes].sort((a, b) => a.angle - b.angle)
+  for (const n of sorted) if (n.angle >= keyAngle) return n
+  return sorted[0]
+}
+
+function chRender() {
+  // nodes
+  let nodesHtml = ''
+  chNodes.forEach((n, i) => {
+    const r = (n.angle - 90) * Math.PI / 180
+    const x = CH_CX + CH_R * Math.cos(r)
+    const y = CH_CY + CH_R * Math.sin(r)
+    const color = CH_COLORS[i % CH_COLORS.length]
+    nodesHtml += `<circle cx="${x}" cy="${y}" r="14" fill="${color}" stroke="var(--bg)" stroke-width="3"/>`
+    nodesHtml += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="JetBrains Mono">${n.name}</text>`
+    // outer label
+    const lx = CH_CX + (CH_R + 26) * Math.cos(r)
+    const ly = CH_CY + (CH_R + 26) * Math.sin(r) + 4
+    nodesHtml += `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="10" fill="${color}" font-family="JetBrains Mono">node ${n.name}</text>`
+  })
+  document.getElementById('ch-nodes').innerHTML = nodesHtml
+
+  let keysHtml = ''
+  chKeys.forEach(k => {
+    const r = (k.angle - 90) * Math.PI / 180
+    const x = CH_CX + (CH_R - 24) * Math.cos(r)
+    const y = CH_CY + (CH_R - 24) * Math.sin(r)
+    const owner = chOwner(k.angle)
+    const ownerIdx = chNodes.findIndex(n => n.name === owner.name)
+    const color = CH_COLORS[ownerIdx % CH_COLORS.length]
+    keysHtml += `<circle cx="${x}" cy="${y}" r="6" fill="${color}" opacity=".9"/>`
+    keysHtml += `<text x="${x}" y="${y - 10}" text-anchor="middle" font-size="9" fill="${color}" font-family="JetBrains Mono">${k.label}</text>`
+    // line from key to owner node
+    const ownerR = (owner.angle - 90) * Math.PI / 180
+    const ox = CH_CX + CH_R * Math.cos(ownerR)
+    const oy = CH_CY + CH_R * Math.sin(ownerR)
+    keysHtml += `<line x1="${x}" y1="${y}" x2="${ox}" y2="${oy}" stroke="${color}" stroke-width="1" opacity=".4" stroke-dasharray="2 3"/>`
+  })
+  document.getElementById('ch-keys').innerHTML = keysHtml
+
+  document.getElementById('ch-count').textContent = chNodes.length
+  document.getElementById('ch-key-count').textContent = chKeys.length
+}
+function chAddNode() {
+  if (chNodes.length >= 7) { document.getElementById('ch-info').innerHTML = '<strong>Max 7 nos pra ficar visualmente claro.</strong>'; return }
+  const newAngle = Math.floor(Math.random() * 360)
+  const letter = String.fromCharCode(65 + chNodes.length)
+  // Calculate which keys move
+  const before = chKeys.map(k => chOwner(k.angle).name)
+  chNodes.push({ angle: newAngle, name: letter })
+  const after = chKeys.map(k => chOwner(k.angle).name)
+  const moved = before.filter((b, i) => b !== after[i]).length
+  chRender()
+  document.getElementById('ch-info').innerHTML = `<strong>Adicionou no ${letter}.</strong> ${moved} de ${chKeys.length} chaves migraram. Apenas as que caem no arco entre o no anterior e ${letter}.`
+}
+function chRemoveNode() {
+  if (chNodes.length <= 2) { document.getElementById('ch-info').innerHTML = '<strong>Min 2 nos.</strong>'; return }
+  const removed = chNodes.pop()
+  const before = chKeys.map(k => chOwner(k.angle).name)
+  chRender()
+  const after = chKeys.map(k => chOwner(k.angle).name)
+  const moved = before.filter((b, i) => b !== after[i]).length
+  document.getElementById('ch-info').innerHTML = `<strong>Removeu no ${removed.name}.</strong> ${moved} de ${chKeys.length} chaves migraram pro proximo no horario. Outras nao foram tocadas.`
+}
+function chAddKey() {
+  if (chKeys.length >= 12) { document.getElementById('ch-info').innerHTML = '<strong>Max 12 chaves pra visualizacao.</strong>'; return }
+  const newAngle = Math.floor(Math.random() * 360)
+  const label = 'k' + (chKeys.length + 1)
+  chKeys.push({ angle: newAngle, label })
+  chRender()
+  const owner = chOwner(newAngle)
+  document.getElementById('ch-info').innerHTML = `<strong>Adicionou ${label}.</strong> Caiu no ${Math.round(newAngle)}deg, vai pro proximo no horario: <code>${owner.name}</code>.`
+}
+function chReset() {
+  chNodes = [{ angle: 30, name: 'A' }, { angle: 150, name: 'B' }, { angle: 270, name: 'C' }]
+  chKeys = [{ angle: 80, label: 'k1' }, { angle: 110, label: 'k2' }, { angle: 200, label: 'k3' }, { angle: 240, label: 'k4' }, { angle: 320, label: 'k5' }]
+  chRender()
+  document.getElementById('ch-info').innerHTML = 'Comece com 3 nos. Adiciona um quarto e ve quantas chaves precisaram ser realocadas — so a fatia entre o no anterior e o novo.'
+}
+chRender()
+
+/* =========================================================
+ * 10 OSI
+ * ========================================================= */
+function osiPick(el, info) {
+  document.querySelectorAll('.osi-row').forEach(r => r.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById('osi-info').innerHTML = info
+}
+
+</script>
+</body>
+</html>

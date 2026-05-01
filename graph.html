@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Grafo de Pre-requisitos — CareerStudy</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .graph-layout {
+    display: grid; gap: 24px;
+    grid-template-columns: 1fr 300px;
+    align-items: start;
+  }
+  @media (max-width: 1024px) { .graph-layout { grid-template-columns: 1fr; } }
+
+  .graph-toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .graph-toolbar .pill { cursor: pointer; }
+  .graph-toolbar .ck {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--fg-mute);
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+  }
+  .graph-toolbar .ck input { accent-color: var(--scarlet); }
+  .graph-toolbar .ck:hover { color: var(--fg); }
+  .graph-toolbar .zoom-btns { display: inline-flex; gap: 4px; }
+  .graph-toolbar .zoom-btns .btn { padding: 8px 12px; font-size: 12px; }
+
+  .graph-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    height: 720px;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(239,68,68,.04), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(168,85,247,.04), transparent 50%);
+  }
+  .graph-wrap svg {
+    display: block;
+    width: 100%; height: 100%;
+    cursor: grab;
+    user-select: none;
+  }
+  .graph-wrap svg.panning { cursor: grabbing; }
+
+  /* Edges */
+  .edge {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.18);
+    stroke-width: 1.2;
+    transition: stroke .2s, stroke-width .2s, opacity .2s;
+  }
+  .edge.dim { opacity: .15; }
+  .edge.hi  { stroke: var(--scarlet); stroke-width: 2; opacity: 1; }
+
+  /* Nodes */
+  .node { cursor: pointer; }
+  .node-bg {
+    fill: var(--bg-elev);
+    stroke: var(--line-2);
+    stroke-width: 1.4;
+    transition: stroke .2s, stroke-width .2s, fill .2s, filter .2s;
+  }
+  .node:hover .node-bg { stroke: var(--scarlet); stroke-width: 2; filter: drop-shadow(0 0 8px rgba(239,68,68,.45)); }
+  .node-label {
+    fill: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    pointer-events: none;
+    dominant-baseline: middle;
+  }
+  .node-pdot { pointer-events: none; }
+  .node.dim { opacity: .18; transition: opacity .2s; }
+  .node.hi .node-bg { stroke: var(--scarlet); stroke-width: 2.2; filter: drop-shadow(0 0 10px rgba(239,68,68,.6)); }
+
+  /* State-driven node colors via CSS vars set on node */
+  .node[data-state="lendo"] .node-bg,
+  .node[data-state="praticando"] .node-bg {
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { stroke-width: 1.4; }
+    50%      { stroke-width: 2.6; }
+  }
+
+  /* Level columns label (bg layer) */
+  .level-band-label {
+    fill: var(--fg-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .5;
+    pointer-events: none;
+  }
+  .level-band-line {
+    stroke: var(--line);
+    stroke-dasharray: 2 6;
+  }
+
+  /* Sidebar */
+  .gside { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 80px; align-self: start; }
+  .gside-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .gside-card h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .18em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .legend-rows { display: flex; flex-direction: column; gap: 8px; }
+  .legend-row {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg-mute);
+  }
+  .legend-row .swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-row .lbl-em { color: var(--fg); }
+
+  .gstats { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .gstat {
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .gstat .num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px; font-weight: 800;
+    color: var(--fg); letter-spacing: -.02em;
+  }
+  .gstat .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--fg-dim);
+    letter-spacing: .12em; text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .gstat.scarlet .num { color: var(--scarlet); }
+  .gstat.amber .num   { color: var(--amber); }
+  .gstat.blue .num    { color: var(--blue); }
+  .gstat.green .num   { color: var(--green); }
+
+  .blockers { display: flex; flex-direction: column; gap: 6px; }
+  .blocker {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-decoration: none; color: inherit;
+    transition: border-color .15s, transform .15s;
+  }
+  .blocker:hover { border-color: var(--scarlet); transform: translateX(2px); }
+  .blocker .rank {
+    color: var(--fg-dim); font-size: 10px;
+    width: 18px; text-align: right;
+  }
+  .blocker img { width: 14px; height: 14px; }
+  .blocker .nm { flex: 1; color: var(--fg); }
+  .blocker .ct {
+    color: var(--scarlet); font-size: 10px;
+    background: var(--scarlet-soft);
+    padding: 2px 6px; border-radius: 4px;
+  }
+
+  .hover-card {
+    position: absolute;
+    pointer-events: none;
+    background: var(--bg-elev);
+    border: 1px solid var(--scarlet);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--fg);
+    box-shadow: 0 12px 32px rgba(0,0,0,.55), 0 0 12px var(--scarlet-glow);
+    z-index: 10;
+    max-width: 240px;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity .12s, transform .12s;
+  }
+  .hover-card.show { opacity: 1; transform: translateY(0); }
+  .hover-card .hc-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: var(--fg); margin-bottom: 4px;
+  }
+  .hover-card .hc-meta {
+    font-size: 10px; color: var(--fg-dim);
+    letter-spacing: .04em;
+    margin-bottom: 6px;
+  }
+  .hover-card .hc-row { color: var(--fg-mute); margin-top: 4px; }
+  .hover-card .hc-row b { color: var(--scarlet); }
+
+  .empty-graph {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--fg-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  /* Filter bar inside graph */
+  .filterbar.compact { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="shell-wide">
+
+  <div id="nav"></div>
+
+  <p class="hdr-label"><span class="ln"></span> grafo de pre-requisitos</p>
+  <h1>Ordem natural de <em>aprendizado</em></h1>
+  <p class="desc">
+    Cada no e uma skill. As setas vao do <strong style="color:var(--fg)">pre-requisito</strong> para o <strong style="color:var(--fg)">dependente</strong> — siga as flechas para descobrir o que estudar antes do que.
+    Nos sao posicionados em colunas por profundidade (nivel 0 nao tem pre-req, nivel maior depende em cadeia).
+    Cores indicam progresso. <strong style="color:var(--fg)">Hover</strong> destaca a cadeia, <strong style="color:var(--fg)">click</strong> abre o detalhe da skill.
+  </p>
+
+  <div class="filterbar compact">
+    <input type="text" id="search" class="search" placeholder="buscar skill — ex: react, postgres, kafka">
+    <span class="pill active" data-pfilter="todas-p">todas</span>
+    <span class="pill" data-pfilter="p1">p1</span>
+    <span class="pill" data-pfilter="p2">p2</span>
+    <span class="pill" data-pfilter="p3">p3</span>
+  </div>
+
+  <div class="filterbar compact" id="cat-bar">
+    <span class="pill active" data-cfilter="todas">todas categorias</span>
+    <!-- cat pills injected -->
+  </div>
+
+  <div class="graph-toolbar">
+    <label class="ck"><input type="checkbox" id="ck-all" /> mostrar skills sem dependencias</label>
+    <label class="ck"><input type="checkbox" id="ck-labels" checked /> mostrar nomes</label>
+    <span style="flex:1"></span>
+    <div class="zoom-btns">
+      <button class="btn" id="zoom-out" title="zoom out">−</button>
+      <button class="btn" id="zoom-in"  title="zoom in">+</button>
+      <button class="btn ghost" id="zoom-reset" title="reset">reset</button>
+    </div>
+  </div>
+
+  <div class="graph-layout">
+    <div class="graph-wrap" id="graph-wrap">
+      <svg id="graph" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(148,163,184,0.45)"/>
+          </marker>
+          <marker id="arrow-hi" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/>
+          </marker>
+        </defs>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+        <g id="bands"></g>
+      </svg>
+      <div class="hover-card" id="hover-card"></div>
+    </div>
+
+    <aside class="gside">
+      <div class="gside-card">
+        <h4>Estado de progresso</h4>
+        <div class="legend-rows" id="legend-rows"></div>
+      </div>
+
+      <div class="gside-card">
+        <h4>Estatisticas</h4>
+        <div class="gstats">
+          <div class="gstat scarlet"><div class="num" id="g-nodes">—</div><div class="lbl">nos</div></div>
+          <div class="gstat blue"><div class="num" id="g-edges">—</div><div class="lbl">arestas</div></div>
+          <div class="gstat amber"><div class="num" id="g-depth">—</div><div class="lbl">profundidade</div></div>
+          <div class="gstat green"><div class="num" id="g-roots">—</div><div class="lbl">raizes</div></div>
+        </div>
+      </div>
+
+      <div class="gside-card">
+        <h4>Top 5 skills bloqueantes</h4>
+        <p style="font-size:11px;color:var(--fg-dim);margin-bottom:10px;line-height:1.55">
+          Skills que destrancam o maior numero de outras. Estudar essas primeiro gera maior aceleracao.
+        </p>
+        <div class="blockers" id="blockers"></div>
+      </div>
+    </aside>
+  </div>
+
+</div>
+
+<script src="assets/skills-data.js"></script>
+<script src="assets/progress.js"></script>
+<script src="assets/nav.js"></script>
+<script>
+;(function() {
+if (!window.SKILLS || !window.PROGRESS) {
+  renderNav && renderNav('graph')
+  document.getElementById('graph-wrap').innerHTML = `<div class="empty-graph" style="flex-direction:column;gap:12px;padding:40px;text-align:center">
+    <span style="color:var(--scarlet);font-size:15px;font-weight:700">Scripts bloqueados via file://</span>
+    <span style="color:var(--fg-dim)">Abra o terminal e rode: <code style="color:var(--green)">./start.sh</code></span>
+    <span style="color:var(--fg-dim)">ou: python3 -m http.server 8080 → abrir http://localhost:8080</span>
+  </div>`
+  return
+}
+const { CATEGORIES, ALL_SKILLS, SKILL_BY_SLUG, DEPENDENCIES, iconUrl } = window.SKILLS
+const P = window.PROGRESS
+
+// ---------- Graph state ----------
+let state = {
+  pFilter: 'todas-p',
+  cFilter: 'todas',
+  q: '',
+  showAll: false,
+  showLabels: true,
+  zoom: 1,
+  panX: 0,
+  panY: 0,
+  hoverSlug: null,
+}
+
+// ---------- Build adjacency ----------
+// fwd[a] = list of skills that REQUIRE a (dependents)
+// bwd[a] = list of skills a requires (its prereqs) — same as DEPENDENCIES
+const fwd = {}
+const bwd = {}
+for (const s of ALL_SKILLS) { fwd[s.slug] = []; bwd[s.slug] = [] }
+for (const [dep, prereqs] of Object.entries(DEPENDENCIES)) {
+  if (!SKILL_BY_SLUG[dep]) continue
+  for (const pr of prereqs) {
+    if (!SKILL_BY_SLUG[pr]) continue
+    fwd[pr].push(dep)
+    bwd[dep].push(pr)
+  }
+}
+
+// ---------- Compute level (longest path from leaves) ----------
+const level = {}
+function computeLevel(slug, stack) {
+  if (level[slug] !== undefined) return level[slug]
+  if (stack.has(slug)) return 0  // cycle guard (shouldn't happen but safe)
+  stack.add(slug)
+  const prereqs = bwd[slug] || []
+  let lv = 0
+  for (const p of prereqs) {
+    lv = Math.max(lv, computeLevel(p, stack) + 1)
+  }
+  stack.delete(slug)
+  level[slug] = lv
+  return lv
+}
+for (const s of ALL_SKILLS) computeLevel(s.slug, new Set())
+
+// ---------- Determine nodes to show ----------
+function eligibleSlugs() {
+  const elig = new Set()
+  for (const s of ALL_SKILLS) {
+    const hasEdge = (fwd[s.slug].length + bwd[s.slug].length) > 0
+    if (state.showAll || hasEdge) elig.add(s.slug)
+  }
+  return elig
+}
+
+function passesFilters(s) {
+  if (state.pFilter === 'p1' && s.p !== 1) return false
+  if (state.pFilter === 'p2' && s.p !== 2) return false
+  if (state.pFilter === 'p3' && s.p !== 3) return false
+  if (state.cFilter !== 'todas' && s.cat !== state.cFilter) return false
+  if (state.q && !s.name.toLowerCase().includes(state.q)) return false
+  return true
+}
+
+// ---------- Layout ----------
+// Columns by level. Inside each column, sort by category then name. Compact rows.
+const COL_W = 220
+const ROW_H = 44
+const NODE_W = 188
+const NODE_H = 34
+const PAD_X = 60
+const PAD_Y = 60
+const BAND_GAP = 24
+
+// CATEGORY ORDER reflects CATEGORIES array
+const CAT_ORDER = CATEGORIES.map(c => c.key)
+const CAT_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.key, c.label]))
+
+function layoutNodes(slugs) {
+  // group by level
+  const byLevel = {}
+  let maxLevel = 0
+  for (const slug of slugs) {
+    const lv = level[slug]
+    maxLevel = Math.max(maxLevel, lv)
+    ;(byLevel[lv] = byLevel[lv] || []).push(slug)
+  }
+  // sort each column by category index then alphabetical name
+  for (const lv of Object.keys(byLevel)) {
+    byLevel[lv].sort((a, b) => {
+      const sa = SKILL_BY_SLUG[a], sb = SKILL_BY_SLUG[b]
+      const ca = CAT_ORDER.indexOf(sa.cat), cb = CAT_ORDER.indexOf(sb.cat)
+      if (ca !== cb) return ca - cb
+      return sa.name.localeCompare(sb.name)
+    })
+  }
+  const positions = {}
+  for (let lv = 0; lv <= maxLevel; lv++) {
+    const col = byLevel[lv] || []
+    col.forEach((slug, i) => {
+      positions[slug] = {
+        x: PAD_X + lv * COL_W,
+        y: PAD_Y + i * ROW_H,
+        lv,
+      }
+    })
+  }
+  // compute total bounds
+  const cols = Array.from({ length: maxLevel + 1 }, (_, i) => (byLevel[i] || []).length)
+  const maxRows = Math.max(1, ...cols)
+  return {
+    positions, byLevel, maxLevel,
+    width:  PAD_X * 2 + (maxLevel + 1) * COL_W,
+    height: PAD_Y * 2 + maxRows * ROW_H,
+  }
+}
+
+// ---------- Render legend ----------
+function renderLegend() {
+  const states = [
+    ['pendente', 'pendente', 'ainda nao comecei'],
+    ['lendo', 'lendo', 'estudando teoria'],
+    ['praticando', 'praticando', 'aplicando em codigo'],
+    ['domino', 'domino', 'sei explicar em entrevista'],
+    ['revisar', 'revisar', 'preciso revisitar'],
+  ]
+  document.getElementById('legend-rows').innerHTML = states.map(([k, lbl, desc]) => `
+    <div class="legend-row">
+      <span class="swatch" style="background:${P.STATE_COLOR[k]}"></span>
+      <span class="lbl-em">${lbl}</span>
+      <span style="color:var(--fg-dim)">— ${desc}</span>
+    </div>
+  `).join('')
+}
+
+// ---------- Render category pills ----------
+function renderCatBar() {
+  const bar = document.getElementById('cat-bar')
+  const pills = CATEGORIES.map(c =>
+    `<span class="pill" data-cfilter="${c.key}">${c.label.toLowerCase()}</span>`
+  ).join('')
+  bar.insertAdjacentHTML('beforeend', pills)
+  bar.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      bar.querySelectorAll('.pill').forEach(x => x.classList.remove('active'))
+      p.classList.add('active')
+      state.cFilter = p.dataset.cfilter
+      renderGraph()
+    })
+  })
+}
+
+// ---------- Render top blockers ----------
+function renderBlockers() {
+  // count transitive dependents per slug — but for simplicity use direct out-degree
+  const ranked = ALL_SKILLS
+    .map(s => ({ s, count: (fwd[s.slug] || []).length }))
+    .filter(x => x.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+  document.getElementById('blockers').innerHTML = ranked.map((r, i) => {
+    const url = iconUrl(r.s.name)
+    return `<a class="blocker" href="skill.html?s=${r.s.slug}">
+      <span class="rank">${i + 1}</span>
+      ${url ? `<img src="${url}" alt="">` : ''}
+      <span class="nm">${r.s.name}</span>
+      <span class="ct">${r.count} deps</span>
+    </a>`
+  }).join('') || `<p style="font-size:11px;color:var(--fg-dim)">Nenhuma skill bloqueante.</p>`
+}
+
+// ---------- Render graph ----------
+let layout = null
+
+function renderGraph() {
+  // collect eligible slugs that pass filters
+  const elig = eligibleSlugs()
+  const visibleSet = new Set()
+  for (const s of ALL_SKILLS) {
+    if (!elig.has(s.slug)) continue
+    if (passesFilters(s)) visibleSet.add(s.slug)
+  }
+
+  layout = layoutNodes(visibleSet)
+  const { positions, byLevel, maxLevel, width, height } = layout
+
+  // Stats
+  document.getElementById('g-nodes').textContent = visibleSet.size
+  let edgeCount = 0
+  for (const slug of visibleSet) {
+    for (const pr of (bwd[slug] || [])) if (visibleSet.has(pr)) edgeCount++
+  }
+  document.getElementById('g-edges').textContent = edgeCount
+  let depth = 0
+  for (const slug of visibleSet) depth = Math.max(depth, level[slug] + 1)
+  document.getElementById('g-depth').textContent = depth
+  let roots = 0
+  for (const slug of visibleSet) if ((bwd[slug] || []).filter(p => visibleSet.has(p)).length === 0) roots++
+  document.getElementById('g-roots').textContent = roots
+
+  // SVG sizing — set viewBox to logical bounds, apply zoom/pan via transform
+  const svg = document.getElementById('graph')
+  svg.setAttribute('viewBox', `0 0 ${Math.max(width, 800)} ${Math.max(height, 600)}`)
+
+  const bandsEl = document.getElementById('bands')
+  const edgesEl = document.getElementById('edges')
+  const nodesEl = document.getElementById('nodes')
+
+  // Bands (level columns)
+  let bands = ''
+  for (let lv = 0; lv <= maxLevel; lv++) {
+    const cx = PAD_X + lv * COL_W + NODE_W / 2
+    const lbl = lv === 0 ? 'nivel 0 — base' : `nivel ${lv}`
+    bands += `
+      <line class="level-band-line" x1="${cx}" y1="${PAD_Y - BAND_GAP}" x2="${cx}" y2="${height - PAD_Y + BAND_GAP}" />
+      <text class="level-band-label" x="${cx}" y="${PAD_Y - BAND_GAP - 4}" text-anchor="middle">${lbl}</text>
+    `
+  }
+  bandsEl.innerHTML = bands
+
+  // Edges
+  let edges = ''
+  for (const slug of visibleSet) {
+    const sk = SKILL_BY_SLUG[slug]
+    const a = positions[slug]
+    for (const pr of (bwd[slug] || [])) {
+      if (!visibleSet.has(pr)) continue
+      const b = positions[pr]
+      // bezier from b (prereq) -> a (dependent)
+      const x1 = b.x + NODE_W
+      const y1 = b.y + NODE_H / 2
+      const x2 = a.x
+      const y2 = a.y + NODE_H / 2
+      const mx = (x1 + x2) / 2
+      const path = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`
+      edges += `<path class="edge" data-from="${pr}" data-to="${slug}" d="${path}" marker-end="url(#arrow)"></path>`
+    }
+  }
+  edgesEl.innerHTML = edges
+
+  // Nodes
+  let nodes = ''
+  for (const slug of visibleSet) {
+    const sk = SKILL_BY_SLUG[slug]
+    const pos = positions[slug]
+    const st = P.getState(slug)
+    const color = P.STATE_COLOR[st]
+    const url = iconUrl(sk.name)
+    const labelTxt = sk.name.length > 20 ? sk.name.slice(0, 19) + '…' : sk.name
+
+    const stateBg = st === 'domino'     ? 'rgba(34,197,94,.12)'
+                  : st === 'praticando' ? 'rgba(59,130,246,.10)'
+                  : st === 'lendo'      ? 'rgba(234,179,8,.10)'
+                  : st === 'revisar'    ? 'rgba(168,85,247,.10)'
+                  : 'var(--bg-elev)'
+
+    nodes += `
+      <g class="node" data-slug="${slug}" data-state="${st}" transform="translate(${pos.x},${pos.y})">
+        <rect class="node-bg" x="0" y="0" width="${NODE_W}" height="${NODE_H}" rx="8" ry="8"
+              fill="${stateBg}" style="stroke:${color === '#64748b' ? 'var(--line-2)' : color}"></rect>
+        <circle class="node-pdot" cx="10" cy="${NODE_H / 2}" r="3"
+                fill="${sk.p === 1 ? 'var(--scarlet)' : sk.p === 2 ? 'var(--amber)' : 'var(--slate)'}" />
+        ${url ? `<image x="20" y="${(NODE_H - 16) / 2}" width="16" height="16" href="${url}" />` : ''}
+        ${state.showLabels ? `<text class="node-label" x="${url ? 44 : 24}" y="${NODE_H / 2 + 1}">${labelTxt}</text>` : ''}
+      </g>
+    `
+  }
+  nodesEl.innerHTML = nodes
+
+  applyTransform()
+  attachNodeEvents()
+}
+
+// ---------- Zoom/pan ----------
+function applyTransform() {
+  const edgesEl = document.getElementById('edges')
+  const nodesEl = document.getElementById('nodes')
+  const bandsEl = document.getElementById('bands')
+  const t = `translate(${state.panX} ${state.panY}) scale(${state.zoom})`
+  edgesEl.setAttribute('transform', t)
+  nodesEl.setAttribute('transform', t)
+  bandsEl.setAttribute('transform', t)
+}
+
+function setupZoomPan() {
+  const wrap = document.getElementById('graph-wrap')
+  const svg = document.getElementById('graph')
+
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    const delta = -e.deltaY * 0.0015
+    const newZoom = Math.max(0.3, Math.min(3, state.zoom * (1 + delta)))
+    // zoom around mouse
+    const rect = svg.getBoundingClientRect()
+    const mx = e.clientX - rect.left
+    const my = e.clientY - rect.top
+    // convert mouse to logical coords, then adjust pan
+    const ratio = newZoom / state.zoom
+    state.panX = mx - (mx - state.panX) * ratio
+    state.panY = my - (my - state.panY) * ratio
+    state.zoom = newZoom
+    applyTransform()
+  }, { passive: false })
+
+  let dragging = false
+  let lastX = 0, lastY = 0
+  svg.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.node')) return // don't pan when grabbing a node
+    dragging = true; lastX = e.clientX; lastY = e.clientY
+    svg.classList.add('panning')
+  })
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return
+    state.panX += e.clientX - lastX
+    state.panY += e.clientY - lastY
+    lastX = e.clientX; lastY = e.clientY
+    applyTransform()
+  })
+  window.addEventListener('mouseup', () => {
+    dragging = false
+    svg.classList.remove('panning')
+  })
+
+  document.getElementById('zoom-in').addEventListener('click', () => {
+    state.zoom = Math.min(3, state.zoom * 1.2); applyTransform()
+  })
+  document.getElementById('zoom-out').addEventListener('click', () => {
+    state.zoom = Math.max(0.3, state.zoom / 1.2); applyTransform()
+  })
+  document.getElementById('zoom-reset').addEventListener('click', () => {
+    state.zoom = 1; state.panX = 0; state.panY = 0; applyTransform()
+  })
+}
+
+// ---------- Node interactions ----------
+function attachNodeEvents() {
+  const wrap = document.getElementById('graph-wrap')
+  const hover = document.getElementById('hover-card')
+
+  document.querySelectorAll('.node').forEach(node => {
+    const slug = node.dataset.slug
+    const sk = SKILL_BY_SLUG[slug]
+
+    node.addEventListener('mouseenter', (e) => {
+      state.hoverSlug = slug
+      highlightChain(slug)
+      // hover card
+      const ancestors = collectAncestors(slug)
+      const descendants = collectDescendants(slug)
+      const st = P.getState(slug)
+      hover.innerHTML = `
+        <div class="hc-name">${sk.name}</div>
+        <div class="hc-meta">${sk.catLabel} · P${sk.p} · ${P.STATE_FULL[st].split(' — ')[0]}</div>
+        <div class="hc-row"><b>${(bwd[slug] || []).length}</b> pre-requisitos diretos</div>
+        <div class="hc-row"><b>${(fwd[slug] || []).length}</b> dependentes diretos</div>
+        <div class="hc-row" style="margin-top:6px;font-size:10px;opacity:.75">cadeia: ${ancestors.size} ancestrais · ${descendants.size} descendentes</div>
+        <div class="hc-row" style="margin-top:6px;font-size:10px;color:var(--scarlet)">click para abrir →</div>
+      `
+      positionHoverCard(node, hover, wrap)
+      hover.classList.add('show')
+    })
+
+    node.addEventListener('mousemove', () => {
+      // keep card pinned to node corner; nothing to do
+    })
+
+    node.addEventListener('mouseleave', () => {
+      state.hoverSlug = null
+      clearHighlight()
+      hover.classList.remove('show')
+    })
+
+    node.addEventListener('click', () => {
+      location.href = `skill.html?s=${slug}`
+    })
+  })
+}
+
+function positionHoverCard(node, card, wrap) {
+  const r = node.getBoundingClientRect()
+  const wr = wrap.getBoundingClientRect()
+  let left = r.right - wr.left + 10
+  let top  = r.top  - wr.top
+  // overflow guard
+  if (left + 240 > wr.width) left = r.left - wr.left - 250
+  if (top + 120 > wr.height)  top = wr.height - 130
+  if (top < 4) top = 4
+  card.style.left = left + 'px'
+  card.style.top  = top  + 'px'
+}
+
+function collectAncestors(slug) {
+  const out = new Set()
+  const stack = [...(bwd[slug] || [])]
+  while (stack.length) {
+    const s = stack.pop()
+    if (out.has(s)) continue
+    out.add(s)
+    for (const p of (bwd[s] || [])) stack.push(p)
+  }
+  return out
+}
+function collectDescendants(slug) {
+  const out = new Set()
+  const stack = [...(fwd[slug] || [])]
+  while (stack.length) {
+    const s = stack.pop()
+    if (out.has(s)) continue
+    out.add(s)
+    for (const p of (fwd[s] || [])) stack.push(p)
+  }
+  return out
+}
+
+function highlightChain(slug) {
+  const anc = collectAncestors(slug)
+  const dec = collectDescendants(slug)
+  const all = new Set([slug, ...anc, ...dec])
+  document.querySelectorAll('.node').forEach(n => {
+    const s = n.dataset.slug
+    if (all.has(s)) {
+      n.classList.add('hi'); n.classList.remove('dim')
+    } else {
+      n.classList.add('dim'); n.classList.remove('hi')
+    }
+  })
+  document.querySelectorAll('.edge').forEach(ed => {
+    const f = ed.dataset.from, t = ed.dataset.to
+    if (all.has(f) && all.has(t)) {
+      ed.classList.add('hi'); ed.classList.remove('dim')
+      ed.setAttribute('marker-end', 'url(#arrow-hi)')
+    } else {
+      ed.classList.add('dim'); ed.classList.remove('hi')
+      ed.setAttribute('marker-end', 'url(#arrow)')
+    }
+  })
+}
+
+function clearHighlight() {
+  document.querySelectorAll('.node').forEach(n => { n.classList.remove('hi', 'dim') })
+  document.querySelectorAll('.edge').forEach(ed => {
+    ed.classList.remove('hi', 'dim')
+    ed.setAttribute('marker-end', 'url(#arrow)')
+  })
+}
+
+// ---------- Wire filters ----------
+document.getElementById('search').addEventListener('input', (e) => {
+  state.q = e.target.value.toLowerCase().trim()
+  renderGraph()
+})
+document.querySelectorAll('.filterbar [data-pfilter]').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.filterbar [data-pfilter]').forEach(x => x.classList.remove('active'))
+    p.classList.add('active')
+    state.pFilter = p.dataset.pfilter
+    renderGraph()
+  })
+})
+document.getElementById('ck-all').addEventListener('change', (e) => {
+  state.showAll = e.target.checked
+  renderGraph()
+})
+document.getElementById('ck-labels').addEventListener('change', (e) => {
+  state.showLabels = e.target.checked
+  renderGraph()
+})
+
+// ---------- Init ----------
+renderNav('graph')
+renderLegend()
+renderCatBar()
+renderBlockers()
+setupZoomPan()
+renderGraph()
+
+// keep graph in sync when progress changes elsewhere
+document.addEventListener('progress-change', () => {
+  renderBlockers()
+  renderGraph()
+})
+})() // IIFE
+</script>
+</body>
+</html>

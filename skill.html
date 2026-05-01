@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Skill — CareerStudy</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .skill-hd {
+    display: flex; align-items: flex-start; gap: 22px;
+    margin-bottom: 28px; padding-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .skill-hd .icon-wrap {
+    width: 72px; height: 72px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .skill-hd img { width: 40px; height: 40px; }
+  .skill-hd h1 { margin-bottom: 6px; }
+  .skill-hd .meta {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px;
+  }
+  .tagline {
+    font-size: 17px; color: var(--fg-mute);
+    line-height: 1.5; max-width: 700px;
+  }
+
+  .layout {
+    display: grid; gap: 32px;
+    grid-template-columns: 1fr 280px;
+  }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+
+  .main-col section { margin-bottom: 36px; }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .18em; text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label .ln { flex: 1; height: 1px; background: var(--scarlet); opacity: .15; }
+
+  .keypoints { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 720px) { .keypoints { grid-template-columns: 1fr; } }
+  .kp {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .kp h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: var(--scarlet); margin-bottom: 8px;
+  }
+  .kp p { font-size: 13.5px; color: var(--fg-mute); line-height: 1.65; }
+
+  .gotchas {
+    background: rgba(234,179,8,.05);
+    border: 1px solid rgba(234,179,8,.20);
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+  .gotchas h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; color: var(--amber);
+    margin-bottom: 10px; font-weight: 700;
+  }
+  .gotchas ul { list-style: none; }
+  .gotchas li {
+    font-size: 13.5px; color: var(--fg-mute);
+    line-height: 1.65; padding: 5px 0 5px 18px;
+    position: relative;
+  }
+  .gotchas li::before {
+    content: '!'; position: absolute; left: 0; top: 5px;
+    color: var(--amber); font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+
+  .qa { margin-bottom: 14px; }
+  .qa summary {
+    cursor: pointer; padding: 14px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 600;
+    list-style: none; transition: border-color .15s;
+  }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary:hover { border-color: var(--scarlet-soft); }
+  .qa[open] summary { border-color: var(--scarlet); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .qa .a {
+    background: var(--bg-card-2);
+    border: 1px solid var(--scarlet);
+    border-top: none;
+    border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;
+    padding: 16px 18px;
+    font-size: 13.5px; color: var(--fg);
+    line-height: 1.7;
+  }
+  .qa .a p { margin-bottom: 10px; }
+  .qa .a p:last-child { margin-bottom: 0; }
+  .qa .a code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-elev); padding: 2px 6px;
+    border-radius: 4px; font-size: .92em; color: var(--scarlet);
+  }
+  .qa .q-prefix {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .12em; margin-right: 10px;
+  }
+
+  .resources { display: flex; flex-direction: column; gap: 8px; }
+  .res {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    transition: all .15s;
+    text-decoration: none; color: inherit;
+  }
+  .res:hover { border-color: var(--scarlet); transform: translateX(2px); }
+  .res .kind {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 3px 7px;
+    border-radius: 4px; text-transform: uppercase;
+    letter-spacing: .1em;
+    background: var(--bg-elev); color: var(--fg-dim);
+  }
+  .res .kind.docs { background: rgba(59,130,246,.15); color: var(--blue); }
+  .res .kind.video { background: rgba(239,68,68,.15); color: var(--scarlet); }
+  .res .kind.curso { background: rgba(168,85,247,.15); color: var(--violet); }
+  .res .kind.artigo { background: rgba(34,197,94,.15); color: var(--green); }
+  .res .kind.livro { background: rgba(234,179,8,.15); color: var(--amber); }
+  .res .kind.pratica { background: rgba(20,184,166,.15); color: #14b8a6; }
+  .res .title { flex: 1; font-size: 13.5px; }
+  .res .ext { color: var(--fg-dim); font-size: 11px; }
+
+  /* Sidebar */
+  .side { position: sticky; top: 80px; align-self: start; display: flex; flex-direction: column; gap: 16px; }
+  .side-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .side-card h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .18em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .state-picker { display: flex; flex-direction: column; gap: 6px; }
+  .state-opt {
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg-card-2);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .state-opt:hover { border-color: var(--line-2); }
+  .state-opt.active { border-width: 1px; }
+  .state-opt[data-state="pendente"].active   { border-color: var(--slate);   color: var(--slate); }
+  .state-opt[data-state="lendo"].active      { border-color: var(--amber);   color: var(--amber);   background: rgba(234,179,8,.06); }
+  .state-opt[data-state="praticando"].active { border-color: var(--blue);    color: var(--blue);    background: rgba(59,130,246,.06); }
+  .state-opt[data-state="domino"].active     { border-color: var(--green);   color: var(--green);   background: rgba(34,197,94,.06); }
+  .state-opt[data-state="revisar"].active    { border-color: var(--violet);  color: var(--violet);  background: rgba(168,85,247,.06); }
+  .state-opt .swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+  .deps-list { display: flex; flex-direction: column; gap: 6px; }
+  .dep {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 6px;
+    background: var(--bg-card-2); border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-decoration: none; color: inherit;
+    transition: border-color .15s;
+  }
+  .dep:hover { border-color: var(--scarlet-soft); }
+  .dep .swatch { width: 7px; height: 7px; border-radius: 50%; }
+
+  textarea.notes {
+    width: 100%; background: var(--bg-card-2);
+    border: 1px solid var(--line); border-radius: 8px;
+    color: var(--fg); padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; resize: vertical; min-height: 90px;
+  }
+  textarea.notes:focus { outline: none; border-color: var(--scarlet); }
+
+  .audio-bar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 24px;
+  }
+  .audio-bar .btn { font-size: 11px; }
+
+  .audio-ind {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .1em;
+  }
+  .audio-ind::before {
+    content: '';
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--scarlet);
+    animation: audio-pulse 1s ease-in-out infinite;
+  }
+  .audio-ind.paused::before { animation: none; opacity: .4; }
+  @keyframes audio-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .3; transform: scale(.7); }
+  }
+
+  .empty {
+    background: var(--bg-card);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 36px;
+    text-align: center;
+    color: var(--fg-dim);
+    font-size: 14px;
+  }
+  .empty strong { color: var(--fg); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div id="nav"></div>
+  <a href="skills-study.html" class="back">← voltar pro mapa</a>
+
+  <div id="content"></div>
+
+</div>
+
+<script src="assets/skills-data.js"></script>
+<script src="assets/skill-content.js"></script>
+<script src="assets/progress.js"></script>
+<script src="assets/nav.js"></script>
+<!-- conteudo gerado pelos agentes (cada batch registra em window.SKILL_CONTENT) -->
+<script src="content/frontend.js" onerror="this.remove()"></script>
+<script src="content/backend.js" onerror="this.remove()"></script>
+<script src="content/database.js" onerror="this.remove()"></script>
+<script src="content/cloud.js" onerror="this.remove()"></script>
+<script src="content/devops.js" onerror="this.remove()"></script>
+<script src="content/obs.js" onerror="this.remove()"></script>
+<script src="content/ai.js" onerror="this.remove()"></script>
+<script src="content/arch.js" onerror="this.remove()"></script>
+<script src="content/cs.js" onerror="this.remove()"></script>
+<script src="content/sec.js" onerror="this.remove()"></script>
+<script src="content/soft.js" onerror="this.remove()"></script>
+<script>
+;(function() {
+if (!window.SKILLS || !window.PROGRESS) {
+  document.getElementById('content').innerHTML = `<div class="empty"><b style="color:var(--scarlet)">Scripts bloqueados via file://</b><br><br>Abra via servidor local: <code style="color:var(--green)">./start.sh</code></div>`
+  return
+}
+const { ALL_SKILLS, SKILL_BY_SLUG, DEPENDENCIES, iconUrl } = window.SKILLS
+const P = window.PROGRESS
+const SC = window.SKILL_CONTENT_HELPERS
+
+const params = new URLSearchParams(location.search)
+const slug = params.get('s')
+const skill = slug ? SKILL_BY_SLUG[slug] : null
+
+// Find dependents (skills that depend on this one)
+function dependents(slug) {
+  const out = []
+  for (const [k, deps] of Object.entries(DEPENDENCIES)) {
+    if (deps.includes(slug) && SKILL_BY_SLUG[k]) out.push(k)
+  }
+  return out
+}
+
+function pickState(slug, target) {
+  P.setState(slug, target)
+  document.querySelectorAll('.state-opt').forEach(b => {
+    b.classList.toggle('active', b.dataset.state === target)
+  })
+}
+
+function _setAudioState(s) {
+  const pauseBtn = document.getElementById('btn-pause')
+  const stopBtn  = document.getElementById('btn-stop')
+  const ind      = document.getElementById('audio-ind')
+  if (!pauseBtn) return
+  if (s === 'idle') {
+    pauseBtn.style.display = 'none'
+    stopBtn.style.display  = 'none'
+    if (ind) ind.style.display = 'none'
+  } else {
+    pauseBtn.style.display = ''
+    stopBtn.style.display  = ''
+    if (ind) { ind.style.display = ''; ind.className = 'audio-ind' + (s === 'paused' ? ' paused' : '') }
+    pauseBtn.textContent = s === 'paused' ? '▶ retomar' : '⏸ pausar'
+    if (ind) ind.lastChild.textContent = s === 'paused' ? ' pausado' : ' tocando'
+  }
+}
+
+function _speak(text) {
+  if (!('speechSynthesis' in window)) { alert('Audio nao suportado neste navegador'); return }
+  speechSynthesis.cancel()
+  const utt = new SpeechSynthesisUtterance(text)
+  utt.lang = 'pt-BR'
+  utt.rate = 1.05
+  utt.onstart   = () => _setAudioState('speaking')
+  utt.onend     = () => _setAudioState('idle')
+  utt.onerror   = () => _setAudioState('idle')
+  utt.onpause   = () => _setAudioState('paused')
+  utt.onresume  = () => _setAudioState('speaking')
+  speechSynthesis.speak(utt)
+  _setAudioState('speaking')
+}
+
+function speakAll()          { _speak(document.getElementById('content').innerText) }
+function speakSummary(text)  { _speak(text) }
+function togglePause() {
+  if (speechSynthesis.paused)   { speechSynthesis.resume() }
+  else if (speechSynthesis.speaking) { speechSynthesis.pause() }
+}
+function stopSpeak() { speechSynthesis.cancel(); _setAudioState('idle') }
+
+function renderNotFound(slug) {
+  document.getElementById('content').innerHTML = `
+    <div class="empty">
+      <h2 style="color:var(--fg);margin-bottom:8px">Skill nao encontrada</h2>
+      <p>Slug <code style="color:var(--scarlet)">${slug || '(vazio)'}</code> nao existe no mapa.</p>
+      <p style="margin-top:12px"><a href="skills-study.html" style="color:var(--scarlet)">← voltar pro mapa</a></p>
+    </div>`
+}
+
+function renderEmptyContent(skill) {
+  const url = iconUrl(skill.name)
+  return `
+    <div class="skill-hd">
+      <div class="icon-wrap">${url ? `<img src="${url}" alt="">` : '◇'}</div>
+      <div>
+        <h1>${skill.name}</h1>
+        <p class="tagline">Conteudo didatico ainda nao foi gerado pra essa skill.</p>
+        <div class="meta">
+          <span class="tag p${skill.p}">P${skill.p}</span>
+          <span class="tag">${skill.catLabel}</span>
+        </div>
+      </div>
+    </div>
+    ${renderSidebar(skill, /*no content*/ true)}
+    <div class="empty" style="margin-top:24px">
+      <p>Sem conteudo ainda — mas voce ja pode <strong>marcar progresso</strong> no painel ao lado.</p>
+      <p style="margin-top:10px;font-size:12px">
+        Os agentes geram conteudo em batches por categoria. Para esta skill ainda nao rodou.
+      </p>
+    </div>`
+}
+
+function renderSidebar(skill, isolated) {
+  const cur = P.getState(skill.slug)
+  const note = P.getNote(skill.slug) || ''
+  const deps = (DEPENDENCIES[skill.slug] || []).filter(d => SKILL_BY_SLUG[d])
+  const dependentsList = dependents(skill.slug)
+  const states = ['pendente', 'lendo', 'praticando', 'domino', 'revisar']
+
+  const sideHTML = `
+    <aside class="side">
+      <div class="side-card">
+        <h4>Progresso</h4>
+        <div class="state-picker">
+          ${states.map(st => `
+            <div class="state-opt ${st === cur ? 'active' : ''}" data-state="${st}" onclick="pickState('${skill.slug}', '${st}')">
+              <span class="swatch" style="background:${P.STATE_COLOR[st]}"></span>
+              ${P.STATE_FULL[st].split(' — ')[0]}
+              <span style="margin-left:auto;font-size:9px;opacity:.6">${P.STATE_FULL[st].split(' — ')[1] || ''}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="side-card">
+        <h4>Notas pessoais</h4>
+        <textarea class="notes" id="notes" placeholder="Anotacoes, exemplos, links que voce coletou...">${note.replace(/</g,'&lt;')}</textarea>
+      </div>
+
+      ${deps.length ? `
+      <div class="side-card">
+        <h4>Pre-requisitos</h4>
+        <div class="deps-list">
+          ${deps.map(d => {
+            const sk = SKILL_BY_SLUG[d]
+            const st = P.getState(d)
+            return `<a class="dep" href="skill.html?s=${d}">
+              <span class="swatch" style="background:${P.STATE_COLOR[st]}"></span>${sk.name}
+            </a>`
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      ${dependentsList.length ? `
+      <div class="side-card">
+        <h4>Habilita estudar</h4>
+        <div class="deps-list">
+          ${dependentsList.slice(0, 8).map(d => {
+            const sk = SKILL_BY_SLUG[d]
+            const st = P.getState(d)
+            return `<a class="dep" href="skill.html?s=${d}">
+              <span class="swatch" style="background:${P.STATE_COLOR[st]}"></span>${sk.name}
+            </a>`
+          }).join('')}
+        </div>
+      </div>` : ''}
+    </aside>`
+
+  return isolated
+    ? `<div class="layout"><div class="main-col"></div>${sideHTML}</div>`
+    : sideHTML
+}
+
+function renderFull(skill, content) {
+  const url = iconUrl(skill.name)
+  const kp = (content.keypoints || []).map(k => `
+    <div class="kp">
+      <h4>${k.title}</h4>
+      <p>${k.body}</p>
+    </div>`).join('')
+  const got = (content.gotchas || []).map(g => `<li>${g}</li>`).join('')
+  const interview = (content.interview || []).map((qa, i) => `
+    <details class="qa">
+      <summary><span class="q-prefix">Q${(i + 1).toString().padStart(2, '0')}</span>${qa.q}</summary>
+      <div class="a">${qa.a}</div>
+    </details>`).join('')
+  const resources = (content.resources || []).map(r => `
+    <a class="res" href="${r.url}" target="_blank" rel="noopener">
+      <span class="kind ${r.kind || 'artigo'}">${r.kind || 'artigo'}</span>
+      <span class="title">${r.title}</span>
+      <span class="ext">↗</span>
+    </a>`).join('')
+
+  document.getElementById('content').innerHTML = `
+    <div class="skill-hd">
+      <div class="icon-wrap">${url ? `<img src="${url}" alt="">` : '◇'}</div>
+      <div>
+        <h1>${skill.name}</h1>
+        <p class="tagline">${content.tagline || ''}</p>
+        <div class="meta">
+          <span class="tag p${skill.p}">P${skill.p}</span>
+          <span class="tag">${skill.catLabel}</span>
+          ${content.diagram ? `<a class="tag" style="text-decoration:none" href="concepts.html#${content.diagram}">ver diagrama →</a>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="audio-bar">
+      <button class="btn" id="btn-all">▶ ouvir tudo</button>
+      <button class="btn ghost" id="btn-summary">ouvir resumo</button>
+      <button class="btn ghost" id="btn-pause" style="display:none">⏸ pausar</button>
+      <button class="btn ghost" id="btn-stop"  style="display:none">◼ parar</button>
+      <span id="audio-ind" class="audio-ind" style="display:none"> tocando</span>
+    </div>
+
+    <div class="layout">
+      <div class="main-col">
+        ${content.why ? `<section>
+          <p class="section-label"><span class="ln"></span> por que importa</p>
+          <p style="font-size:15px;color:var(--fg-mute);line-height:1.7">${content.why}</p>
+        </section>` : ''}
+
+        ${content.summary ? `<section>
+          <p class="section-label"><span class="ln"></span> overview</p>
+          <p style="font-size:15px;color:var(--fg);line-height:1.75">${content.summary}</p>
+        </section>` : ''}
+
+        ${kp ? `<section>
+          <p class="section-label"><span class="ln"></span> conceitos-chave</p>
+          <div class="keypoints">${kp}</div>
+        </section>` : ''}
+
+        ${got ? `<section>
+          <p class="section-label"><span class="ln"></span> armadilhas</p>
+          <div class="gotchas">
+            <h4>Pega-pega comum em entrevista</h4>
+            <ul>${got}</ul>
+          </div>
+        </section>` : ''}
+
+        ${interview ? `<section>
+          <p class="section-label"><span class="ln"></span> perguntas de entrevista</p>
+          ${interview}
+        </section>` : ''}
+
+        ${resources ? `<section>
+          <p class="section-label"><span class="ln"></span> recursos curados</p>
+          <div class="resources">${resources}</div>
+        </section>` : ''}
+      </div>
+
+      ${renderSidebar(skill, false)}
+    </div>`
+
+  // audio wiring (avoids inline-onclick HTML encoding issues)
+  document.getElementById('btn-all').addEventListener('click', speakAll)
+  document.getElementById('btn-summary').addEventListener('click', () => speakSummary(content.summary || ''))
+  document.getElementById('btn-pause').addEventListener('click', togglePause)
+  document.getElementById('btn-stop').addEventListener('click', stopSpeak)
+
+  // notes wiring
+  const notes = document.getElementById('notes')
+  if (notes) {
+    let timeout
+    notes.addEventListener('input', () => {
+      clearTimeout(timeout)
+      timeout = setTimeout(() => P.setNote(skill.slug, notes.value), 400)
+    })
+  }
+}
+
+function renderEmptySidebar(skill) {
+  document.getElementById('content').innerHTML = renderEmptyContent(skill)
+  // notes wiring
+  const notes = document.getElementById('notes')
+  if (notes) {
+    let timeout
+    notes.addEventListener('input', () => {
+      clearTimeout(timeout)
+      timeout = setTimeout(() => P.setNote(skill.slug, notes.value), 400)
+    })
+  }
+}
+
+function init() {
+  if (!skill) { renderNotFound(slug); return }
+  document.title = `${skill.name} — CareerStudy`
+
+  const content = SC.get(skill.slug)
+  if (content) renderFull(skill, content)
+  else renderEmptySidebar(skill)
+}
+
+renderNav('skills')
+init()
+
+window.pickState = pickState
+window.speakAll = speakAll
+window.speakSummary = speakSummary
+window.togglePause = togglePause
+window.stopSpeak = stopSpeak
+})()
+</script>
+</body>
+</html>

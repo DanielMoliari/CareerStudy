@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Rotina de estudo — CareerStudy</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    background: linear-gradient(135deg, rgba(239,68,68,.06), rgba(168,85,247,.04));
+    border: 1px solid var(--scarlet-soft);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 32px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 90% 10%, rgba(239,68,68,.14), transparent 55%);
+    pointer-events: none;
+  }
+  .hero h1 { margin-bottom: 14px; }
+  .hero .desc { margin-bottom: 0; max-width: 720px; }
+
+  /* ---------- Mode toggle ---------- */
+  .mode-toggle {
+    display: flex; gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px;
+    margin-bottom: 36px;
+    position: sticky; top: 80px; z-index: 30;
+    backdrop-filter: blur(8px);
+  }
+  .mode-toggle button {
+    flex: 1;
+    padding: 12px 16px;
+    background: transparent;
+    border: none; border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: .04em;
+    color: var(--fg-mute); cursor: pointer;
+    transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .mode-toggle button:hover { color: var(--fg); }
+  .mode-toggle button.active {
+    background: var(--scarlet); color: #fff;
+    box-shadow: 0 4px 14px rgba(239,68,68,.25);
+  }
+  .mode-toggle button .mt-sub {
+    font-size: 9px; opacity: .8;
+    letter-spacing: .12em; text-transform: uppercase;
+  }
+  .mode-toggle button.active .mt-sub { opacity: .9; }
+  @media (max-width: 640px) {
+    .mode-toggle { flex-direction: column; }
+    .mode-toggle button { justify-content: flex-start; }
+  }
+
+  /* ---------- Section label (reuse) ---------- */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .18em; text-transform: uppercase;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label .ln { flex: 1; height: 1px; background: var(--scarlet); opacity: .15; }
+
+  /* ---------- Philosophy ---------- */
+  .princ-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .princ {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    transition: border-color .2s, transform .2s;
+  }
+  .princ:hover { border-color: var(--line-2); transform: translateY(-2px); }
+  .princ .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .12em;
+    margin-bottom: 8px;
+  }
+  .princ h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px; font-weight: 700;
+    margin-bottom: 8px; line-height: 1.3;
+  }
+  .princ p {
+    font-size: 13px; color: var(--fg-mute);
+    line-height: 1.6;
+  }
+
+  /* ---------- Week calendar ---------- */
+  .week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 980px) {
+    .week { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 540px) {
+    .week { grid-template-columns: 1fr; }
+  }
+  .day {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-height: 280px;
+  }
+  .day-hd {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .day-hd .name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 13px;
+    color: var(--fg);
+    letter-spacing: -.01em;
+  }
+  .day-hd .total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--fg-dim);
+    letter-spacing: .08em;
+  }
+  .blk {
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--slate);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: all .15s;
+    cursor: default;
+  }
+  .blk:hover {
+    border-color: var(--line-2);
+    background: var(--bg-elev);
+  }
+  .blk .blk-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--fg-dim);
+    letter-spacing: .08em;
+    margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .blk .blk-type {
+    padding: 1px 6px; border-radius: 4px;
+    font-size: 8px; letter-spacing: .1em;
+    background: var(--bg-elev);
+    color: var(--fg-mute);
+    text-transform: uppercase;
+  }
+  .blk .blk-type.teoria   { color: var(--amber);  background: rgba(234,179,8,.1); }
+  .blk .blk-type.pratica  { color: var(--blue);   background: rgba(59,130,246,.1); }
+  .blk .blk-type.revisao  { color: var(--violet); background: rgba(168,85,247,.1); }
+  .blk .blk-type.system   { color: var(--scarlet);background: rgba(239,68,68,.1); }
+  .blk .blk-type.leitura  { color: var(--green);  background: rgba(34,197,94,.1); }
+  .blk-skills {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .blk-skills a {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg);
+    line-height: 1.3;
+    transition: color .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .blk-skills a:hover { color: var(--scarlet); }
+  .blk-skills a img { width: 11px; height: 11px; }
+
+  /* category color stripes */
+  .blk[data-cat="frontend"] { border-left-color: #60a5fa; }
+  .blk[data-cat="backend"]  { border-left-color: #34d399; }
+  .blk[data-cat="database"] { border-left-color: #fbbf24; }
+  .blk[data-cat="cloud"]    { border-left-color: #f97316; }
+  .blk[data-cat="devops"]   { border-left-color: #a78bfa; }
+  .blk[data-cat="obs"]      { border-left-color: #22d3ee; }
+  .blk[data-cat="ai"]       { border-left-color: #ef4444; }
+  .blk[data-cat="arch"]     { border-left-color: #f472b6; }
+  .blk[data-cat="cs"]       { border-left-color: #38bdf8; }
+  .blk[data-cat="sec"]      { border-left-color: #facc15; }
+  .blk[data-cat="soft"]     { border-left-color: #94a3b8; }
+  .blk[data-cat="mix"]      {
+    border-left: none;
+    border-image: linear-gradient(180deg, #60a5fa, #ef4444, #34d399) 1;
+    border-left: 3px solid;
+  }
+
+  /* week summary legend */
+  .cat-legend {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-dim);
+  }
+  .cat-legend .it {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    letter-spacing: .04em;
+  }
+  .cat-legend .it::before {
+    content: ''; width: 8px; height: 8px; border-radius: 2px;
+    background: var(--ck);
+  }
+
+  /* ---------- Daily ritual ---------- */
+  .ritual { display: flex; flex-direction: column; gap: 10px; }
+  .ritual details {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .ritual details[open] { border-color: var(--scarlet); }
+  .ritual summary {
+    cursor: pointer; padding: 16px 20px;
+    list-style: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 14px;
+    transition: background .15s;
+  }
+  .ritual summary::-webkit-details-marker { display: none; }
+  .ritual summary:hover { background: var(--bg-card-2); }
+  .ritual summary .r-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--scarlet);
+    background: var(--scarlet-soft);
+    padding: 4px 10px; border-radius: 6px;
+    letter-spacing: .08em;
+    flex-shrink: 0;
+  }
+  .ritual summary .r-arrow {
+    margin-left: auto; color: var(--fg-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; transition: transform .2s;
+  }
+  .ritual details[open] summary .r-arrow { transform: rotate(90deg); color: var(--scarlet); }
+  .ritual .r-body {
+    padding: 0 20px 18px 20px;
+    font-size: 13.5px; color: var(--fg-mute);
+    line-height: 1.7;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+  .ritual .r-body code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-elev); padding: 2px 6px;
+    border-radius: 4px; font-size: .92em; color: var(--scarlet);
+  }
+  .ritual .r-body ul { list-style: none; margin-top: 8px; }
+  .ritual .r-body li {
+    padding: 5px 0 5px 18px;
+    position: relative;
+  }
+  .ritual .r-body li::before {
+    content: '·'; position: absolute; left: 4px;
+    color: var(--scarlet); font-weight: 700;
+  }
+
+  /* ---------- Spaced repetition ---------- */
+  .review-list { display: flex; flex-direction: column; gap: 8px; }
+  .review-empty {
+    background: var(--bg-card);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 36px;
+    text-align: center;
+    color: var(--fg-dim);
+    font-size: 14px;
+  }
+  .review-empty strong { color: var(--fg); }
+  .rev {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: border-color .15s;
+  }
+  .rev:hover { border-color: var(--scarlet-soft); }
+  .rev img { width: 18px; height: 18px; flex-shrink: 0; }
+  .rev .rev-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; flex: 1;
+    color: var(--fg);
+  }
+  .rev .rev-state {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: .08em; text-transform: uppercase;
+  }
+  .rev .rev-age {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-dim);
+    letter-spacing: .04em;
+    min-width: 80px; text-align: right;
+  }
+  .rev .rev-action {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--scarlet);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .rev[data-suggest="praticar"] .rev-action { color: var(--blue); }
+  .rev[data-suggest="revisar"]  .rev-action { color: var(--violet); }
+
+  /* ---------- Interview banner ---------- */
+  .iv-banner {
+    background: linear-gradient(135deg, rgba(239,68,68,.10), rgba(168,85,247,.06));
+    border: 1px solid var(--scarlet);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .iv-banner .iv-pulse {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--scarlet);
+    box-shadow: 0 0 0 0 rgba(239,68,68,.6);
+    animation: pulse 1.8s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,.6); }
+    70%  { box-shadow: 0 0 0 12px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .iv-banner .iv-msg {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px; color: var(--fg);
+    line-height: 1.5;
+  }
+  .iv-banner .iv-msg strong { color: var(--scarlet); }
+
+  /* ---------- 4-week interview track ---------- */
+  .iv-weeks { display: flex; flex-direction: column; gap: 16px; }
+  .iv-week {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 26px;
+    transition: border-color .2s;
+    position: relative;
+  }
+  .iv-week:hover { border-color: var(--scarlet-soft); }
+  .iv-week .iv-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 6px;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .iv-week h3 {
+    margin-bottom: 0;
+    font-size: 17px;
+  }
+  .iv-week h3 em {
+    color: var(--scarlet); font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: .14em;
+    margin-right: 10px;
+  }
+  .iv-week .iv-focus {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-dim);
+    letter-spacing: .1em; text-transform: uppercase;
+  }
+  .iv-week .iv-desc {
+    font-size: 13.5px; color: var(--fg-mute);
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .iv-week .iv-skills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .iv-week .iv-skill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 11px;
+    background: var(--bg-card-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--fg);
+    transition: all .15s;
+  }
+  .iv-week .iv-skill:hover {
+    border-color: var(--scarlet);
+    color: var(--scarlet);
+    background: var(--scarlet-soft);
+  }
+  .iv-week .iv-skill img { width: 12px; height: 12px; }
+
+  .iv-week::before {
+    content: ''; position: absolute;
+    left: -1px; top: 22px; bottom: 22px;
+    width: 3px; border-radius: 3px;
+    background: var(--scarlet);
+    opacity: .8;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div id="nav"></div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <p class="hdr-label"><span class="ln"></span> rotina de estudo</p>
+    <h1>Cadencia <em>realista</em>.</h1>
+    <p class="desc">
+      60-90min/dia bem usados batem 4h no fim de semana — a curva de esquecimento nao perdoa
+      acumulo. Foco em P1 primeiro, mas com rotacao por categoria pra defender qualquer area
+      em entrevista. Teoria curta, exemplo escrito, defesa em voz alta.
+    </p>
+  </div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle" role="tablist">
+    <button id="m-routine" class="active" onclick="setMode('routine')">
+      Manutencao semanal
+      <span class="mt-sub">cadencia continua</span>
+    </button>
+    <button id="m-interview" onclick="setMode('interview')">
+      Modo entrevista — 4 semanas
+      <span class="mt-sub">trilha intensiva</span>
+    </button>
+  </div>
+
+  <!-- ============ ROUTINE MODE ============ -->
+  <div id="routine-mode">
+
+    <!-- Philosophy -->
+    <section>
+      <p class="section-label"><span class="ln"></span> filosofia</p>
+      <div class="princ-grid" id="princ-grid"></div>
+    </section>
+
+    <!-- Weekly plan -->
+    <section>
+      <p class="section-label"><span class="ln"></span> semana modelo · timeblocked</p>
+      <p class="desc" style="margin-bottom: 20px; max-width: 740px">
+        Distribuicao realista — 12 a 16 skills por semana com rotacao das 11 areas.
+        Click em qualquer skill abre o detalhe.
+      </p>
+
+      <div class="cat-legend" id="cat-legend"></div>
+
+      <div class="week" id="week"></div>
+    </section>
+
+    <!-- Daily ritual -->
+    <section>
+      <p class="section-label"><span class="ln"></span> ritual de 80min · expandir cada etapa</p>
+      <div class="ritual" id="ritual"></div>
+    </section>
+
+    <!-- Spaced repetition -->
+    <section>
+      <p class="section-label"><span class="ln"></span> spaced repetition · sugestoes de revisao</p>
+      <p class="desc" style="margin-bottom: 18px; max-width: 720px">
+        Baseado no <code style="background:var(--bg-elev);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.9em;color:var(--scarlet)">updatedAt</code>
+        de cada skill no progresso. Revisitar 3 dias / 1 semana / 1 mes mantem o conhecimento vivo.
+      </p>
+      <div id="review-list"></div>
+    </section>
+
+  </div>
+
+  <!-- ============ INTERVIEW MODE ============ -->
+  <div id="interview-mode" class="hidden">
+
+    <div class="iv-banner">
+      <span class="iv-pulse"></span>
+      <p class="iv-msg">
+        <strong>Trilha pra entrevista em 4 semanas.</strong>
+        Densa, focada nos topicos que mais caem. Pos isso, volta pro modo manutencao
+        pra nao esquecer.
+      </p>
+    </div>
+
+    <section>
+      <p class="section-label"><span class="ln"></span> 4 semanas · 8 horas/semana minimo</p>
+      <div class="iv-weeks" id="iv-weeks"></div>
+    </section>
+
+    <section>
+      <p class="section-label"><span class="ln"></span> ritmo diario sugerido</p>
+      <div class="ritual" id="ritual-iv"></div>
+    </section>
+
+  </div>
+
+</div>
+
+<script src="assets/skills-data.js"></script>
+<script src="assets/progress.js"></script>
+<script src="assets/nav.js"></script>
+<script>
+;(function() {
+if (!window.SKILLS || !window.PROGRESS) {
+  document.querySelector('.shell').insertAdjacentHTML('afterbegin', `<div style="background:#1a0000;border:1px solid #ef4444;border-radius:12px;padding:20px 24px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;margin-bottom:24px"><b style="color:#ef4444">Scripts bloqueados via file://</b> — rode <code style="color:#22c55e">./start.sh</code> e abra http://localhost:8080</div>`)
+  return
+}
+const { ALL_SKILLS, SKILL_BY_NAME, SKILL_BY_SLUG, iconUrl } = window.SKILLS
+const P = window.PROGRESS
+
+/* ---------- Philosophy data ---------- */
+const PRINCIPIOS = [
+  {
+    n: '01',
+    h: 'Pequeno e diario',
+    p: 'Sessao de 60-90min consistente bate maratona de 4h sabado. A curva de esquecimento (Ebbinghaus) preda quem estuda em rajadas.',
+  },
+  {
+    n: '02',
+    h: 'Teoria → exemplo → defender',
+    p: 'Cada P1 passa por tres camadas: leu o conceito, escreveu um exemplo proprio, conseguiu explicar em voz alta sem consultar.',
+  },
+  {
+    n: '03',
+    h: 'Spaced repetition',
+    p: 'Revisita o que estudou em 3 dias, 1 semana e 1 mes. O sistema sugere automaticamente baseado no <code>updatedAt</code>.',
+  },
+  {
+    n: '04',
+    h: 'System design 1x/semana',
+    p: 'Sabado de manha, 1h, 1 problema. Trace requisitos, calcule capacity, desenhe, justifique tradeoffs em texto.',
+  },
+  {
+    n: '05',
+    h: 'Pomodoro 25/5 ou Flowtime 50/10',
+    p: 'Pomodoro pro foco protegido. Flowtime quando o tema pede imersao mais longa (system design, debug de conceito).',
+  },
+  {
+    n: '06',
+    h: 'Feynman test',
+    p: 'Sempre escrever resumo proprio depois de estudar. Se nao consegue explicar simples, nao entendeu — volta pra fonte.',
+  },
+]
+
+function renderPrinc() {
+  document.getElementById('princ-grid').innerHTML = PRINCIPIOS.map(p => `
+    <div class="princ">
+      <div class="num">${p.n}</div>
+      <h4>${p.h}</h4>
+      <p>${p.p}</p>
+    </div>`).join('')
+}
+
+/* ---------- Find skill helper ---------- */
+function S(name) {
+  // tolerant lookup by exact name
+  return SKILL_BY_NAME[name] || null
+}
+function skillLink(name) {
+  const s = S(name)
+  if (!s) return `<span style="color:var(--fg-dim)">${name}</span>`
+  const url = iconUrl(s.name)
+  return `<a href="skill.html?s=${s.slug}">${url ? `<img src="${url}" alt="">` : ''}${s.name}</a>`
+}
+
+/* ---------- Weekly plan data ---------- */
+// blk: { time, type, cat, skills:[name], desc? }
+const WEEK = [
+  {
+    day: 'Segunda',
+    blocks: [
+      { time: '07:00 — 08:00', type: 'teoria', cat: 'cs',
+        skills: ['Algoritmos & DS', 'Big-O'] },
+      { time: '20:00 — 21:30', type: 'teoria', cat: 'frontend',
+        skills: ['Server Components (RSC)', 'React Query'] },
+    ],
+  },
+  {
+    day: 'Terca',
+    blocks: [
+      { time: '07:00 — 08:00', type: 'teoria', cat: 'backend',
+        skills: ['NestJS', 'Concurrency'] },
+      { time: '20:00 — 21:00', type: 'pratica', cat: 'backend',
+        skills: ['Caching Strategies'] },
+    ],
+  },
+  {
+    day: 'Quarta',
+    blocks: [
+      { time: '07:00 — 08:00', type: 'teoria', cat: 'database',
+        skills: ['MVCC', 'EXPLAIN ANALYZE'] },
+      { time: '20:30 — 21:30', type: 'pratica', cat: 'database',
+        skills: ['PostgreSQL'] },
+    ],
+  },
+  {
+    day: 'Quinta',
+    blocks: [
+      { time: '07:00 — 08:00', type: 'teoria', cat: 'cloud',
+        skills: ['IAM', 'VPC'] },
+      { time: '20:00 — 21:00', type: 'teoria', cat: 'cloud',
+        skills: ['AWS', 'Lambda'] },
+    ],
+  },
+  {
+    day: 'Sexta',
+    blocks: [
+      { time: '07:00 — 08:00', type: 'teoria', cat: 'ai',
+        skills: ['RAG', 'Function Calling'] },
+      { time: '20:00 — 20:45', type: 'leitura', cat: 'ai',
+        skills: ['Agentic Workflows', 'MCP'] },
+    ],
+  },
+  {
+    day: 'Sabado',
+    blocks: [
+      { time: '09:00 — 10:00', type: 'system', cat: 'arch',
+        skills: ['System Design', 'Tradeoff Analysis'] },
+      { time: '10:30 — 11:30', type: 'teoria', cat: 'arch',
+        skills: ['Clean Architecture', 'SOLID'] },
+      { time: '15:00 — 16:00', type: 'revisao', cat: 'mix',
+        skills: ['(skills marcadas como revisar)'] },
+    ],
+  },
+  {
+    day: 'Domingo',
+    blocks: [
+      { time: '10:00 — 10:45', type: 'leitura', cat: 'cs',
+        skills: ['TLS / HTTPS', 'TCP/IP & DNS'] },
+      { time: '11:00 — 11:30', type: 'leitura', cat: 'sec',
+        skills: ['OWASP Top 10'] },
+    ],
+  },
+]
+
+const CAT_COLORS = {
+  frontend: '#60a5fa', backend: '#34d399', database: '#fbbf24',
+  cloud: '#f97316',    devops: '#a78bfa',   obs: '#22d3ee',
+  ai: '#ef4444',       arch: '#f472b6',     cs: '#38bdf8',
+  sec: '#facc15',      soft: '#94a3b8',
+}
+const CAT_LABEL = {
+  frontend: 'frontend', backend: 'backend', database: 'database',
+  cloud: 'cloud', devops: 'devops', obs: 'observabilidade',
+  ai: 'ai & llm', arch: 'arquitetura', cs: 'fundamentos cs',
+  sec: 'seguranca', soft: 'soft skills',
+}
+
+function parseRange(t) {
+  // "07:00 — 08:00" → minutes
+  const m = t.match(/(\d{1,2}):(\d{2})\s*[—-]\s*(\d{1,2}):(\d{2})/)
+  if (!m) return 0
+  const a = parseInt(m[1])*60 + parseInt(m[2])
+  const b = parseInt(m[3])*60 + parseInt(m[4])
+  return Math.max(0, b - a)
+}
+
+function renderWeek() {
+  // legend with cats actually used in the week
+  const usedCats = new Set()
+  for (const d of WEEK) for (const b of d.blocks) if (b.cat !== 'mix') usedCats.add(b.cat)
+  document.getElementById('cat-legend').innerHTML = [...usedCats].map(c =>
+    `<span class="it" style="--ck:${CAT_COLORS[c]}">${CAT_LABEL[c]}</span>`
+  ).join('')
+
+  document.getElementById('week').innerHTML = WEEK.map(d => {
+    const totalMin = d.blocks.reduce((acc, b) => acc + parseRange(b.time), 0)
+    const totalH = (totalMin / 60).toFixed(1).replace('.0', '')
+    return `
+      <div class="day">
+        <div class="day-hd">
+          <span class="name">${d.day}</span>
+          <span class="total">${totalH}h</span>
+        </div>
+        ${d.blocks.map(b => `
+          <div class="blk" data-cat="${b.cat}">
+            <div class="blk-time">
+              <span>${b.time}</span>
+              <span class="blk-type ${b.type}">${b.type}</span>
+            </div>
+            <div class="blk-skills">
+              ${b.skills.map(name => name.startsWith('(') ? `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg-dim);font-style:italic">${name}</span>` : skillLink(name)).join('')}
+            </div>
+          </div>`).join('')}
+      </div>`
+  }).join('')
+}
+
+/* ---------- Daily ritual ---------- */
+const RITUAL = [
+  {
+    time: '5min',
+    title: 'Preview',
+    body: `Abre a skill no <code>skill.html</code>, le o tagline e os tres primeiros bullets de "conceitos-chave".
+           Define em uma frase: "hoje vou entender X". Sem isso, voce vagueia.`,
+  },
+  {
+    time: '60min',
+    title: 'Teoria com fonte boa',
+    body: `Hierarquia de fonte:
+           <ul>
+             <li><strong>Docs oficiais</strong> — primeiro lugar quase sempre</li>
+             <li><strong>Artigos tecnicos</strong> — Hussein Nasser, Marc Brooker, AWS Builder Library</li>
+             <li><strong>Video</strong> — apenas se conceito for visual (event loop, MVCC)</li>
+             <li><strong>Livro</strong> — DDIA, Clean Architecture, etc — pra deep dive de fim de semana</li>
+           </ul>`,
+  },
+  {
+    time: '10min',
+    title: 'Resumo proprio (Feynman)',
+    body: `Escreve no campo "Notas" da skill como se estivesse explicando pra um junior.
+           Sem copiar da fonte. Se travar, voltou faltando entendimento — anota a duvida.`,
+  },
+  {
+    time: '5min',
+    title: 'Marca duvida e proximo passo',
+    body: `Lista 1-3 perguntas que ficaram. Marca o estado da skill (<code>lendo</code> /
+           <code>praticando</code> / <code>domino</code>). Se for revisar, agenda mentalmente
+           pra dali 3 dias.`,
+  },
+]
+
+function renderRitual(targetId) {
+  document.getElementById(targetId).innerHTML = RITUAL.map(r => `
+    <details>
+      <summary>
+        <span class="r-time">${r.time}</span>
+        ${r.title}
+        <span class="r-arrow">▶</span>
+      </summary>
+      <div class="r-body">${r.body}</div>
+    </details>`).join('')
+}
+
+/* ---------- Spaced repetition tracker ---------- */
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function ageHumanFromMs(ms) {
+  const d = Math.floor(ms / DAY_MS)
+  if (d < 1) return 'hoje'
+  if (d === 1) return '1 dia atras'
+  if (d < 7) return `${d} dias atras`
+  const w = Math.floor(d / 7)
+  if (w === 1) return '1 semana atras'
+  if (d < 30) return `${w} semanas atras`
+  const mo = Math.floor(d / 30)
+  if (mo === 1) return '1 mes atras'
+  return `${mo} meses atras`
+}
+
+function suggestionFor(state, ageDays) {
+  if (state === 'lendo' && ageDays >= 3) return { tag: 'praticar', text: 'tempo de praticar' }
+  if (state === 'praticando' && ageDays >= 7) return { tag: 'revisar', text: 'revisitar pra fixar' }
+  if (state === 'domino' && ageDays >= 30) return { tag: 'revisar', text: 'revisao de manutencao' }
+  if (state === 'revisar') return { tag: 'revisar', text: 'na fila de revisao' }
+  return null
+}
+
+function renderReviewList() {
+  const all = P.loadAll()
+  const now = Date.now()
+  const items = []
+
+  for (const [slug, data] of Object.entries(all)) {
+    const skill = SKILL_BY_SLUG[slug]
+    if (!skill) continue
+    const state = data.state
+    const updatedAt = data.updatedAt || now
+    const ageMs = now - updatedAt
+    const ageDays = Math.floor(ageMs / DAY_MS)
+    const sugg = suggestionFor(state, ageDays)
+    if (!sugg) continue
+    items.push({ skill, state, ageMs, ageDays, sugg })
+  }
+
+  // sort: priority of state (revisar > praticando > lendo > domino), then by oldest
+  const stateRank = { revisar: 0, praticando: 1, lendo: 2, domino: 3 }
+  items.sort((a, b) => {
+    const r = (stateRank[a.state] ?? 9) - (stateRank[b.state] ?? 9)
+    if (r !== 0) return r
+    return b.ageMs - a.ageMs
+  })
+
+  const list = document.getElementById('review-list')
+  if (items.length === 0) {
+    list.innerHTML = `
+      <div class="review-empty">
+        <p style="margin-bottom:8px"><strong>Nada pra revisar agora.</strong></p>
+        <p style="font-size:13px">
+          Marca skills como <code style="background:var(--bg-elev);padding:2px 6px;border-radius:4px;color:var(--amber);font-family:'JetBrains Mono',monospace">lendo</code>
+          ou <code style="background:var(--bg-elev);padding:2px 6px;border-radius:4px;color:var(--blue);font-family:'JetBrains Mono',monospace">praticando</code>
+          no painel da skill — quando passarem do limite (3d / 7d / 30d) elas aparecem aqui.
+        </p>
+      </div>`
+    return
+  }
+
+  list.innerHTML = `<div class="review-list">${items.map(it => {
+    const url = iconUrl(it.skill.name)
+    const stateColor = P.STATE_COLOR[it.state]
+    return `
+      <a class="rev" href="skill.html?s=${it.skill.slug}" data-suggest="${it.sugg.tag}">
+        ${url ? `<img src="${url}" alt="">` : ''}
+        <span class="rev-name">${it.skill.name}</span>
+        <span class="rev-state" style="background:${stateColor}22;color:${stateColor}">${it.state}</span>
+        <span class="rev-age">${ageHumanFromMs(it.ageMs)}</span>
+        <span class="rev-action">→ ${it.sugg.text}</span>
+      </a>`
+  }).join('')}</div>`
+}
+
+/* ---------- Interview track ---------- */
+const IV_WEEKS = [
+  {
+    n: '01',
+    title: 'Fundamentos & contrato HTTP',
+    focus: 'pq cai em 9 de 10 entrevistas',
+    desc: 'Sem fundamentos solidos a entrevista vira chute. Saber explicar como um pacote sai do navegador ate o banco e meio caminho pra qualquer pergunta de senior.',
+    skills: ['Algoritmos & DS', 'Big-O', 'Dynamic Programming', 'TCP/IP & DNS', 'TLS / HTTPS', 'HTTP/2 & HTTP/3', 'REST APIs', 'System Design', 'Tradeoff Analysis'],
+  },
+  {
+    n: '02',
+    title: 'Persistencia, cache e concorrencia',
+    focus: 'separa pleno de senior',
+    desc: 'PostgreSQL profundo, padroes de cache (cache-aside, write-through), event loop e concorrencia em Node. Sao os topicos que mais geram pergunta de follow-up.',
+    skills: ['PostgreSQL', 'MVCC', 'B-tree & LSM-tree', 'EXPLAIN ANALYZE', 'Caching Strategies', 'Redis', 'Concurrency', 'Event Loop', 'CAP Theorem'],
+  },
+  {
+    n: '03',
+    title: 'Arquitetura, mensageria e patterns',
+    focus: 'pergunta de design tomando cafe',
+    desc: 'Como voce defenderia esta arquitetura? SOLID, Clean, DDD, CQRS, microservices, eventos, kafka. Tem que conseguir desenhar e justificar tradeoffs.',
+    skills: ['SOLID', 'Clean Architecture', 'DDD', 'CQRS', 'Microservices', 'Event-Driven', 'Apache Kafka', 'Circuit Breakers', 'Rate Limiting', 'Design Patterns'],
+  },
+  {
+    n: '04',
+    title: 'Cloud, observabilidade, security e AI',
+    focus: 'fechar tudo + temas quentes 2026',
+    desc: 'AWS core (IAM/VPC/S3/Lambda), pilares de observabilidade, OWASP e os topicos hot de AI moderno (RAG, MCP, Agentic). Assunto que cai e poucos sabem direito.',
+    skills: ['AWS', 'IAM', 'VPC', 'S3', 'Lambda', 'OpenTelemetry', 'Prometheus', 'SLIs / SLOs / SLAs', 'OWASP Top 10', 'OWASP API Top 10', 'RAG', 'Function Calling', 'Agentic Workflows', 'MCP'],
+  },
+]
+
+function renderInterview() {
+  document.getElementById('iv-weeks').innerHTML = IV_WEEKS.map(w => `
+    <div class="iv-week">
+      <div class="iv-head">
+        <h3><em>Semana ${w.n}</em>${w.title}</h3>
+        <span class="iv-focus">${w.focus}</span>
+      </div>
+      <p class="iv-desc">${w.desc}</p>
+      <div class="iv-skills">
+        ${w.skills.map(name => {
+          const s = S(name)
+          if (!s) return `<span class="iv-skill" style="opacity:.5">${name}</span>`
+          const url = iconUrl(s.name)
+          return `<a class="iv-skill" href="skill.html?s=${s.slug}">${url ? `<img src="${url}" alt="">` : ''}${s.name}</a>`
+        }).join('')}
+      </div>
+    </div>`).join('')
+}
+
+/* ---------- Mode toggle ---------- */
+function setMode(mode) {
+  const isRoutine = mode === 'routine'
+  document.getElementById('routine-mode').classList.toggle('hidden', !isRoutine)
+  document.getElementById('interview-mode').classList.toggle('hidden', isRoutine)
+  document.getElementById('m-routine').classList.toggle('active', isRoutine)
+  document.getElementById('m-interview').classList.toggle('active', !isRoutine)
+  try { localStorage.setItem('careerstudy.routine.mode', mode) } catch {}
+}
+
+function initMode() {
+  let saved = 'routine'
+  try { saved = localStorage.getItem('careerstudy.routine.mode') || 'routine' } catch {}
+  setMode(saved)
+}
+
+/* ---------- Init ---------- */
+function init() {
+  renderPrinc()
+  renderWeek()
+  renderRitual('ritual')
+  renderRitual('ritual-iv')
+  renderReviewList()
+  renderInterview()
+  initMode()
+}
+
+document.addEventListener('progress-change', renderReviewList)
+renderNav('routine')
+init()
+
+window.setMode = setMode
+})()
+</script>
+</body>
+</html>

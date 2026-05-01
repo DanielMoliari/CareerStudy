@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>CareerStudy — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .hero {
+    background: linear-gradient(135deg, rgba(239,68,68,.06), rgba(168,85,247,.04));
+    border: 1px solid var(--scarlet-soft);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 36px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(239,68,68,.15), transparent 50%);
+    pointer-events: none;
+  }
+  .hero h1 { margin-bottom: 14px; }
+  .hero .stats-row {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(4, 1fr);
+    margin-top: 28px;
+  }
+  @media (max-width: 720px) { .hero .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: rgba(0,0,0,.25); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px;
+  }
+  .stat .num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px; font-weight: 800; letter-spacing: -.02em;
+    color: var(--fg);
+  }
+  .stat .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-dim);
+    letter-spacing: .12em; text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .stat.scarlet .num { color: var(--scarlet); }
+  .stat.amber .num { color: var(--amber); }
+  .stat.blue .num { color: var(--blue); }
+  .stat.green .num { color: var(--green); }
+
+  .progress-bar {
+    height: 8px; background: var(--bg-elev); border-radius: 8px;
+    overflow: hidden; margin-top: 18px;
+    display: flex;
+  }
+  .progress-bar > div {
+    height: 100%;
+    transition: flex .4s;
+  }
+
+  .quick-actions {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-bottom: 36px;
+  }
+  .qa {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+    cursor: pointer; transition: all .2s;
+    display: block; color: inherit;
+  }
+  .qa:hover { border-color: var(--scarlet); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .qa .qa-ico {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; color: var(--scarlet);
+    margin-bottom: 14px;
+  }
+  .qa h3 { margin-bottom: 6px; }
+  .qa p {
+    font-size: 13px; color: var(--fg-dim);
+    line-height: 1.55;
+  }
+
+  .focus-list { display: flex; flex-direction: column; gap: 8px; }
+  .focus-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: border-color .15s;
+    cursor: pointer;
+  }
+  .focus-item:hover { border-color: var(--scarlet-soft); }
+  .focus-item .fi-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; flex: 1;
+  }
+  .focus-item .fi-cat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--fg-dim);
+    letter-spacing: .08em;
+  }
+  .focus-item img { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div id="nav"></div>
+
+  <div class="hero">
+    <p class="hdr-label"><span class="ln"></span> careerstudy</p>
+    <h1>De pleno a <em>senior</em> — sem decoreba.</h1>
+    <p class="desc" style="margin-bottom:0">
+      Mapa de estudo cruzado de CVs, LinkedIn e gaps de mercado 2025-2026.
+      Foco em teoria que cai em entrevista tecnica: fundamentos, arquitetura, system design e AI moderno.
+    </p>
+
+    <div class="stats-row">
+      <div class="stat scarlet"><div class="num" id="s-total">—</div><div class="label">skills total</div></div>
+      <div class="stat amber"><div class="num" id="s-active">—</div><div class="label">em estudo</div></div>
+      <div class="stat green"><div class="num" id="s-domino">—</div><div class="label">com domino</div></div>
+      <div class="stat blue"><div class="num" id="s-pct">—</div><div class="label">% concluido</div></div>
+    </div>
+
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+
+  <section>
+    <p class="hdr-label"><span class="ln"></span> rotas rapidas</p>
+    <div class="quick-actions">
+      <a class="qa" href="skills-study.html">
+        <div class="qa-ico">◇</div>
+        <h3>Mapa de skills</h3>
+        <p>Lista completa por categoria com filtros, progresso por skill e busca.</p>
+      </a>
+      <a class="qa" href="graph.html">
+        <div class="qa-ico">◯</div>
+        <h3>Grafo de dependencias</h3>
+        <p>Pre-requisitos visuais — o que estudar antes do que. Ordem natural de aprendizado.</p>
+      </a>
+      <a class="qa" href="concepts.html">
+        <div class="qa-ico">◐</div>
+        <h3>Conceitos visuais</h3>
+        <p>Diagramas didaticos: event loop, CAP, MVCC, RAG, system design tradeoffs e mais.</p>
+      </a>
+      <a class="qa" href="routine.html">
+        <div class="qa-ico">◑</div>
+        <h3>Rotina de estudo</h3>
+        <p>Cadencia semanal realista priorizando P1 com cobertura balanceada das 11 areas.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <p class="hdr-label"><span class="ln"></span> progresso por categoria</p>
+    <div id="cat-grid" class="card-grid" style="margin-bottom:32px"></div>
+  </section>
+
+  <section>
+    <p class="hdr-label"><span class="ln"></span> proximas 8 P1 a estudar</p>
+    <p style="font-size:13px;color:var(--fg-dim);margin-bottom:20px">
+      Selecionadas pelas dependencias resolvidas e prioridade. Click abre o detalhe.
+    </p>
+    <div class="focus-list" id="focus-list"></div>
+  </section>
+
+</div>
+
+<script src="assets/skills-data.js"></script>
+<script src="assets/progress.js"></script>
+<script src="assets/nav.js"></script>
+<script>
+;(function() {
+if (!window.SKILLS || !window.PROGRESS) {
+  document.querySelector('.shell').insertAdjacentHTML('afterbegin', `<div style="background:#1a0000;border:1px solid #ef4444;border-radius:12px;padding:24px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;margin-bottom:24px"><b style="color:#ef4444">Scripts bloqueados via file://</b><br><span style="color:#94a3b8">Abra o terminal na pasta do projeto e rode:</span><br><code style="color:#22c55e">./start.sh</code><br><span style="color:#64748b">ou: python3 -m http.server 8080</span></div>`)
+  return
+}
+const { CATEGORIES, ALL_SKILLS, DEPENDENCIES, iconUrl } = window.SKILLS
+const P = window.PROGRESS
+
+function renderHero() {
+  const s = P.stats()
+  document.getElementById('s-total').textContent = s.total
+  document.getElementById('s-active').textContent = s.active
+  document.getElementById('s-domino').textContent = s.done
+  document.getElementById('s-pct').textContent = s.pct + '%'
+
+  // colored progress bar
+  const c = s.counts
+  const bar = document.getElementById('progress-bar')
+  bar.innerHTML = `
+    <div style="flex:${c.domino};background:${P.STATE_COLOR.domino}"></div>
+    <div style="flex:${c.praticando};background:${P.STATE_COLOR.praticando}"></div>
+    <div style="flex:${c.lendo};background:${P.STATE_COLOR.lendo}"></div>
+    <div style="flex:${c.revisar};background:${P.STATE_COLOR.revisar}"></div>
+    <div style="flex:${c.pendente};background:${P.STATE_COLOR.pendente};opacity:.4"></div>
+  `
+}
+
+function renderCategoryGrid() {
+  const grid = document.getElementById('cat-grid')
+  grid.innerHTML = CATEGORIES.map(cat => {
+    const skills = cat.skills.map(([name, p]) => ({
+      name, slug: window.SKILLS.slugify(name), p, cat: cat.key,
+    }))
+    const s = P.stats(skills)
+    const c = s.counts
+    return `
+      <a class="card" href="skills-study.html" style="text-decoration:none;display:block">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+          <h3 style="margin:0">${cat.label}</h3>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg-dim)">${s.done}/${s.total}</span>
+        </div>
+        <div class="progress-bar" style="margin-top:8px;height:6px">
+          <div style="flex:${c.domino};background:${P.STATE_COLOR.domino}"></div>
+          <div style="flex:${c.praticando};background:${P.STATE_COLOR.praticando}"></div>
+          <div style="flex:${c.lendo};background:${P.STATE_COLOR.lendo}"></div>
+          <div style="flex:${c.revisar};background:${P.STATE_COLOR.revisar}"></div>
+          <div style="flex:${c.pendente};background:${P.STATE_COLOR.pendente};opacity:.3"></div>
+        </div>
+        <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--fg-dim);letter-spacing:.06em">
+          ${s.pct}% concluido — ${s.active} em estudo
+        </div>
+      </a>`
+  }).join('')
+}
+
+function renderFocus() {
+  // pick next 8 P1 to study: (1) state pendente, (2) deps resolved (domino) when present
+  const candidates = ALL_SKILLS.filter(s => s.p === 1 && P.getState(s.slug) === 'pendente')
+  const ranked = candidates.map(s => {
+    const deps = DEPENDENCIES[s.slug] || []
+    const depsDone = deps.filter(d => P.getState(d) === 'domino').length
+    return { ...s, depsDone, depsTotal: deps.length }
+  }).sort((a, b) => {
+    // prioriza deps resolvidas
+    const ra = a.depsTotal === 0 ? 1 : a.depsDone / a.depsTotal
+    const rb = b.depsTotal === 0 ? 1 : b.depsDone / b.depsTotal
+    return rb - ra
+  }).slice(0, 8)
+
+  const list = document.getElementById('focus-list')
+  if (ranked.length === 0) {
+    list.innerHTML = `<div class="card" style="text-align:center;color:var(--fg-dim);padding:32px">
+      Todas as P1 ja foram tocadas. <a href="skills-study.html?filter=p2" style="color:var(--scarlet)">Bora pras P2 →</a>
+    </div>`
+    return
+  }
+
+  list.innerHTML = ranked.map(s => {
+    const url = iconUrl(s.name)
+    const deps = (DEPENDENCIES[s.slug] || []).length
+    return `<a class="focus-item" href="skill.html?s=${s.slug}">
+      ${url ? `<img src="${url}" alt="">` : ''}
+      <span class="fi-name">${s.name}</span>
+      <span class="fi-cat">${s.catLabel}</span>
+      ${deps ? `<span class="fi-cat" style="opacity:.6">${s.depsDone}/${s.depsTotal} deps</span>` : ''}
+      <span class="tag p1">P1</span>
+    </a>`
+  }).join('')
+}
+
+function renderAll() {
+  renderHero()
+  renderCategoryGrid()
+  renderFocus()
+}
+
+document.addEventListener('progress-change', renderAll)
+renderNav('index')
+renderAll()
+})()
+</script>
+</body>
+</html>

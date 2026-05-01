@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "WebSearch",
+      "WebFetch(domain:www.youtube.com)",
+      "WebFetch(domain:frontendmasters.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:jackherrington.com)",
+      "WebFetch(domain:www.noxinfluencer.com)",
+      "WebFetch(domain:www.classcentral.com)",
+      "WebFetch(domain:remix.guide)"
+    ],
+    "additionalDirectories": [
+      "/Users/daniel-moliari/CareerStudy/src/app/skill",
+      "/tmp"
+    ]
+  }
+}
