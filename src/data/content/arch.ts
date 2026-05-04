@@ -383,6 +383,10 @@ const data: SkillContentMap = {
       { q: 'Diferenças entre push, pull e long-polling pra notificação web?', a: '<p><strong>Polling tradicional</strong>: cliente faz GET a cada N segundos. Simples, ineficiente (latência média = N/2, banda alta).</p><p><strong>Long-polling</strong>: cliente faz GET, server segura request até ter dado ou timeout (30s). Cliente reconecta. Latência baixa, mais leve. Ainda overhead HTTP.</p><p><strong>WebSocket</strong>: conexão TCP persistente, full-duplex. Latência mínima, eficiente em volume. Custo: gateway statefull, complexidade de scale (sticky session).</p><p><strong>Server-Sent Events (SSE)</strong>: HTTP unidirecional. Server envia eventos, cliente recebe. Mais simples que WebSocket pra pure server-push. Bom pra dashboard, notificação.</p><p><strong>Push notification (mobile)</strong>: APNs/FCM — sistema operacional gerencia conexão, app recebe quando offline também.</p>', level: 'pleno' },
       { q: 'Como pensaria o storage pra 1 bilhão de fotos?', a: '<p><strong>Object storage</strong>: S3 (não DB). Custo ~$0.023/GB/mês Standard.</p><p><strong>Tamanho</strong>: 1B fotos × 200KB médio = 200TB. Custa ~$4.6K/mês em S3 Standard. Lifecycle: depois de 30d, IA ($0.0125), depois 90d, Glacier ($0.004).</p><p><strong>Metadata</strong>: separado em DB (Postgres ou DynamoDB) — <code>photo_id, user_id, s3_key, uploaded_at, size, dimensions, thumbnail_keys</code>.</p><p><strong>Delivery</strong>: CloudFront. PoPs cacheiam. Origem só é tocada em miss.</p><p><strong>Upload</strong>: pre-signed URL — cliente faz upload direto S3, não passa pela API. Reduz banda da API em 99%.</p><p><strong>Thumbnails</strong>: Lambda trigger no PUT em S3, gera 3 tamanhos (small, medium, large), salva em prefix /thumbs.</p><p><strong>Resize</strong>: under demand via CDN edge function — gera thumbnail no primeiro hit, cacheia.</p>', level: 'senior' },
       { q: 'Quais red flags você procura num design de candidato?', a: '<p><strong>1. Pular clarificação</strong> — começa desenhando sem perguntar DAU, requisitos. Mostra que copiou solução pronta.</p><p><strong>2. Citar tecnologia sem motivo</strong> — "uso Kafka" ou "uso microservices" sem justificar. Senior nomeia o problema que a tecnologia resolve.</p><p><strong>3. Não estimar</strong> — desenha caixinhas sem dizer quanto cada uma aguenta. Não sabe se cabe em 1 server ou precisa 100.</p><p><strong>4. Esquecer falha</strong> — single point of failure em LB, DNS, banco. Senior pergunta "e se isso cair?" pra cada componente.</p><p><strong>5. Premature scaling</strong> — desenha 10 microservices pra MVP. Custo operacional explode.</p><p><strong>6. Não citar tradeoff</strong> — toda decisão é tradeoff. Quem só fala vantagem está vendendo, não desenhando.</p><p><strong>7. Ignorar custo</strong> — cluster Kafka multi-region custa $50K/mês. Senior cita ordem de grandeza.</p>', level: 'senior' },
+      { q: 'Como projetaria um sistema de autocomplete (search suggestions)?', a: '<p><strong>Requisitos</strong>: latência < 100ms (P99), 100M DAU, 5 buscas/dia/user = 500M queries/dia ≈ 6K QPS.</p><p><strong>Trie vs Inverted Index</strong>: Trie pura não escala — armazena em memória, difícil de distribuir. Na prática: Elasticsearch ou banco de k-gram pré-computado por usuário.</p><p><strong>Arquitetura</strong>:</p><ol><li><strong>Coleta</strong>: toda query log em Kafka. Aggregation job (Spark/Flink) computa top-k queries por prefixo a cada hora.</li><li><strong>Storage</strong>: Redis Hash com chave = prefix, valor = JSON com top-10 sugestões.</li><li><strong>API</strong>: GET /suggestions?q=appl → lookup Redis O(1) → retorna JSON.</li><li><strong>CDN</strong>: respostas são quase estáticas (mudam de hora em hora) — cache no edge com TTL de 5 min.</li></ol><p><strong>Personalização</strong>: mistura sugestões globais com histórico do usuário no momento do request. Pesa 70% global + 30% pessoal.</p><p><strong>Tradeoff</strong>: atualização de 1h de delay é aceitável pra sugestões. Se precisar real-time (queries virais), reduz batch para 5min com lambda architecture.</p>', level: 'senior' },
+      { q: 'Como projetaria upload de vídeo pra 100M usuários (tipo YouTube)?', a: '<p><strong>Estimativas</strong>: 0.1% de DAU fazem upload/dia = 100K uploads/dia. Vídeo médio 500MB = 50TB/dia de ingest.</p><p><strong>Pipeline de upload</strong>:</p><ol><li><strong>Pre-signed URL</strong>: cliente pede à API, API gera URL S3 pre-signed. Cliente faz upload direto S3 — API não é o gargalo.</li><li><strong>Multipart upload</strong>: vídeo grande = dividir em chunks de 5-100MB. Retomável em caso de falha.</li><li><strong>S3 Event Notification</strong>: upload completo dispara evento → SQS → Worker de transcoding.</li></ol><p><strong>Transcoding</strong>: converte para múltiplos formatos/resoluções (360p, 720p, 1080p, 4K) em paralelo. AWS Elastic Transcoder ou MediaConvert. Distribui em múltiplas instâncias spot.</p><p><strong>CDN</strong>: vídeo transcoded vai pra S3. CloudFront distribui via HLS/DASH com bitrate adaptativo. PoP local serve cliente — latência mínima.</p><p><strong>Metadata</strong>: Postgres (título, descrição, status, duração). Elasticsearch pra busca full-text. Redis pra views counter (INCR + batch flush pra DB).</p><p><strong>Gotcha</strong>: view counter em Postgres a cada play é suicide a 1M views/h. Use Redis INCR + flush batch periódico.</p>', level: 'senior' },
+      { q: 'Diferença entre consistência eventual, read-your-writes e causal?', a: '<p><strong>Eventual</strong>: dado propagado assincronamente — leitores podem ver versão velha por minutos. "Vai convergir eventualmente". Máxima escala, aceita staleness. Ex: DNS, S3, DynamoDB padrão.</p><p><strong>Read-your-writes</strong>: garantia de que usuário vê suas próprias escritas imediatamente. Outros podem não ver. Implementado com sticky session (read do primary) ou token de versão. Ex: usuário cria post, vê próprio post.</p><p><strong>Monotonic reads</strong>: se você leu versão X, nunca vai ler versão mais antiga que X. Evita "post sumiu e voltou". Implementado com session affinity ao mesmo replica.</p><p><strong>Causal</strong>: se você vê "João comentou no post de Maria", você também precisa ver o post de Maria. Preserva relação de causa-efeito. Implementado com vector clocks ou Lamport timestamps. Ex: Google Docs, redes sociais com thread.</p><p><strong>Strong/Linearizability</strong>: toda leitura vê última escrita. Equivale a um único nó. Caro — requer quorum. Ex: Zookeeper, etcd, Spanner.</p><p>Para 90% dos sistemas: eventual geral + read-your-writes no caminho do usuário + strong apenas em transações críticas (pagamento, estoque).</p>', level: 'senior' },
+      { q: 'Como lidaria com um hot partition em banco NoSQL?', a: '<p><strong>Problema</strong>: hot partition acontece quando um prefixo/chave de partição recebe volume desproporcional. Ex: partition key = user_id em sistema onde Justin Bieber tem 200M followers — toda escrita de fanout vai pra mesma partição.</p><p><strong>Detecção</strong>: CloudWatch/Datadog mostra throughput desproporcional por partição. Alarm em quando 1 partição > 3× a média.</p><p><strong>Soluções</strong>:</p><ul><li><strong>Prefix/salt</strong>: adiciona sufixo aleatório (0-100) à partition key — <code>user_123_42</code>. Queries precisam fazer N reads e fazer merge. Bom quando escrita é o problema.</li><li><strong>Write shielding</strong>: celebridade tem fanout-on-read em vez de fanout-on-write. Só usuários normais têm write fan-out.</li><li><strong>Caching agressivo</strong>: dado hot vai pra Redis — partição NoSQL raramente é tocada.</li><li><strong>Adaptive capacity</strong> (DynamoDB): auto-distribui capacidade entre partições desbalanceadas. Resolve temporariamente.</li><li><strong>Composite sort key</strong>: troca partition key composta que distribui melhor — <code>category#region</code> em vez de só <code>category</code>.</li></ul>', level: 'senior' },
     ],
     exercises: [
       { level: 'intermediario', title: 'Encurtador de URL', description: 'Desenhe sistema completo. 100M URLs/dia, 100:1 read/write, 5 anos. Defina API, schema, encoder, cache, particionamento.', concepts: ['estimativa', 'encoder', 'cache', 'sharding'], hint: 'Counter centralizado vira gargalo — pesquise range allocation.' },
@@ -402,6 +406,265 @@ const data: SkillContentMap = {
       { title: 'Latency Numbers Every Programmer Should Know', url: 'https://gist.github.com/jboner/2841832', kind: 'artigo' },
       { title: 'Martin Fowler — Patterns of Distributed Systems', url: 'https://martinfowler.com/articles/patterns-of-distributed-systems/', kind: 'artigo' },
     ],
+    videos: [
+      { title: 'System Design Interview – Step By Step Guide', channel: 'ByteByteGo', url: '', topic: 'Framework completo de entrevista em 45 minutos', note: 'Referência principal — assista antes de qualquer mock interview' },
+      { title: 'Designing a URL Shortener (bit.ly, TinyURL)', channel: 'NeetCode', url: '', topic: 'URL shortener do zero ao tradeoff', note: 'Caso canônico para estudar encoder, cache e sharding' },
+      { title: 'I Solved 100 System Design Questions', channel: 'Hussein Nasser', url: '', topic: 'Deep dives em casos reais', note: 'Hussein explica mecanismos de transport e protocolo com detalhe raro' },
+      { title: 'System Design: Design a News Feed System', channel: 'ByteByteGo', url: '', topic: 'Feed Twitter/Instagram — fanout on write vs read', note: 'O caso mais cobrado em entrevistas sênior — cele problem incluído' },
+      { title: 'CAP Theorem Explained', channel: 'Arpit Bhayani', url: '', topic: 'CAP e PACELC com exemplos práticos', note: 'Arpit é rigoroso e vai fundo — aprenda antes de falar de consistência em entrevista' },
+      { title: 'Consistent Hashing | Algorithms You Should Know', channel: 'ByteByteGo', url: '', topic: 'Consistent hashing e virtual nodes', note: 'Essential para explicar sharding em entrevista' },
+    ],
+    codeExamples: [
+      {
+        title: 'Back-of-envelope: estimativa de QPS, storage e banda',
+        description: 'Template de estimativa que você deve conseguir fazer em 5 minutos numa entrevista',
+        language: 'typescript',
+        code: `// ---- TEMPLATE BACK-OF-ENVELOPE ----
+// Caso: sistema de mensagens tipo WhatsApp
+
+const DAU = 100_000_000            // 100M usuários ativos por dia
+const msgs_per_user_per_day = 40   // cada usuário envia ~40 mensagens
+const msg_size_bytes = 100         // texto médio 100 bytes
+
+// QPS médio de escrita
+const writes_per_day = DAU * msgs_per_user_per_day     // 4B mensagens/dia
+const writes_per_sec = writes_per_day / 86_400          // ~46K writes/s
+const peak_writes    = writes_per_sec * 3               // ~138K writes/s no pico
+
+// QPS de leitura (mensagens são enviadas 1:1 ou grupo, ratio menor)
+const reads_per_sec  = writes_per_sec * 2               // ~92K reads/s
+
+// Storage por dia e por ano
+const storage_per_day = writes_per_day * msg_size_bytes // 400GB/dia
+const storage_per_year = storage_per_day * 365          // ~146TB/ano
+
+// Bandwidth de saída (cada mensagem vai a avg 2 destinatários)
+const avg_recipients = 2
+const outbound_bps = writes_per_sec * avg_recipients * msg_size_bytes * 8 // ~73 Mbps médio
+
+console.table({
+  'Writes/s (médio)': writes_per_sec.toLocaleString(),
+  'Writes/s (pico 3×)': peak_writes.toLocaleString(),
+  'Storage/dia': \`\${(storage_per_day / 1e9).toFixed(0)} GB\`,
+  'Storage/ano': \`\${(storage_per_year / 1e12).toFixed(0)} TB\`,
+  'Outbound (médio)': \`\${(outbound_bps / 1e6).toFixed(0)} Mbps\`,
+})
+
+// Conclusão: 138K writes/s → 1 Postgres não aguenta (max ~10-20K writes/s)
+// → precisa de sharding ou Cassandra/DynamoDB wide-column`,
+      },
+      {
+        title: 'Cache-aside + single-flight contra cache stampede',
+        description: 'Padrão de cache mais comum em produção com proteção contra thundering herd',
+        language: 'typescript',
+        code: `import { Redis } from 'ioredis'
+
+const redis = new Redis()
+
+// Mapa de locks em-flight (single-flight pattern)
+const inflight = new Map<string, Promise<unknown>>()
+
+async function getWithCache<T>(
+  key: string,
+  ttlSeconds: number,
+  fetcher: () => Promise<T>,
+): Promise<T> {
+  // 1. Cache hit — caso feliz
+  const cached = await redis.get(key)
+  if (cached) return JSON.parse(cached) as T
+
+  // 2. Single-flight: se já tem uma busca em andamento pra mesma key,
+  //    todos os outros callers esperam ela terminar (evita stampede)
+  if (inflight.has(key)) {
+    return inflight.get(key) as Promise<T>
+  }
+
+  // 3. Primeiro miss: faz a busca real
+  const promise = fetcher()
+    .then(async (value) => {
+      // Salva no cache com TTL + jitter aleatório (evita expiração simultânea)
+      const jitter = Math.floor(Math.random() * 30)
+      await redis.setex(key, ttlSeconds + jitter, JSON.stringify(value))
+      return value
+    })
+    .finally(() => {
+      inflight.delete(key)
+    })
+
+  inflight.set(key, promise)
+  return promise
+}
+
+// Uso:
+const user = await getWithCache(
+  \`user:\${userId}\`,
+  300, // 5 minutos
+  () => db.user.findUnique({ where: { id: userId } }),
+)`,
+      },
+      {
+        title: 'Rate limiting — token bucket em Redis com Lua atômico',
+        description: 'Token bucket thread-safe em Redis. Resiste a condições de corrida porque o script Lua roda atomicamente',
+        language: 'typescript',
+        code: `import { Redis } from 'ioredis'
+
+const redis = new Redis()
+
+// Script Lua executa atomicamente — sem race condition entre GET e SET
+const TOKEN_BUCKET_SCRIPT = \`
+local key        = KEYS[1]
+local capacity   = tonumber(ARGV[1])   -- capacidade máxima do bucket
+local refill_rate = tonumber(ARGV[2])  -- tokens por segundo
+local now        = tonumber(ARGV[3])   -- timestamp atual em ms
+local cost       = tonumber(ARGV[4])   -- tokens que a requisição consome
+
+local bucket = redis.call("HMGET", key, "tokens", "last_refill")
+local tokens      = tonumber(bucket[1]) or capacity
+local last_refill = tonumber(bucket[2]) or now
+
+-- Recarrega tokens baseado no tempo passado
+local elapsed = (now - last_refill) / 1000
+tokens = math.min(capacity, tokens + elapsed * refill_rate)
+
+if tokens >= cost then
+  tokens = tokens - cost
+  redis.call("HMSET", key, "tokens", tokens, "last_refill", now)
+  redis.call("EXPIRE", key, 3600)
+  return 1   -- permitido
+else
+  redis.call("HMSET", key, "tokens", tokens, "last_refill", now)
+  redis.call("EXPIRE", key, 3600)
+  return 0   -- bloqueado
+end
+\`
+
+interface RateLimitOptions {
+  capacity: number     // tokens máximos
+  refillRate: number   // tokens/segundo
+  cost?: number        // tokens por request (default 1)
+}
+
+async function checkRateLimit(
+  identifier: string,  // ex: 'user:123' ou 'ip:1.2.3.4'
+  opts: RateLimitOptions,
+): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+  const key = \`ratelimit:\${identifier}\`
+  const now = Date.now()
+  const cost = opts.cost ?? 1
+
+  const result = await redis.eval(
+    TOKEN_BUCKET_SCRIPT,
+    1,
+    key,
+    opts.capacity,
+    opts.refillRate,
+    now,
+    cost,
+  ) as number
+
+  if (result === 1) return { allowed: true }
+
+  // Calcula quanto tempo falta para recarregar 1 token
+  const msPerToken = (1 / opts.refillRate) * 1000
+  return { allowed: false, retryAfterMs: Math.ceil(msPerToken) }
+}
+
+// Middleware Express
+async function rateLimitMiddleware(req: any, res: any, next: any) {
+  const { allowed, retryAfterMs } = await checkRateLimit(
+    \`user:\${req.user.id}\`,
+    { capacity: 60, refillRate: 1 }, // 60 req burst, 1 req/s constante
+  )
+
+  if (!allowed) {
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      retryAfter: retryAfterMs,
+    })
+  }
+  next()
+}`,
+      },
+    ],
+    mindmap: {
+      title: 'System Design — Mapa Mental Completo',
+      html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;min-height:520px;">
+  <style>
+    .sdmm-center{text-align:center;margin-bottom:28px}
+    .sdmm-hub{display:inline-block;background:linear-gradient(135deg,#6366F1,#818cf8);color:#fff;font-weight:800;font-size:15px;padding:14px 28px;border-radius:12px;letter-spacing:.5px;box-shadow:0 4px 24px rgba(99,102,241,.4)}
+    .sdmm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+    .sdmm-branch{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.22);border-radius:10px;padding:14px}
+    .sdmm-branch-title{font-weight:700;font-size:12px;color:#a5b4fc;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(99,102,241,.18);text-transform:uppercase;letter-spacing:.6px}
+    .sdmm-leaf{font-size:11px;color:#94a3b8;line-height:1.8;padding:2px 0}
+    .sdmm-leaf::before{content:'› ';color:#6366F1;font-weight:700}
+    .sdmm-leaf b{color:#c7d2fe}
+    .sdmm-connect{text-align:center;color:#6366F1;font-size:22px;margin-bottom:10px}
+  </style>
+  <div class="sdmm-center">
+    <div class="sdmm-hub">SYSTEM DESIGN</div>
+    <div style="color:#475569;font-size:11px;margin-top:8px">Hover nos ramos para explorar cada área</div>
+  </div>
+  <div class="sdmm-connect">↓</div>
+  <div class="sdmm-grid">
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Framework de Entrevista</div>
+      <div class="sdmm-leaf"><b>1 Clarify</b> — DAU, SLA, região</div>
+      <div class="sdmm-leaf"><b>2 Estimate</b> — QPS, storage, banda</div>
+      <div class="sdmm-leaf"><b>3 API</b> — endpoints, paginação</div>
+      <div class="sdmm-leaf"><b>4 Data model</b> — schema, relações</div>
+      <div class="sdmm-leaf"><b>5 High-level</b> — caixas e setas</div>
+      <div class="sdmm-leaf"><b>6 Deep dive</b> — gargalo escolhido</div>
+      <div class="sdmm-leaf"><b>7 Tradeoffs</b> — nomear o custo</div>
+    </div>
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Storage — Quando Usar</div>
+      <div class="sdmm-leaf"><b>SQL</b> — ACID, JOIN, schema estável</div>
+      <div class="sdmm-leaf"><b>DynamoDB</b> — K-V massivo, padrão simples</div>
+      <div class="sdmm-leaf"><b>Redis</b> — cache, session, leaderboard</div>
+      <div class="sdmm-leaf"><b>Cassandra</b> — time-series, write-heavy</div>
+      <div class="sdmm-leaf"><b>Elasticsearch</b> — full-text search</div>
+      <div class="sdmm-leaf"><b>S3</b> — arquivos, blobs, backups</div>
+      <div class="sdmm-leaf"><b>InfluxDB</b> — métricas time-series</div>
+    </div>
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Escalabilidade</div>
+      <div class="sdmm-leaf"><b>Cache-aside</b> — padrão universal</div>
+      <div class="sdmm-leaf"><b>Consistent hash</b> — sharding</div>
+      <div class="sdmm-leaf"><b>Read replicas</b> — escala leitura</div>
+      <div class="sdmm-leaf"><b>CQRS</b> — separar leitura/escrita</div>
+      <div class="sdmm-leaf"><b>CDN</b> — edge estático global</div>
+      <div class="sdmm-leaf"><b>Fanout hybrid</b> — push+pull feed</div>
+    </div>
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Números Essenciais</div>
+      <div class="sdmm-leaf"><b>RAM</b> — 100 ns acesso</div>
+      <div class="sdmm-leaf"><b>SSD</b> — 100 µs, 100K IOPS</div>
+      <div class="sdmm-leaf"><b>Rede DC</b> — 500 µs</div>
+      <div class="sdmm-leaf"><b>1 server</b> — 10-50K req/s</div>
+      <div class="sdmm-leaf"><b>QPS</b> = DAU × ações ÷ 86.400</div>
+      <div class="sdmm-leaf"><b>Pico</b> = média × 3</div>
+    </div>
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Resiliência</div>
+      <div class="sdmm-leaf"><b>Circuit breaker</b> — evita cascata</div>
+      <div class="sdmm-leaf"><b>Timeout + retry</b> — backoff + jitter</div>
+      <div class="sdmm-leaf"><b>Bulkhead</b> — pool separado</div>
+      <div class="sdmm-leaf"><b>Idempotência</b> — retry seguro</div>
+      <div class="sdmm-leaf"><b>Multi-AZ</b> — antes de multi-region</div>
+      <div class="sdmm-leaf"><b>Graceful degrade</b> — partial > 500</div>
+    </div>
+    <div class="sdmm-branch">
+      <div class="sdmm-branch-title">Mensageria</div>
+      <div class="sdmm-leaf"><b>SQS</b> — fila simples, at-least-once</div>
+      <div class="sdmm-leaf"><b>Kafka</b> — log durável, replay</div>
+      <div class="sdmm-leaf"><b>SNS</b> — fanout pub/sub</div>
+      <div class="sdmm-leaf"><b>WebSocket</b> — real-time bidirecional</div>
+      <div class="sdmm-leaf"><b>SSE</b> — push server unidirecional</div>
+    </div>
+  </div>
+</div>`,
+      caption: 'Use como revisão rápida antes de entrevista: 7 passos (canto superior esquerdo), números (canto inferior esquerdo), storage decision (centro-topo).',
+    },
   },
 
   'solid': {
@@ -1258,6 +1521,354 @@ export class UsersModule {}`,
       { title: 'Programming Paradigms (Robert Martin) — talk', url: 'https://www.youtube.com/watch?v=7EmboKQH8lM', kind: 'video' },
       { title: 'Five Principles of OO Class Design (PPP cap.7-11)', url: 'https://web.archive.org/web/20100211192103/http://www.objectmentor.com/resources/articles/Principles_and_Patterns.pdf', kind: 'artigo' },
     ],
+    videos: [
+      { title: 'SOLID Design Principles in Object Oriented Programming', channel: 'Fireship', url: '', topic: 'Todos os 5 princípios em 10 minutos', note: 'Excelente revisão rápida antes de entrevista — exemplos concisos' },
+      { title: 'Uncle Bob — The Principles of OOD', channel: 'Robert Martin', url: '', topic: 'Aula original de Robert Martin sobre SOLID', note: 'A fonte primária — explica a motivação por trás de cada princípio' },
+      { title: 'S.O.L.I.D Principles em TypeScript', channel: 'Rocketseat', url: '', topic: 'SOLID com TypeScript e exemplos práticos brasileiros', note: 'Boa para contexto brasileiro e exemplos em TS' },
+      { title: 'SOLID Principles — The Dependency Inversion Principle', channel: 'Traversy Media', url: '', topic: 'DIP aprofundado com injeção de dependência real', note: 'O DIP é o princípio mais cobrado em entrevista senior — foco aqui' },
+      { title: 'Clean Code vs SOLID — When to use what', channel: 'ArjanCodes', url: '', topic: 'Quando aplicar SOLID vs code simples', note: 'Perspectiva pragmática sobre quando aplicar — evita over-engineering' },
+    ],
+    codeExamples: [
+      {
+        title: 'SOLID completo em TypeScript — exemplo real de sistema de pagamentos',
+        description: 'Implementação de sistema de cobrança aplicando todos os 5 princípios juntos, de forma progressiva',
+        language: 'typescript',
+        code: `// ---- S: SRP — separação de responsabilidades ----
+
+// ANTES: God class
+class OrderProcessor {
+  validateOrder(o: Order) { /* ... */ }
+  calculateDiscount(o: Order): number { /* ... */ }
+  chargeCard(o: Order): boolean { /* ... */ }
+  sendConfirmation(o: Order): void { /* ... */ }
+  saveToDb(o: Order): void { /* ... */ }
+}
+
+// DEPOIS: cada classe tem um ator
+class OrderValidator    { validate(o: Order): void {} }
+class DiscountEngine    { calculate(o: Order): number { return 0 } }
+class PaymentGateway    { charge(amount: number): boolean { return true } }
+class OrderNotifier     { notify(email: string): void {} }
+class OrderRepository   { save(o: Order): void {} }
+
+// ---- O: OCP — Strategy para extensão sem modificação ----
+
+interface DiscountStrategy {
+  apply(total: number): number
+}
+class PercentageDiscount implements DiscountStrategy {
+  constructor(private pct: number) {}
+  apply(total: number) { return total * (1 - this.pct / 100) }
+}
+class FixedDiscount implements DiscountStrategy {
+  constructor(private amount: number) {}
+  apply(total: number) { return Math.max(0, total - this.amount) }
+}
+// Adicionar VIPDiscount? Nova classe. Zero modificação em DiscountEngine.
+
+// ---- L: LSP — hierarquia honesta ----
+
+interface Notifier { send(to: string, msg: string): void }
+class EmailNotifier implements Notifier { send(to, msg) {} }
+class SmsNotifier   implements Notifier { send(to, msg) {} }
+// Sem herança profunda — cada um implementa Notifier de forma honesta
+
+// ---- I: ISP — interfaces segregadas ----
+
+interface OrderReader  { findById(id: string): Order | null }
+interface OrderWriter  { save(order: Order): void }
+interface OrderQuerier { findPending(): Order[] }
+
+class SqlOrderRepository implements OrderReader, OrderWriter, OrderQuerier {
+  findById(id) { return null }
+  save(order) {}
+  findPending() { return [] }
+}
+// CheckoutUseCase recebe só OrderWriter — não depende de findPending
+
+// ---- D: DIP — depende de abstração, não de detalhe ----
+
+interface IPaymentGateway { charge(amount: number): Promise<boolean> }
+interface IOrderRepo       { save(o: Order): Promise<void> }
+
+class PlaceOrderUseCase {
+  constructor(
+    private payment: IPaymentGateway,  // interface — não StripeClient
+    private repo: IOrderRepo,          // interface — não PrismaClient
+    private discount: DiscountStrategy,
+    private notifier: Notifier,
+  ) {}
+
+  async exec(order: Order, email: string) {
+    const finalAmount = this.discount.apply(order.total)
+    const paid = await this.payment.charge(finalAmount)
+    if (!paid) throw new Error('Pagamento falhou')
+    await this.repo.save(order)
+    this.notifier.send(email, 'Pedido confirmado!')
+  }
+}
+
+// Composition root — único lugar com new concreto
+const useCase = new PlaceOrderUseCase(
+  new StripeGateway(),       // implements IPaymentGateway
+  new PrismaOrderRepo(),     // implements IOrderRepo
+  new PercentageDiscount(10),
+  new EmailNotifier(),
+)`,
+      },
+      {
+        title: 'Detectar violação SOLID em code review — checklist prático',
+        description: 'Padrões que você vê em PRs que sinalizam violação, com código antes e depois',
+        language: 'typescript',
+        code: `// ---- CHEIROS DE VIOLAÇÃO EM PR ----
+
+// 1. Construtor com >5 deps → SRP violado
+class BadService {
+  constructor(
+    private db: Database,
+    private mailer: Mailer,
+    private logger: Logger,
+    private cache: Cache,
+    private validator: Validator,
+    private pdfGen: PdfGenerator,  // 6ª dep → alarme
+    private sms: SmsSender,         // 7ª → certeza de God class
+  ) {}
+}
+
+// 2. switch/if por 'type' → OCP violado
+function processPayment(method: string, amount: number) {
+  if (method === 'pix')    { /* ... */ }
+  if (method === 'boleto') { /* ... */ }
+  if (method === 'card')   { /* ... */ }
+  // se chegou novo método → edita aqui → OCP violado
+}
+
+// 3. Subclasse com throw/não-implementado → LSP violado
+class EncryptedDoc extends Document {
+  extractText(): string {
+    throw new Error('Não suportado')  // LSP violado
+  }
+}
+
+// 4. Interface usada parcialmente → ISP violado
+interface IGodRepo {
+  findById(id: string): User
+  findAll(): User[]
+  save(u: User): void
+  delete(id: string): void
+  exportCsv(): string      // login service não usa isso
+  syncCrm(): void          // login service não usa isso
+  rebuildIndex(): void     // login service não usa isso
+}
+class LoginService {
+  constructor(private repo: IGodRepo) {}
+  // só usa findById — acoplado desnecessariamente a 6 métodos extras
+}
+
+// 5. New concreto em camada de negócio → DIP violado
+class OrderService {
+  private db = new PostgresClient({ host: 'localhost' })  // DIP violado
+  private mail = new NodemailerClient()                   // DIP violado
+}`,
+      },
+      {
+        title: 'Strategy pattern — extensão real de formatadores de relatório',
+        description: 'OCP via Strategy em caso real de múltiplos formatos de exportação',
+        language: 'typescript',
+        code: `// Contexto: sistema que exporta relatórios em múltiplos formatos
+// Sem OCP: switch cresce a cada formato novo
+// Com OCP: adicionar XML/Markdown é criar nova classe
+
+interface ReportFormatter {
+  format(data: ReportData): string
+  mimeType(): string
+  extension(): string
+}
+
+class CsvFormatter implements ReportFormatter {
+  format(data: ReportData) {
+    const header = Object.keys(data.rows[0]).join(',')
+    const rows = data.rows.map(r => Object.values(r).join(','))
+    return [header, ...rows].join('\\n')
+  }
+  mimeType() { return 'text/csv' }
+  extension() { return 'csv' }
+}
+
+class JsonFormatter implements ReportFormatter {
+  format(data: ReportData) { return JSON.stringify(data.rows, null, 2) }
+  mimeType() { return 'application/json' }
+  extension() { return 'json' }
+}
+
+class HtmlFormatter implements ReportFormatter {
+  format(data: ReportData) {
+    const headers = Object.keys(data.rows[0])
+    const headerRow = headers.map(h => \`<th>\${h}</th>\`).join('')
+    const bodyRows = data.rows.map(r =>
+      \`<tr>\${Object.values(r).map(v => \`<td>\${v}</td>\`).join('')}</tr>\`
+    )
+    return \`<table><thead><tr>\${headerRow}</tr></thead><tbody>\${bodyRows.join('')}</tbody></table>\`
+  }
+  mimeType() { return 'text/html' }
+  extension() { return 'html' }
+}
+
+// ReportExporter é fechado pra modificação
+class ReportExporter {
+  constructor(private formatter: ReportFormatter) {}
+
+  export(data: ReportData): { content: string; mime: string; filename: string } {
+    return {
+      content: this.formatter.format(data),
+      mime: this.formatter.mimeType(),
+      filename: \`report.\${this.formatter.extension()}\`,
+    }
+  }
+}
+
+// Adicionar PdfFormatter? Nova classe. ReportExporter não muda.
+// Dispatch via factory:
+const formatters: Record<string, ReportFormatter> = {
+  csv:  new CsvFormatter(),
+  json: new JsonFormatter(),
+  html: new HtmlFormatter(),
+}
+
+// router.get('/reports/export')
+function exportReport(format: string, data: ReportData) {
+  const formatter = formatters[format]
+  if (!formatter) throw new Error(\`Formato \${format} não suportado\`)
+  return new ReportExporter(formatter).export(data)
+}`,
+      },
+    ],
+    mindmap: {
+      title: 'SOLID — Mapa de conceitos e relações',
+      html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .so-mm{display:grid;grid-template-columns:1fr 180px 1fr;grid-template-rows:auto auto auto;gap:14px;align-items:start}
+    .so-center{grid-column:2;grid-row:2;background:radial-gradient(circle,rgba(99,102,241,.45),rgba(99,102,241,.2));border:2px solid #6366F1;border-radius:50%;width:180px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:13px;color:#fff;letter-spacing:.5px}
+    .so-node{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:12px 14px}
+    .so-node-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#a5b4fc;margin-bottom:6px;letter-spacing:.5px}
+    .so-node-items{font-size:11px;color:#cbd5e1;line-height:1.7}
+    .so-node-items li{list-style:none;padding:2px 0;padding-left:12px;position:relative}
+    .so-node-items li::before{content:'→';position:absolute;left:0;color:#6366F1}
+    .so-col{display:flex;flex-direction:column;gap:14px}
+    .so-connector{display:flex;align-items:center;justify-content:center;color:#6366F1;font-size:20px;font-weight:700;grid-row:2}
+    .so-bottom{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:4px}
+    .so-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:rgba(99,102,241,.2);color:#a5b4fc;margin-bottom:6px}
+  </style>
+  <div style="text-align:center;margin-bottom:22px">
+    <div style="font-size:16px;font-weight:700;color:#a5b4fc">SOLID — MAPA DE CONCEITOS</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px">Relações entre princípios, padrões e objetivos</div>
+  </div>
+  <div class="so-mm">
+    <div class="so-col" style="grid-column:1;grid-row:1/4">
+      <div class="so-node">
+        <div class="so-node-title">S — SRP</div>
+        <ul class="so-node-items">
+          <li>Um ator → uma classe</li>
+          <li>Pergunte "quem pede mudança?"</li>
+          <li>Quebra God class</li>
+          <li>Use case orquestra partes</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-node-title">O — OCP</div>
+        <ul class="so-node-items">
+          <li>Extensão via polimorfismo</li>
+          <li>Strategy pattern canônico</li>
+          <li>Fecha pra modificação</li>
+          <li>Plugin architecture</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-node-title">L — LSP</div>
+        <ul class="so-node-items">
+          <li>Subclasse honra contrato</li>
+          <li>Sem throw em método herdado</li>
+          <li>Composição sobre herança</li>
+          <li>Hierarquia honesta</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="so-connector" style="grid-column:1;grid-row:2">→</div>
+    <div class="so-center" style="grid-column:2;grid-row:2">
+      <div style="font-size:22px;letter-spacing:3px">SOLID</div>
+      <div style="font-size:10px;color:#c7d2fe;margin-top:6px;font-weight:400;line-height:1.5">Coesão Alta<br>Acoplamento Baixo</div>
+    </div>
+    <div class="so-connector" style="grid-column:3;grid-row:2">←</div>
+
+    <div class="so-col" style="grid-column:3;grid-row:1/4">
+      <div class="so-node">
+        <div class="so-node-title">I — ISP</div>
+        <ul class="so-node-items">
+          <li>Interfaces pequenas</li>
+          <li>Cliente depende do que usa</li>
+          <li>Capabilities separadas</li>
+          <li>Facilita mock em teste</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-node-title">D — DIP</div>
+        <ul class="so-node-items">
+          <li>Abstração no domínio</li>
+          <li>Detalhe implementa</li>
+          <li>Habilita teste isolado</li>
+          <li>DI é técnica de impl.</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-node-title">Complementos</div>
+        <ul class="so-node-items">
+          <li>Tell Don't Ask</li>
+          <li>Composition over Inheritance</li>
+          <li>YAGNI antes de SOLID</li>
+          <li>Law of Demeter</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="so-bottom">
+      <div class="so-node">
+        <div class="so-badge">PADRÕES</div>
+        <div class="so-node-title">Design Patterns que implementam</div>
+        <ul class="so-node-items">
+          <li>Strategy → OCP</li>
+          <li>Factory → OCP+DIP</li>
+          <li>Decorator → OCP+SRP</li>
+          <li>Adapter → DIP</li>
+          <li>Observer → OCP+SRP</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-badge">ARQUITETURA</div>
+        <div class="so-node-title">SOLID como fundação</div>
+        <ul class="so-node-items">
+          <li>Clean Arch → DIP em camadas</li>
+          <li>DDD → SRP por aggregate</li>
+          <li>Hexagonal → DIP na borda</li>
+          <li>CQRS → SRP em modelo</li>
+        </ul>
+      </div>
+      <div class="so-node">
+        <div class="so-badge">ANTI-PATTERNS</div>
+        <div class="so-node-title">Violações comuns</div>
+        <ul class="so-node-items">
+          <li>God Class → viola SRP</li>
+          <li>Switch por tipo → viola OCP</li>
+          <li>NotImpl em herança → viola LSP</li>
+          <li>Fat interface → viola ISP</li>
+          <li>New concreto no core → viola DIP</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: 'SOLID gera coesão alta e acoplamento baixo. Cada princípio ataca um tipo específico de rigidez. Aplicados juntos formam a base de Clean Architecture e DDD.',
+    },
   },
 
   'clean-architecture': {
@@ -2022,42 +2633,1172 @@ export class OrderModule {}`,
       { title: 'NestJS + Clean Architecture (boilerplate)', url: 'https://github.com/CleanArchitecture-LearningProjects', kind: 'docs' },
       { title: 'Clean Code (Robert Martin) — base prática', url: 'https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882', kind: 'livro' },
     ],
+    videos: [
+      { title: 'Clean Architecture — Uncle Bob / Robert Martin', channel: 'Robert Martin', url: '', topic: 'A palestra original sobre Clean Architecture', note: 'Fonte primária — Uncle Bob explica o raciocínio por trás de cada camada' },
+      { title: 'Clean Architecture with NestJS', channel: 'Rocketseat', url: '', topic: 'Clean Arch implementado em projeto NestJS real', note: 'Melhor recurso em português para implementação prática em Node.js' },
+      { title: 'The Clean Architecture Explained — Practical Example with TypeScript', channel: 'CodelyTV', url: '', topic: 'Clean Arch do zero com TypeScript', note: 'Foco em estrutura de pastas, ports, adapters e testes' },
+      { title: 'Why Clean Architecture Sucks', channel: 'Theo - t3.gg', url: '', topic: 'Perspectiva crítica e quando não usar', note: 'Essencial para entender o tradeoff antes de adotar cegamente' },
+      { title: 'Hexagonal Architecture in TypeScript', channel: 'JetBrains', url: '', topic: 'Ports & Adapters com TypeScript', note: 'Complementa Clean Arch — são variações do mesmo princípio' },
+    ],
+    codeExamples: [
+      {
+        title: 'Use Case completo com domain entity, port e adapter',
+        description: 'Fluxo CreateOrder: entity pura → use case → port interface → Prisma adapter → composition root NestJS',
+        language: 'typescript',
+        code: `// =============================================
+// DOMAIN — zero imports externos
+// =============================================
+// domain/entities/order.entity.ts
+export class Order {
+  private constructor(
+    public readonly id: string,
+    private readonly items: OrderItem[],
+    private status: 'pending' | 'paid' | 'shipped',
+  ) {}
+
+  static create(input: { items: { sku: string; qty: number; price: number }[] }): Order {
+    if (input.items.length === 0) throw new EmptyOrderError()
+    return new Order(
+      crypto.randomUUID(),
+      input.items.map(i => new OrderItem(i.sku, i.qty, i.price)),
+      'pending',
+    )
+  }
+
+  total(): number { return this.items.reduce((s, i) => s + i.subtotal(), 0) }
+  markPaid(): void {
+    if (this.status !== 'pending') throw new InvalidStateError()
+    this.status = 'paid'
+  }
+  get currentStatus() { return this.status }
+}
+
+// =============================================
+// APPLICATION — use cases + ports (interfaces)
+// =============================================
+// application/ports/order-repository.port.ts
+export interface IOrderRepository {
+  save(order: Order): Promise<void>
+  findById(id: string): Promise<Order | null>
+}
+
+// application/ports/payment-gateway.port.ts
+export interface IPaymentGateway {
+  charge(amount: number): Promise<{ ok: boolean; txId: string }>
+}
+
+// application/use-cases/create-order.usecase.ts
+export class CreateOrderUseCase {
+  constructor(
+    private readonly repo: IOrderRepository,    // interface — sem ORM
+    private readonly payments: IPaymentGateway, // interface — sem Stripe
+  ) {}
+
+  async exec(input: CreateOrderInput): Promise<CreateOrderOutput> {
+    const order = Order.create(input)
+    const charge = await this.payments.charge(order.total())
+    if (!charge.ok) throw new PaymentFailedError()
+    order.markPaid()
+    await this.repo.save(order)
+    return { orderId: order.id, total: order.total(), txId: charge.txId }
+  }
+}
+
+// =============================================
+// INFRASTRUCTURE — adapters concretos
+// =============================================
+// infrastructure/repositories/prisma-order.repository.ts
+import { PrismaClient } from '@prisma/client'
+
+export class PrismaOrderRepository implements IOrderRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async save(order: Order): Promise<void> {
+    await this.prisma.order.create({
+      data: { id: order.id, status: order.currentStatus, total: order.total() },
+    })
+  }
+
+  async findById(id: string): Promise<Order | null> {
+    const row = await this.prisma.order.findUnique({ where: { id }, include: { items: true } })
+    return row ? OrderMapper.toDomain(row) : null
+  }
+}
+
+// =============================================
+// COMPOSITION ROOT — NestJS module
+// =============================================
+@Module({
+  controllers: [OrderController],
+  providers: [
+    CreateOrderUseCase,
+    { provide: 'IOrderRepository', useClass: PrismaOrderRepository },
+    { provide: 'IPaymentGateway',  useClass: StripePaymentGateway  },
+    // em e2e: useClass: InMemoryOrderRepository
+  ],
+})
+export class OrderModule {}`,
+      },
+      {
+        title: 'Teste de use case sem framework — in-memory fakes',
+        description: 'Testa CreateOrderUseCase em milissegundos sem NestJS, Postgres ou Stripe',
+        language: 'typescript',
+        code: `// Roda em <10ms — sem Docker, sem banco, sem framework
+
+class InMemoryOrderRepository implements IOrderRepository {
+  readonly orders = new Map<string, Order>()
+  async save(order: Order) { this.orders.set(order.id, order) }
+  async findById(id: string) { return this.orders.get(id) ?? null }
+}
+
+class FakePaymentGateway implements IPaymentGateway {
+  readonly charges: number[] = []
+  private shouldFail = false
+  setFail(v: boolean) { this.shouldFail = v }
+  async charge(amount: number) {
+    this.charges.push(amount)
+    return this.shouldFail ? { ok: false, txId: '' } : { ok: true, txId: 'tx-' + Date.now() }
+  }
+}
+
+describe('CreateOrderUseCase', () => {
+  let repo: InMemoryOrderRepository
+  let payments: FakePaymentGateway
+  let useCase: CreateOrderUseCase
+
+  beforeEach(() => {
+    repo = new InMemoryOrderRepository()
+    payments = new FakePaymentGateway()
+    useCase = new CreateOrderUseCase(repo, payments)
+  })
+
+  it('cria pedido e cobra pagamento com sucesso', async () => {
+    const out = await useCase.exec({ items: [{ sku: 'X', qty: 2, price: 50 }] })
+
+    expect(out.total).toBe(100)
+    expect(payments.charges).toHaveLength(1)
+    expect(await repo.findById(out.orderId)).toBeDefined()
+  })
+
+  it('não persiste se pagamento falhar', async () => {
+    payments.setFail(true)
+    await expect(useCase.exec({ items: [{ sku: 'X', qty: 1, price: 10 }] }))
+      .rejects.toThrow(PaymentFailedError)
+    expect(repo.orders.size).toBe(0) // rollback lógico
+  })
+
+  it('rejeita pedido vazio', async () => {
+    await expect(useCase.exec({ items: [] })).rejects.toThrow(EmptyOrderError)
+    expect(payments.charges).toHaveLength(0) // não cobrou
+  })
+})`,
+      },
+      {
+        title: 'Mapper domain ↔ persistence sem vazar tipos do ORM',
+        description: 'O único arquivo que conhece ambos domínio e ORM — encapsula toda a tradução',
+        language: 'typescript',
+        code: `// infrastructure/mappers/order.mapper.ts
+import { Order, OrderItem } from '../../domain/entities'
+import type { Prisma, Order as PrismaOrder } from '@prisma/client'
+
+type PrismaOrderWithItems = PrismaOrder & {
+  items: { sku: string; qty: number; price: number }[]
+}
+
+export class OrderMapper {
+  // ORM → Domain  (usado no findById)
+  static toDomain(row: PrismaOrderWithItems): Order {
+    return Order.reconstitute(
+      row.id,
+      row.items.map(i => new OrderItem(i.sku, i.qty, i.price)),
+      row.status as 'pending' | 'paid' | 'shipped',
+    )
+  }
+
+  // Domain → ORM create input  (usado no save)
+  static toPersistence(order: Order): Prisma.OrderCreateInput {
+    return {
+      id: order.id,
+      status: order.currentStatus,
+      total: order.total(),
+    }
+  }
+}
+
+// Benefício: domain/entities/order.entity.ts NUNCA importa Prisma
+// Trocar Prisma por TypeORM? Muda só o mapper e o adapter.
+// eslint-plugin-boundaries confirma no CI.`,
+      },
+    ],
+    mindmap: {
+      title: 'Clean Architecture — Mapa de conceitos e fluxo',
+      html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .cam-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .cam-node{background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:13px 15px}
+    .cam-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#a5b4fc;margin-bottom:8px;letter-spacing:.5px}
+    .cam-items{font-size:11px;color:#cbd5e1;line-height:1.8;padding:0;margin:0}
+    .cam-items li{list-style:none;padding-left:14px;position:relative}
+    .cam-items li::before{content:'→';position:absolute;left:0;color:#6366F1;font-weight:700}
+    .cam-center{grid-column:1/-1;background:linear-gradient(90deg,rgba(99,102,241,.18),rgba(99,102,241,.06));border:2px solid #6366F1;border-radius:12px;padding:14px 18px;text-align:center;margin-bottom:4px}
+    .cam-flow{grid-column:1/-1;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:8px;padding:12px;background:rgba(99,102,241,.05);border-radius:8px;border:1px solid rgba(99,102,241,.15)}
+    .cam-step{background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#c7d2fe;white-space:nowrap}
+    .cam-arr{color:#6366F1;font-size:14px;font-weight:700}
+  </style>
+  <div style="text-align:center;margin-bottom:18px">
+    <div style="font-size:16px;font-weight:700;color:#a5b4fc">CLEAN ARCHITECTURE — MAPA MENTAL</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px">Camadas, regras e fluxo de request</div>
+  </div>
+  <div class="cam-wrap">
+    <div class="cam-center">
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#a5b4fc;margin-bottom:4px">DEPENDENCY RULE</div>
+      <div style="font-size:14px;font-weight:700;color:#fff">Setas sempre apontam para dentro</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px">Entities ← Use Cases ← Adapters ← Frameworks &amp; Drivers</div>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">ENTITIES — centro</div>
+      <ul class="cam-items">
+        <li>Regra de negócio empresarial</li>
+        <li>Puras — zero import externo</li>
+        <li>Entities, Value Objects, Errors</li>
+        <li>Comportamento encapsulado</li>
+        <li>Invariantes protegidas</li>
+      </ul>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">USE CASES — orquestração</div>
+      <ul class="cam-items">
+        <li>Regra de aplicação (verbo)</li>
+        <li>CreateOrder, ApprovePayment</li>
+        <li>Depende apenas de ports</li>
+        <li>Testável em &lt;5ms</li>
+        <li>1 classe, 1 método exec</li>
+      </ul>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">ADAPTERS — tradução</div>
+      <ul class="cam-items">
+        <li>Controllers (HTTP → DTO)</li>
+        <li>Presenters (domínio → UI)</li>
+        <li>Repos (port → ORM)</li>
+        <li>Gateways (port → SDK)</li>
+        <li>Mappers (domain ↔ ORM)</li>
+      </ul>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">FRAMEWORKS — borda</div>
+      <ul class="cam-items">
+        <li>Express, NestJS, Fastify</li>
+        <li>Prisma, TypeORM, Mongoose</li>
+        <li>React, AWS SDK, Stripe</li>
+        <li>Plugáveis — trocar = só adapter</li>
+        <li>Composition root liga tudo</li>
+      </ul>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">PIRÂMIDE DE TESTES</div>
+      <ul class="cam-items">
+        <li>70% — unit domain (puro)</li>
+        <li>20% — unit use case (fake repo)</li>
+        <li>8% — integration adapter (DB real)</li>
+        <li>2% — E2E (app inteira)</li>
+        <li>Meta: suíte &lt;30s no CI</li>
+      </ul>
+    </div>
+    <div class="cam-node">
+      <div class="cam-title">QUANDO APLICAR</div>
+      <ul class="cam-items">
+        <li>Domínio rico (fintech, ERP)</li>
+        <li>Vida longa (5+ anos)</li>
+        <li>Time grande (10+ devs)</li>
+        <li>Troca de tecnologia prevista</li>
+        <li>NÃO: CRUD, MVP, prototipo</li>
+      </ul>
+    </div>
+    <div class="cam-flow">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#94a3b8;margin-right:6px">REQUEST:</span>
+      <div class="cam-step">HTTP</div><div class="cam-arr">→</div>
+      <div class="cam-step">Controller</div><div class="cam-arr">→</div>
+      <div class="cam-step">UseCase.exec()</div><div class="cam-arr">→</div>
+      <div class="cam-step">Entity</div><div class="cam-arr">→</div>
+      <div class="cam-step">Port</div><div class="cam-arr">→</div>
+      <div class="cam-step">Adapter</div><div class="cam-arr">→</div>
+      <div class="cam-step">DB / SDK</div>
+    </div>
+  </div>
+</div>`,
+      caption: 'Fluxo de uma request HTTP atravessando todas as camadas. Cada fronteira tem regra de import específica — violação é detectada pelo linter.',
+    },
   },
 
   'ddd': {
-    tagline: 'Modelar software a partir do domínio, com linguagem comum entre tech e negocio.',
-    why: 'DDD aparece em vaga senior backend, principalmente fintech, healthtech, marketplace. Entrevistador testa se você entende bounded context e ubiquitous language, ou se decorou patterns. Aplicar DDD sem dor de domínio vira modinha cara.',
-    summary: 'Domain-Driven Design (Eric Evans) propoe colocar o domínio do negocio no centro do design. Tatico: aggregates, entities, value objects, repositories, domain events. Estrategico: bounded contexts, context map, ubiquitous language. Aggregate define unidade transacional e fronteira de consistencia. Bounded context separa modelos que não deveriam se misturar (Order no contexto de venda e diferente de Order no contexto de logistica). DDD shines em domínio rico e ambiguo; em CRUD simples, e exagero.',
+    tagline: 'Modelar código a partir do domínio de negócio, com linguagem ubíqua como contrato entre devs e especialistas.',
+    why: 'DDD aparece em toda vaga senior de backend em fintech, healthtech e marketplace. O entrevistador não quer que você recite "entity, aggregate, value object" — quer ver se você sabe identificar bounded contexts num diagrama de domínio real, definir invariantes de aggregate e quando NÃO usar DDD. Aplicar DDD sem domínio rico é a forma mais cara de escrever getters e setters.',
+    prerequisite: 'SOLID dominado (especialmente SRP e DIP), conforto com TypeScript ou linguagem OO equivalente, noção de Clean Architecture (DDD e Clean se complementam). Ajuda muito ter trabalhado num domínio complexo — fiscal, financeiro, saúde — onde a lógica de negócio dói de verdade.',
+    summary: 'Domain-Driven Design (Eric Evans, 2003) coloca o domínio do negócio no centro do design. Existem duas dimensões: Strategic DDD (o mapa grande) e Tactical DDD (os blocos de construção).\n\nStrategic: Bounded Contexts são fronteiras lógicas onde um modelo coeso faz sentido — Customer em Sales tem limite de crédito e histórico de compra; Customer em Support tem tickets e SLA. Mesmo nome, modelos diferentes. Context Map descreve relações entre bounded contexts: Shared Kernel, Customer-Supplier, Anti-Corruption Layer (ACL), Conformist. Ubiquitous Language é o vocabulário único entre dev e negócio, refletido no código — se negócio fala "shipment" e código tem "delivery", o tradutor humano vira bug.\n\nTactical: Aggregate é cluster de entidades com um Aggregate Root que garante invariantes. Transação toca um aggregate só — Order é root, OrderItems são parte. Entity tem identidade (User#123 mesmo com campos mutados). Value Object é imutável e definido por valor (Money(100, BRL) == Money(100, BRL)). Domain Event captura o que aconteceu (OrderPlaced, PaymentApproved) — desacopla reação. Repository abstrai persistência por aggregate. Domain Service encapsula lógica que não pertence a nenhuma entity. Application Service orquestra casos de uso.\n\nDDD brilha em domínio rico, ambíguo e de longa vida. Em CRUD simples é teatro arquitetural caro — 80% do código vira boilerplate sem regra de negócio real pra encapsular.',
+    howToStudy: '<strong>Tem 30 minutos antes de uma entrevista?</strong> Memorize a diferença Entity vs Value Object (identidade vs valor), o que é Aggregate Root (garante invariantes, ponto de entrada), e Bounded Context (fronteira de modelo). Estude as Q&As de nível pleno.<br><br><strong>Tem um fim de semana?</strong> Leia os capítulos 1-3 do <em>Domain-Driven Design Distilled</em> (Vernon, 2016 — mais prático que o livro do Evans). Implemente um Aggregate simples (Order com itens e invariante "não pode confirmar vazio"). Sinta a diferença de ter comportamento na entity vs service anêmico.<br><br><strong>Tem uma semana?</strong> Leia o <em>Implementing DDD</em> (Vernon). Mapeie os bounded contexts de um sistema real do seu trabalho. Implemente Domain Events e um handler em bounded context diferente. Compare com Clean Architecture — eles se complementam perfeitamente.<br><br><strong>Modelo mental central:</strong> o código espelha o domínio. Se o especialista de negócio não consegue ler o seu código e reconhecer o vocabulário, você falhou em DDD. Ubiquitous Language é o contrato mais importante.',
+    diagrams: [
+      {
+        title: 'Strategic DDD — Context Map de e-commerce',
+        html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .dd1-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+    .dd1-ctx{background:rgba(23,147,209,.07);border:1px solid rgba(23,147,209,.3);border-radius:10px;padding:14px 16px;position:relative;cursor:pointer;transition:all .2s}
+    .dd1-ctx:hover{background:rgba(23,147,209,.15);transform:translateY(-2px);box-shadow:0 4px 20px rgba(23,147,209,.15)}
+    .dd1-ctx-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .dd1-ctx-models{font-size:11px;color:#cbd5e1;line-height:1.7}
+    .dd1-ctx-model{display:flex;align-items:flex-start;gap:6px;padding:2px 0}
+    .dd1-ctx-model::before{content:'•';color:#1793D1;font-weight:700}
+    .dd1-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid #1793D1;padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.5;width:240px;z-index:10;text-align:left;color:#e2e8f0;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+    .dd1-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#1793D1}
+    .dd1-ctx:hover .dd1-tooltip{display:block}
+    .dd1-relation{background:rgba(23,147,209,.04);border:1px dashed rgba(23,147,209,.2);border-radius:8px;padding:10px 14px;margin-top:4px;font-size:11px}
+    .dd1-rel-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .dd1-rel-item{display:flex;align-items:center;gap:8px;padding:3px 0;color:#94a3b8;font-size:11px}
+    .dd1-rel-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-family:'JetBrains Mono',monospace;background:rgba(23,147,209,.2);color:#38bdf8;white-space:nowrap}
+    .dd1-banner{grid-column:1/-1;text-align:center;padding:12px;background:linear-gradient(90deg,rgba(23,147,209,.15),rgba(23,147,209,.05));border-radius:8px;margin-bottom:4px}
+  </style>
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="font-size:16px;font-weight:700;color:#38bdf8">STRATEGIC DDD — CONTEXT MAP</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px">Hover em cada contexto para ver o modelo e a linguagem ubíqua</div>
+  </div>
+  <div class="dd1-grid">
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Orders Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Order (aggregate root)</div>
+        <div class="dd1-ctx-model">OrderItem (entity)</div>
+        <div class="dd1-ctx-model">Money (value object)</div>
+        <div class="dd1-ctx-model">OrderPlaced (domain event)</div>
+      </div>
+      <div class="dd1-tooltip">Linguagem ubíqua: "pedido", "item", "confirmar", "cancelar". Order controla invariantes: não pode confirmar sem itens, não pode cancelar se já enviado. OrderItem é imutável — adicionar = novo item.</div>
+    </div>
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Payments Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Payment (aggregate root)</div>
+        <div class="dd1-ctx-model">ChargeResult (value object)</div>
+        <div class="dd1-ctx-model">PaymentMethod (entity)</div>
+        <div class="dd1-ctx-model">PaymentApproved (event)</div>
+      </div>
+      <div class="dd1-tooltip">Linguagem ubíqua: "cobrança", "autorizar", "estornar", "chargeback". Payment tem seu próprio modelo de Order (só orderId + total) — não importa OrderItem. Contexto separado, modelo separado.</div>
+    </div>
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Inventory Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Stock (aggregate root)</div>
+        <div class="dd1-ctx-model">Reservation (entity)</div>
+        <div class="dd1-ctx-model">Quantity (value object)</div>
+        <div class="dd1-ctx-model">StockReserved (event)</div>
+      </div>
+      <div class="dd1-tooltip">Linguagem ubíqua: "estoque", "reserva", "baixa", "reposição". Stock protege invariante de quantidade não-negativa. Reservation é criada quando Order é confirmado — via evento, não chamada direta.</div>
+    </div>
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Shipping Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Shipment (aggregate root)</div>
+        <div class="dd1-ctx-model">TrackingCode (value object)</div>
+        <div class="dd1-ctx-model">Address (value object)</div>
+        <div class="dd1-ctx-model">ShipmentDispatched (event)</div>
+      </div>
+      <div class="dd1-tooltip">Linguagem ubíqua: "envio", "despacho", "rastreio", "entrega". Shipment tem visão diferente de Order — interessa só o endereço e os itens físicos. Address é VO: imutável, igualdade por valor.</div>
+    </div>
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Users Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Customer (aggregate root)</div>
+        <div class="dd1-ctx-model">Email (value object)</div>
+        <div class="dd1-ctx-model">CreditLimit (value object)</div>
+        <div class="dd1-ctx-model">CustomerRegistered (event)</div>
+      </div>
+      <div class="dd1-tooltip">Linguagem ubíqua: "cliente", "cadastro", "limite de crédito". Customer em Users ≠ Customer em Support. Mesmo nome, modelos diferentes — separação de contexto resolve a ambiguidade.</div>
+    </div>
+    <div class="dd1-ctx">
+      <div class="dd1-ctx-title">Notifications Context</div>
+      <div class="dd1-ctx-models">
+        <div class="dd1-ctx-model">Notification (aggregate)</div>
+        <div class="dd1-ctx-model">Channel (value object)</div>
+        <div class="dd1-ctx-model">Template (entity)</div>
+        <div class="dd1-ctx-model">NotificationSent (event)</div>
+      </div>
+      <div class="dd1-tooltip">Consumidor downstream. Recebe eventos de todos os contextos e decide como notificar. Não tem opinião sobre o que é Order ou Payment — só recebe e reage. Conformist em relação a Orders/Payments.</div>
+    </div>
+  </div>
+  <div class="dd1-grid" style="margin-top:14px">
+    <div class="dd1-relation" style="grid-column:1/-1">
+      <div class="dd1-rel-title">Context Map — relações</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div>
+          <div class="dd1-rel-item"><span class="dd1-rel-badge">ACL</span>Orders ← Payments</div>
+          <div style="font-size:10px;color:#64748b;padding-left:60px">Anti-Corruption Layer traduz PaymentApproved pro modelo de Orders</div>
+        </div>
+        <div>
+          <div class="dd1-rel-item"><span class="dd1-rel-badge">Customer-Supplier</span>Orders → Inventory</div>
+          <div style="font-size:10px;color:#64748b;padding-left:110px">Orders é upstream; Inventory segue API de Orders</div>
+        </div>
+        <div>
+          <div class="dd1-rel-item"><span class="dd1-rel-badge">Conformist</span>Notifications ← todos</div>
+          <div style="font-size:10px;color:#64748b;padding-left:78px">Notifications aceita o modelo dos contextos upstream sem adaptar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+        caption: 'Cinco bounded contexts, cada um com seu modelo e linguagem ubíqua. Mesmo conceito (Order, Customer) tem representações diferentes em cada contexto — isso não é bug, é design.',
+      },
+      {
+        title: 'Tactical DDD — Aggregate com invariantes e Domain Events',
+        html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .dd2-layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .dd2-aggregate{background:rgba(23,147,209,.06);border:2px solid rgba(23,147,209,.4);border-radius:12px;padding:16px 18px}
+    .dd2-agg-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(23,147,209,.25)}
+    .dd2-root{background:rgba(23,147,209,.15);border:1px solid rgba(23,147,209,.5);border-radius:6px;padding:10px 12px;margin-bottom:8px}
+    .dd2-root-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .dd2-root-name{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px}
+    .dd2-method{font-family:'JetBrains Mono',monospace;font-size:11px;color:#86efac;padding:2px 0}
+    .dd2-method::before{content:'+ ';color:#4ade80}
+    .dd2-invariant{font-size:10px;color:#fbbf24;padding:2px 0;display:flex;gap:4px}
+    .dd2-invariant::before{content:'✦'}
+    .dd2-child{background:rgba(23,147,209,.05);border:1px solid rgba(23,147,209,.2);border-radius:6px;padding:8px 10px;margin-bottom:6px}
+    .dd2-child-name{font-size:11px;font-weight:700;color:#7dd3fc;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+    .dd2-vo{background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.2);border-radius:6px;padding:8px 10px;margin-bottom:6px}
+    .dd2-vo-name{font-size:11px;font-weight:700;color:#86efac;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+    .dd2-prop{font-size:10px;color:#94a3b8;padding:1px 0}
+    .dd2-event-flow{display:flex;flex-direction:column;gap:10px}
+    .dd2-event-step{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;background:rgba(23,147,209,.05);border-radius:8px;border-left:3px solid #1793D1}
+    .dd2-event-num{flex:0 0 24px;height:24px;border-radius:50%;background:#1793D1;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace}
+    .dd2-event-content{flex:1}
+    .dd2-event-label{font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:2px}
+    .dd2-event-desc{font-size:10px;color:#94a3b8;line-height:1.5}
+  </style>
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="font-size:16px;font-weight:700;color:#38bdf8">TACTICAL DDD — AGGREGATE + DOMAIN EVENTS</div>
+  </div>
+  <div class="dd2-layout">
+    <div class="dd2-aggregate">
+      <div class="dd2-agg-title">Order Aggregate</div>
+      <div class="dd2-root">
+        <div class="dd2-root-label">Aggregate Root</div>
+        <div class="dd2-root-name">Order</div>
+        <div class="dd2-method">confirm(): OrderConfirmed</div>
+        <div class="dd2-method">addItem(sku, qty, price): void</div>
+        <div class="dd2-method">cancel(reason): OrderCancelled</div>
+        <div class="dd2-method">total(): Money</div>
+        <div style="margin-top:8px;padding-top:6px;border-top:1px dashed rgba(23,147,209,.2)">
+          <div style="font-size:10px;color:#38bdf8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">INVARIANTES</div>
+          <div class="dd2-invariant">Não confirmar sem itens</div>
+          <div class="dd2-invariant">Não cancelar se já enviado</div>
+          <div class="dd2-invariant">Total deve ser &gt; 0</div>
+        </div>
+      </div>
+      <div class="dd2-child">
+        <div class="dd2-child-name">OrderItem (Entity filha)</div>
+        <div class="dd2-prop">sku: string</div>
+        <div class="dd2-prop">qty: number</div>
+        <div class="dd2-prop">price: Money</div>
+        <div class="dd2-prop">subtotal(): Money</div>
+      </div>
+      <div class="dd2-vo">
+        <div class="dd2-vo-name">Money (Value Object)</div>
+        <div class="dd2-prop">amount: number (readonly)</div>
+        <div class="dd2-prop">currency: 'BRL' | 'USD'</div>
+        <div class="dd2-prop">add(m: Money): Money</div>
+        <div class="dd2-prop">equals(m: Money): boolean</div>
+        <div style="font-size:10px;color:#4ade80;margin-top:4px">Imutável · Igualdade por valor</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#38bdf8;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Fluxo de Domain Event</div>
+      <div class="dd2-event-flow">
+        <div class="dd2-event-step">
+          <div class="dd2-event-num">1</div>
+          <div class="dd2-event-content">
+            <div class="dd2-event-label">Command → Aggregate</div>
+            <div class="dd2-event-desc"><code style="color:#86efac">ConfirmOrderCommand</code> chega no Application Service → invoca <code style="color:#86efac">order.confirm()</code></div>
+          </div>
+        </div>
+        <div class="dd2-event-step">
+          <div class="dd2-event-num">2</div>
+          <div class="dd2-event-content">
+            <div class="dd2-event-label">Aggregate valida invariantes</div>
+            <div class="dd2-event-desc">Order verifica: tem itens? status é pending? Se não, lança <code style="color:#fca5a5">DomainError</code></div>
+          </div>
+        </div>
+        <div class="dd2-event-step">
+          <div class="dd2-event-num">3</div>
+          <div class="dd2-event-content">
+            <div class="dd2-event-label">Domain Event emitido</div>
+            <div class="dd2-event-desc"><code style="color:#86efac">OrderConfirmed { orderId, total, customerId, at }</code> — imutável, no passado, fato do domínio</div>
+          </div>
+        </div>
+        <div class="dd2-event-step">
+          <div class="dd2-event-num">4</div>
+          <div class="dd2-event-content">
+            <div class="dd2-event-label">Handlers reagem</div>
+            <div class="dd2-event-desc">PaymentHandler cobra, InventoryHandler reserva, NotificationHandler envia email — cada um no próprio bounded context, desacoplado</div>
+          </div>
+        </div>
+        <div class="dd2-event-step" style="border-left-color:#fbbf24">
+          <div class="dd2-event-num" style="background:#d97706">i</div>
+          <div class="dd2-event-content">
+            <div class="dd2-event-label" style="color:#fbbf24">Aggregate Root = único acesso</div>
+            <div class="dd2-event-desc">Nenhum código externo acessa <code style="color:#fca5a5">OrderItem</code> diretamente. Só via <code style="color:#86efac">order.addItem()</code>. Garante invariantes sempre.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+        caption: 'Aggregate Root é a única porta de entrada. Invariantes vivem dentro. Domain Events comunicam o que aconteceu — sem acoplamento direto entre contextos.',
+      },
+      {
+        title: 'Entity vs Value Object — diferenças e implementação TypeScript',
+        html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .dd3-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .dd3-card{border-radius:10px;padding:14px 16px}
+    .dd3-entity{background:rgba(23,147,209,.07);border:1px solid rgba(23,147,209,.3)}
+    .dd3-vo{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.3)}
+    .dd3-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed rgba(255,255,255,.08)}
+    .dd3-entity .dd3-title{color:#38bdf8}
+    .dd3-vo .dd3-title{color:#86efac}
+    .dd3-row{font-size:11px;color:#cbd5e1;padding:4px 0;display:flex;gap:8px}
+    .dd3-key{color:#94a3b8;min-width:100px;font-family:'JetBrains Mono',monospace;font-size:10px}
+    .dd3-code{font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.65;color:#cbd5e1;background:rgba(0,0,0,.35);padding:10px 12px;border-radius:6px;white-space:pre;overflow-x:auto}
+    .dd3-compare{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+  </style>
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="font-size:16px;font-weight:700;color:#38bdf8">ENTITY vs VALUE OBJECT</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px">A distinção mais importante do DDD tático</div>
+  </div>
+  <div class="dd3-grid">
+    <div class="dd3-card dd3-entity">
+      <div class="dd3-title">Entity — identidade única</div>
+      <div class="dd3-row"><span class="dd3-key">Identidade</span>tem ID único (User#123)</div>
+      <div class="dd3-row"><span class="dd3-key">Igualdade</span>por ID, mesmo com campos diferentes</div>
+      <div class="dd3-row"><span class="dd3-key">Mutabilidade</span>pode mudar campos mantendo identidade</div>
+      <div class="dd3-row"><span class="dd3-key">Ciclo de vida</span>nasce, muda, morre — rastreável</div>
+      <div class="dd3-row"><span class="dd3-key">Exemplos</span>User, Order, Product, Invoice</div>
+    </div>
+    <div class="dd3-card dd3-vo">
+      <div class="dd3-title">Value Object — igualdade por valor</div>
+      <div class="dd3-row"><span class="dd3-key">Identidade</span>sem ID — definido pelos valores</div>
+      <div class="dd3-row"><span class="dd3-key">Igualdade</span>Money(100, BRL) == Money(100, BRL)</div>
+      <div class="dd3-row"><span class="dd3-key">Mutabilidade</span>imutável — operações retornam novo VO</div>
+      <div class="dd3-row"><span class="dd3-key">Ciclo de vida</span>sem ciclo — recriar é barato</div>
+      <div class="dd3-row"><span class="dd3-key">Exemplos</span>Money, Address, CPF, Email, Quantity</div>
+    </div>
+    <div class="dd3-compare">
+      <pre class="dd3-code">// Entity — igualdade por ID
+class User {
+  constructor(
+    public readonly id: string,     // identidade
+    public name: string,            // mutável
+    public email: Email,            // VO encapsulado
+  ) {}
+
+  equals(other: User): boolean {
+    return this.id === other.id     // ID decide
+  }
+
+  changeName(name: string) {
+    this.name = name                // muta, id permanece
+  }
+}</pre>
+      <pre class="dd3-code">// Value Object — igualdade por valor
+class Money {
+  private constructor(
+    public readonly amount: number,    // readonly
+    public readonly currency: string,  // readonly
+  ) {}
+
+  static of(amount: number, currency: string) {
+    if (amount &lt; 0) throw new Error('Negativo')
+    return new Money(amount, currency)
+  }
+
+  add(other: Money): Money {
+    if (other.currency !== this.currency)
+      throw new Error('Moedas diferentes')
+    return new Money(this.amount + other.amount, this.currency)
+  }
+
+  equals(other: Money): boolean {
+    return this.amount === other.amount
+      &amp;&amp; this.currency === other.currency
+  }
+}</pre>
+    </div>
+  </div>
+</div>`,
+        caption: 'Regra prática: precisa rastrear ao longo do tempo com identidade? Entity. Definido pelos seus valores, imutável, sem ciclo de vida? Value Object.',
+      },
+    ],
     keypoints: [
-      { title: 'Ubiquitous Language', body: 'Vocabulario único entre dev, PO e negocio, refletido no código. Se negocio fala "shipment" e código tem "delivery", o tradutor humano vira bug. DDD obriga alinhamento.' },
-      { title: 'Bounded Context', body: 'Fronteira lógica onde um modelo faz sentido. <code>Customer</code> em Sales tem credito e histórico de compra; em Support, tem tickets e SLA. Mesmo nome, modelos diferentes. Cada contexto tem sua linguagem.' },
-      { title: 'Aggregate', body: 'Cluster de entidades tratadas como unidade. Tem um <strong>aggregate root</strong> que é o ponto de entrada e garante invariantes. Order é root, OrderItems são parte do aggregate. Transação toca um aggregate só.' },
-      { title: 'Entity vs Value Object', body: 'Entity tem identidade (User#123). Value Object e imutável e definido por valor (Money(100, BRL)). VO simplifica domínio: não precisa de id, comparação por valor, sem efeito colateral.' },
-      { title: 'Domain Events', body: 'Algo importante aconteceu no domínio (OrderPlaced, PaymentApproved). Permite desacoplar reacao (enviar email, baixar estoque) sem o aggregate saber. Base pra event-driven.' },
-      { title: 'Repository', body: 'Abstracao de persistência por aggregate. <code>OrderRepository.save(order)</code>, <code>findById</code>. Esconde ORM. Não tem <code>findByEmail</code> em OrderRepository — isso e lógica de query, sai pra CQRS read model.' },
-      { title: 'Context Map', body: 'Diagrama dos bounded contexts e suas relações: shared kernel, customer/supplier, anti-corruption layer, conformist. Crítico em microservices pra entender quem depende de quem.' },
+      {
+        title: 'Ubiquitous Language — o contrato entre devs e negócio',
+        body: 'Vocabulário único entre dev, PO e especialista de domínio, refletido literalmente no código. Se o negócio fala "shipment" e o código tem "delivery", o tradutor humano vira fonte de bug. DDD obriga alinhamento: cada classe, método e variável usa o termo do domínio. Session de Event Storming com especialistas extrai esse vocabulário. O dia que o especialista consegue ler seu código e dizer "isso é exatamente o que fazemos" é o dia que o DDD funcionou.',
+      },
+      {
+        title: 'Bounded Context — fronteira de modelo e linguagem',
+        body: 'Fronteira lógica onde um modelo coeso faz sentido. Customer em Sales tem limite de crédito, histórico de compra e score. Customer em Support tem tickets abertos e SLA. Customer em Shipping tem endereços e preferências de entrega. Mesmo nome, modelos completamente diferentes — e está correto. Tentar unificar num único modelo "Customer" gera monstruosidade. Context Map descreve como os bounded contexts se relacionam.',
+      },
+      {
+        title: 'Aggregate Root — guardião de invariantes',
+        body: 'Aggregate é cluster de entidades e VOs tratados como unidade transacional. Aggregate Root é a única porta de entrada — nenhum código externo acessa entidades filhas diretamente. Root garante invariantes: "Order não pode ser confirmado sem itens", "Order não pode ser cancelado se já enviado". Transação toca um aggregate só. Vernon: "design small aggregates" — aggregate gigante é o erro #1.',
+        code: `// Aggregate Root com invariantes
+export class Order {
+  private constructor(
+    public readonly id: string,
+    private items: OrderItem[],
+    private status: 'pending' | 'confirmed' | 'cancelled',
+  ) {}
+
+  static create(): Order {
+    return new Order(crypto.randomUUID(), [], 'pending')
+  }
+
+  addItem(sku: string, qty: number, price: Money): void {
+    if (this.status !== 'pending') throw new OrderAlreadyClosedError()
+    this.items.push(new OrderItem(sku, qty, price))  // entity filha
+  }
+
+  confirm(): OrderConfirmed {
+    if (this.items.length === 0) throw new EmptyOrderError()  // invariante
+    if (this.status !== 'pending') throw new InvalidStatusError()
+    this.status = 'confirmed'
+    return new OrderConfirmed(this.id, this.total())  // domain event
+  }
+
+  // ⚠ Não expor items diretamente — getter retorna cópia
+  getItems(): ReadonlyArray<OrderItem> { return [...this.items] }
+}`,
+      },
+      {
+        title: 'Entity vs Value Object — identidade vs valor',
+        body: 'Entity tem identidade única que persiste mesmo com campos mutados (User#123 é o mesmo usuário mesmo trocando o nome). Igualdade por ID. Value Object é imutável e definido pelos seus valores — Money(100, BRL) é igual a qualquer outro Money(100, BRL). Sem ID. Operações retornam novo VO. Benefício: VO simplifica raciocínio (sem efeito colateral, sem rastrear quem mudou o que), centraliza validação (CPF inválido no construtor) e encapsula comportamento (Money.add(), Money.convert()).',
+        code: `// Value Object — imutável, igualdade por valor
+export class Money {
+  private constructor(
+    public readonly amount: number,
+    public readonly currency: 'BRL' | 'USD',
+  ) {}
+
+  static of(amount: number, currency: 'BRL' | 'USD'): Money {
+    if (amount < 0) throw new Error('Valor negativo')
+    return new Money(Math.round(amount * 100) / 100, currency)
+  }
+
+  static zero(currency: 'BRL' | 'USD') { return Money.of(0, currency) }
+
+  add(other: Money): Money {
+    if (other.currency !== this.currency) throw new CurrencyMismatchError()
+    return Money.of(this.amount + other.amount, this.currency)
+  }
+
+  equals(other: Money): boolean {
+    return this.amount === other.amount && this.currency === other.currency
+  }
+}
+
+// Uso: operações nunca mutam, retornam novo Money
+const total = items.reduce((sum, i) => sum.add(i.subtotal()), Money.zero('BRL'))`,
+      },
+      {
+        title: 'Domain Events — fatos imutáveis do passado',
+        body: 'Domain Event representa algo importante que aconteceu no domínio: OrderConfirmed, PaymentApproved, StockDepleted. É fato imutável, no passado. Desacopla reação: aggregate não precisa saber que vai enviar email, baixar estoque e notificar ERP — publica o evento, handlers reagem. Habilita event sourcing, saga e coreografia entre bounded contexts. Diferença crucial: Command é intenção ("confirme o pedido"), Event é fato ("pedido foi confirmado").',
+        code: `// Domain Event — imutável, no passado
+export class OrderConfirmed {
+  constructor(
+    public readonly orderId: string,
+    public readonly total: Money,
+    public readonly customerId: string,
+    public readonly confirmedAt: Date = new Date(),
+  ) {}
+}
+
+// Handler em bounded context separado (Inventory)
+export class ReserveStockOnOrderConfirmed {
+  async handle(event: OrderConfirmed): Promise<void> {
+    // Inventory não conhece Order — só precisa do evento
+    await this.stockRepo.reserve(event.orderId, event.items)
+  }
+}
+
+// Publicação no Application Service (com outbox pra garantia)
+async confirmOrder(orderId: string): Promise<void> {
+  const order = await this.orderRepo.findById(orderId)
+  const event = order.confirm()
+  await this.orderRepo.save(order)           // persiste estado
+  await this.outbox.publish(event)            // at-least-once via outbox
+}`,
+      },
+      {
+        title: 'Repository — abstração de persistência por aggregate',
+        body: 'Repository abstrai persistência por aggregate root — save(aggregate), findById(id), talvez findByCustomerId. Não tem findByEmail em OrderRepository — Email é campo de Customer, não de Order. Não tem 40 métodos custom de query — query complexa vai para read model (CQRS). Contrato define interface no domínio; implementação fica no adapter de infra. Não é DAO: esconde detalhes de persistência e trabalha com domain entities, não com rows.',
+        code: `// Interface no domínio
+export interface IOrderRepository {
+  save(order: Order): Promise<void>
+  findById(id: string): Promise<Order | null>
+  findByCustomerId(customerId: string): Promise<Order[]>
+  // ✗ NÃO: findByProductSku, findByDateRange, findByStatus — vai pro read model
+}
+
+// Implementação no adapter de infra (Prisma)
+export class PrismaOrderRepository implements IOrderRepository {
+  async save(order: Order): Promise<void> {
+    const data = OrderMapper.toPersistence(order)
+    await this.prisma.order.upsert({ where: { id: order.id }, create: data, update: data })
+  }
+}`,
+      },
+      {
+        title: 'Domain Service — lógica que não pertence a nenhuma entity',
+        body: 'Quando um comportamento de domínio naturalmente envolve múltiplas entidades ou aggregates, mas não pertence a nenhum deles, entra o Domain Service. Exemplo: TransferFunds entre dois BankAccount — pertence a ambos, mas nenhum dos dois deve chamar o outro. O Domain Service executa a transferência recebendo ambos. Difere de Application Service: Domain Service contém regra de negócio; Application Service orquestra (chama repo, publica evento, lida com I/O).',
+        code: `// Domain Service — regra de negócio que cruza aggregates
+export class PricingService {
+  // Regra: desconto depende do cliente E do produto
+  // Não pertence só a Customer nem só a Product
+  calculateDiscount(customer: Customer, product: Product): Money {
+    if (customer.isPremium() && product.isDiscountable()) {
+      return product.price.multiply(0.15)
+    }
+    if (customer.hasCoupon('BLACK_FRIDAY')) {
+      return product.price.multiply(0.10)
+    }
+    return Money.zero('BRL')
+  }
+}
+
+// Application Service — orquestra
+export class CreateOrderApplicationService {
+  async exec(input: CreateOrderInput): Promise<void> {
+    const customer = await this.customerRepo.findById(input.customerId)
+    const product  = await this.productRepo.findById(input.productId)
+    const discount = this.pricingService.calculateDiscount(customer, product)  // domain service
+    const order = Order.create(customer.id, product, discount)
+    await this.orderRepo.save(order)
+    await this.outbox.publish(...order.pullEvents())
+  }
+}`,
+      },
+      {
+        title: 'Anti-Corruption Layer — isolando domínios externos',
+        body: 'ACL é camada de tradução entre seu bounded context e um sistema externo (legado, terceiro, contexto upstream que você não controla). Evita que vocabulário e modelo do externo poluam seu domínio. Se o ERP legado tem "CLIENTE_PF" e seu domínio tem "Customer", o ACL traduz — seu domínio nunca vê CLIENTE_PF. Se o modelo externo muda, só o ACL quebra. Padrão crítico em migração de legado e integração com sistemas SaaS.',
+      },
+      {
+        title: 'Context Map — padrões de integração entre contextos',
+        body: 'Shared Kernel: dois contextos compartilham um subconjunto do modelo — custo de coordenação alto. Customer-Supplier: upstream define API, downstream consome — upstream não conhece downstream. Conformist: downstream aceita modelo upstream sem adaptar — mais barato, mas acopla. ACL: downstream traduz modelo upstream para seu próprio modelo — mais caro, mas isolado. Open Host Service: upstream publica protocolo público estável. Published Language: protocolo compartilhado (ex: JSON Schema, Protobuf).',
+      },
+    ],
+    cheatsheet: {
+      title: 'DDD — Building blocks táticos e quando usar cada',
+      html: `<div style="background:#0f172a;padding:30px 24px;border-radius:14px;font-family:'JetBrains Mono',monospace;color:#e2e8f0;">
+  <style>
+    .ddc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .ddc-card{background:rgba(23,147,209,.06);border:1px solid rgba(23,147,209,.2);border-radius:8px;padding:14px 16px}
+    .ddc-title{font-size:12px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(23,147,209,.2)}
+    .ddc-row{font-size:11px;line-height:1.7;color:#cbd5e1;padding:3px 0}
+    .ddc-row b{color:#38bdf8}
+    .ddc-row code{background:rgba(0,0,0,.3);color:#86efac;padding:1px 5px;border-radius:3px;font-size:10px}
+    .ddc-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;background:rgba(23,147,209,.2);color:#38bdf8;margin-right:4px}
+    .ddc-banner{grid-column:1/-1;padding:12px 16px;background:linear-gradient(90deg,rgba(23,147,209,.2),rgba(23,147,209,.05));border-radius:8px;text-align:center;font-family:'Plus Jakarta Sans',sans-serif;color:#38bdf8;font-weight:700;font-size:13px}
+  </style>
+  <div class="ddc-grid">
+    <div class="ddc-banner">DDD TÁTICO — BUILDING BLOCKS COM QUANDO USAR</div>
+    <div class="ddc-card">
+      <div class="ddc-title">Entity</div>
+      <div class="ddc-row"><b>Quando:</b> precisa de identidade + rastreabilidade ao longo do tempo</div>
+      <div class="ddc-row"><b>Igualdade:</b> por ID (<code>user.id === other.id</code>)</div>
+      <div class="ddc-row"><b>Mutável:</b> sim (campos mudam, identidade permanece)</div>
+      <div class="ddc-row"><b>Exemplos:</b> User, Order, Product, Invoice</div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-title">Value Object</div>
+      <div class="ddc-row"><b>Quando:</b> valor imutável sem identidade, com comportamento</div>
+      <div class="ddc-row"><b>Igualdade:</b> por valor (<code>m1.amount === m2.amount &amp;&amp; ...</code>)</div>
+      <div class="ddc-row"><b>Mutável:</b> não — retorna novo VO</div>
+      <div class="ddc-row"><b>Exemplos:</b> Money, Address, CPF, Email, DateRange</div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-title">Aggregate</div>
+      <div class="ddc-row"><b>Quando:</b> cluster de entities com invariante transacional</div>
+      <div class="ddc-row"><b>Root:</b> única porta de entrada — esconde entidades filhas</div>
+      <div class="ddc-row"><b>Tamanho:</b> pequeno (Vernon) — 1 transação = 1 aggregate</div>
+      <div class="ddc-row"><b>Exemplos:</b> Order+Items, BankAccount+Transactions</div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-title">Domain Event</div>
+      <div class="ddc-row"><b>Quando:</b> fato imutável do passado que outros contexts se importam</div>
+      <div class="ddc-row"><b>Nome:</b> sempre no passado (OrderPlaced, PaymentApproved)</div>
+      <div class="ddc-row"><b>Imutável:</b> sim — readonly em todos os campos</div>
+      <div class="ddc-row"><b>Uso:</b> desacoplamento, Event Sourcing, Saga</div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-title">Repository</div>
+      <div class="ddc-row"><b>Quando:</b> persistência de aggregate root (1 repo por aggregate)</div>
+      <div class="ddc-row"><b>Interface:</b> no domínio; implementação na infra</div>
+      <div class="ddc-row"><b>Métodos:</b> save, findById — poucos</div>
+      <div class="ddc-row"><b>Query complexa:</b> → read model (CQRS)</div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-title">Domain Service vs Application Service</div>
+      <div class="ddc-row"><b>Domain Service:</b> regra de negócio que cruza aggregates</div>
+      <div class="ddc-row"><code>PricingService.calculate(customer, product)</code></div>
+      <div class="ddc-row"><b>Application Service:</b> orquestra (repo + domain service + evento)</div>
+      <div class="ddc-row"><code>CreateOrderUseCase.exec(input)</code></div>
+    </div>
+    <div class="ddc-card" style="grid-column:1/-1">
+      <div class="ddc-title">Context Map — padrões de integração</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;font-size:11px">
+        <div><span class="ddc-badge">Shared Kernel</span><span style="color:#94a3b8">modelo compartilhado — coordenação alta</span></div>
+        <div><span class="ddc-badge">Customer-Supplier</span><span style="color:#94a3b8">upstream define API, downstream consome</span></div>
+        <div><span class="ddc-badge">ACL</span><span style="color:#94a3b8">traduz modelo externo — isola domínio</span></div>
+        <div><span class="ddc-badge">Conformist</span><span style="color:#94a3b8">aceita modelo upstream sem adaptar</span></div>
+        <div><span class="ddc-badge">Open Host</span><span style="color:#94a3b8">upstream publica protocolo público estável</span></div>
+        <div><span class="ddc-badge">Published Lang</span><span style="color:#94a3b8">protocolo compartilhado (Protobuf, JSON Schema)</span></div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: 'Building blocks são ferramentas — não rituais. Aplica cada um onde o domínio pede, não pra "fazer DDD".',
+    },
+    mnemonics: [
+      {
+        label: 'Strategic DDD — BCU',
+        trick: 'Bounded Context · Context Map · Ubiquitous Language',
+        explanation: 'Os três pilares estratégicos do DDD. Bounded Context = onde o modelo faz sentido. Context Map = como os contextos se relacionam. Ubiquitous Language = o vocabulário que une devs e negócio. Sem os três, você tem patterns sem estratégia.',
+      },
+      {
+        label: 'Tactical building blocks — EVARDS',
+        trick: 'Entity · Value Object · Aggregate · Repository · Domain Service',
+        explanation: 'Os cinco building blocks táticos principais. E=Entity (identidade), V=Value Object (valor), A=Aggregate (cluster com root), R=Repository (persistência por aggregate), D=Domain Service (regra que cruza aggregates). Domain Events seriam o 6º — adicione um S de "Stories" se quiser incluir.',
+      },
+      {
+        label: 'Aggregate Rule — "Small, root, one transaction"',
+        trick: 'Design small aggregates. Root is the only door. One transaction per aggregate.',
+        explanation: 'As três regras de ouro do Vaughn Vernon para aggregates. Se seu aggregate tem 10+ entidades filhas, está grande demais. Se código externo acessa entidade filha diretamente, quebrou a fronteira. Se uma transação toca 2 aggregates, você precisa de eventual consistency ou redesenhou a fronteira.',
+      },
+      {
+        label: 'Entity vs VO — "ID ou Valor?"',
+        trick: 'Precisa rastrear? Entity. Definido pelos valores? Value Object.',
+        explanation: 'Pergunta rápida pra decidir: "preciso rastrear essa coisa ao longo do tempo com identidade própria?" SIM → Entity. NÃO → pergunta "é imutável e definido pelos seus valores?" SIM → Value Object. A resposta errada gera IDs desnecessários (overengineering) ou mutabilidade onde não deveria ter (bug).',
+      },
     ],
     gotchas: [
-      'Aplicar DDD em CRUD anemic — virou pasta cheia de classe sem comportamento, "domain model" só com getter/setter. Sem regra de negocio rica, DDD é teatro.',
-      'Aggregate gigante — Order com 200 OrderItems numa transação mata performance e escala. Quebra em aggregates menores ou usa eventual consistency.',
-      'Bounded context virar microservice 1:1 sem análise — context e lógico, microservice e físico. Nem sempre coincide.',
-      'Confundir DTO com value object — VO tem comportamento (Money.add, Money.convert). DTO e bag de dado.',
-      'Repository com 50 métodos custom — virou DAO disfarcado. Mantenha repository pequeno, query complexa vai pra read model (CQRS).',
+      'Aplicar DDD em CRUD sem regra de negócio rica — vira pasta cheia de classe com getter/setter sem comportamento. "Anemic domain model" com boilerplate de DDD é o pior dos dois mundos.',
+      'Aggregate gigante — Order com 200 OrderItems em uma transação gera lock contention, queries pesadas e acoplamento. Design small aggregates; eventual consistency entre aggregates.',
+      'Bounded context virar microservice 1:1 sem análise — context é lógico, microservice é físico. Começa com monolito modular com bounded contexts bem separados, migra pra microservice quando a dor justificar.',
+      'Confundir DTO com Value Object — DTO é bag de dados para transferência (sem comportamento). VO tem comportamento (Money.add, Money.convert) e regra de validação (CPF.validate). São coisas diferentes.',
+      'Repository com 50 métodos custom (findByEmail, findByDateRange, findByStatus) — virou DAO disfarçado. Mantenha repository pequeno: save, findById, findByRoot. Queries complexas vão para read model (CQRS).',
+      'Ubiquitous language só no diagrama — se não está no código (classes, métodos, variáveis), não é DDD. O código deve refletir literalmente o vocabulário que o especialista de domínio usa.',
+      'Domain Event sem outbox — publicar evento direto após salvar tem race condition: salva, falha antes de publicar, dado inconsistente. Use transactional outbox para at-least-once garantido.',
+      'Aplicar DDD sem especialista de domínio disponível — linguagem ubíqua emerge de conversa, não de suposição. Sem acesso ao negócio, você está inventando domínio, não modelando.',
     ],
     interview: [
-      { q: 'Quando NÃO usar DDD?', a: '<p>CRUD simples sem regra de negócio rica — DDD vira <strong>cerimônia vazia</strong>. Se 90% das operações são "salva no banco e devolve", você está criando entity/aggregate/repo pra nada.</p><p>Também evito em time sem maturidade ou sem acesso a especialista de domínio. DDD <strong>depende de conversa com negócio</strong> pra extrair ubiquitous language. Sem isso, você só copia patterns e perde o ponto. Prefiro arquitetura simples até o domínio mostrar complexidade real.</p>' },
-      { q: 'Como você define o tamanho de um aggregate?', a: '<p>Pequeno o suficiente pra <strong>caber numa transação</strong> sem lock contention, grande o suficiente pra <strong>proteger invariantes</strong> que precisam de consistencia forte.</p><p>Heurística: se a invariante exige ver dois objetos juntos pra validar (ex: total do Order vs limite de credito), eles são do mesmo aggregate. Se a regra tolera staleness ("eventually total e calculado"), separa em aggregates diferentes ligados por id.</p><p>Vernon: <em>"design small aggregates"</em>. Aggregate gigante e o erro #1 de iniciante em DDD.</p>' },
-      { q: 'Tradeoff: DDD vs Anemic Model + Service?', a: '<p><strong>Anemic + Service</strong>: rápido de escrever, baixa curva, comum em Spring/Nest. Risco: regra de negocio espalha em services, vira procedural disfarcado, difícil de evoluir.</p><p><strong>DDD rich model</strong>: comportamento mora na entity/VO, encapsula invariante, evolui bem. Custo: mais design upfront, conversa constante com negocio, time disciplinado.</p><p>Decisão: complexidade do domínio. Sistema de regra fiscal ou financeira complexa: DDD ganha. Cadastro de produto com 5 campos: anemic resolve.</p>' },
-      { q: 'Como bounded context se relaciona com microservices?', a: '<p>Bounded context e <strong>lógico</strong> — fronteira de modelo e linguagem. Microservice e <strong>físico</strong> — fronteira de deploy.</p><p>Boa prática: cada microservice contem 1 ou mais bounded contexts, mas <strong>nunca</strong> divide um context entre serviços (acopla deploy de coisas que mudam juntas). Comecar monolito modular com bounded contexts bem definidos e migrar pra microservice quando precisar e padrão seguro.</p>' },
-      { q: 'O que é Anti-Corruption Layer e quando você usaria?', a: '<p>ACL é camada de tradução entre <strong>seu bounded context</strong> e um sistema externo (legado, terceiro, contexto upstream que você não controla). Evita que vocabulario e modelo do externo poluam seu domínio.</p><p>Uso quando integro com SAP, sistema legado da empresa, ou API de fornecedor com modelo bizarro. ACL traduz, válida e isola — se o externo muda, só o ACL quebra, domínio fica intacto.</p>' },
+      {
+        q: 'Qual a diferença entre Entity e Value Object?',
+        level: 'pleno',
+        a: '<p><strong>Entity</strong> tem identidade única que persiste mesmo com campos mutados. User#123 continua sendo o mesmo usuário mesmo trocando nome e email. Igualdade por ID. Rastreável ao longo do tempo.</p><p><strong>Value Object</strong> não tem identidade — é definido pelos seus valores. <code>Money(100, BRL)</code> é igual a qualquer outro <code>Money(100, BRL)</code>, independente de qual instância. Imutável — operações retornam novo VO. Sem efeito colateral. Centraliza validação (CPF inválido no construtor) e encapsula comportamento (<code>Money.add()</code>, <code>CPF.format()</code>).</p><p>Pergunta de decisão rápida: <em>"preciso rastrear ao longo do tempo com identidade?"</em> SIM → Entity. NÃO → VO.</p><p>Erro clássico: criar entity com ID pra tudo — Address com UUID quando é VO natural (imutável, igualdade por valores dos campos). Gera banco desnecessário, queries mais complexas, e perde a imutabilidade.</p>',
+        tip: 'Dê exemplo concreto de VO com comportamento real (Money.add, Money.convert) — mostra que VO não é só "struct readonly".',
+      },
+      {
+        q: 'O que é um Aggregate Root e por que importa?',
+        level: 'pleno',
+        a: '<p>Aggregate Root é a classe principal de um cluster de entidades que devem ser tratadas como unidade transacional. É a <strong>única porta de entrada</strong> — nenhum código externo acessa entidades filhas diretamente.</p><p>Por que importa:</p><ol><li><strong>Garante invariantes:</strong> root valida todas as regras que envolvem o cluster inteiro. "Order não confirma sem itens" só é verificável se root controla o acesso a items.</li><li><strong>Transação única:</strong> uma transação toca um aggregate. Você não abre transação que salva Order e Customer ao mesmo tempo — se precisar, usa eventual consistency via Domain Event.</li><li><strong>Encapsulamento:</strong> entidades filhas não existem sem o root. OrderItem não faz sentido sem Order. Root protege esse ciclo de vida.</li></ol><p>Anti-pattern: expor <code>order.items.push(item)</code> direto — quebra encapsulamento e os invariantes ficam fora do aggregate. Correto: <code>order.addItem(sku, qty, price)</code> — root valida e decide.</p>',
+        tip: 'Sempre enfatize "invariante" — é o ponto central. Se não há invariante que exige o cluster, talvez não precise de aggregate.',
+      },
+      {
+        q: 'Como você identifica bounded contexts num sistema novo?',
+        level: 'senior',
+        a: '<p>Uso <strong>Event Storming</strong> como técnica principal. Processo colaborativo com especialistas de negócio:</p><ol><li>Post-its laranja = Domain Events ("o que aconteceu?"). Colocar na ordem do tempo.</li><li>Post-its azuis = Commands ("o que causou?").</li><li>Post-its amarelos = Aggregates ("quem decidiu?").</li><li>Identificar onde a linguagem muda — "Order" em logística é diferente de "Order" em faturamento → bounded context diferente.</li></ol><p>Heurísticas complementares:</p><ul><li>Onde o vocabulário muda → fronteira de contexto.</li><li>O que muda junto fica junto → mesmo contexto.</li><li>O que muda independentemente pode ser separado.</li><li>Quem é o time dono? → cada time deveria ter um ou poucos contextos.</li></ul><p>Erro clássico: criar contexto por entidade (UserService, OrderService) ao invés de por modelo coeso. Isso gera distributed monolith onde cada request chama 5 serviços.</p>',
+        tip: 'Cite Event Storming — é a técnica mais valorizada em entrevista sênior. Mostra que você conhece a prática além da teoria.',
+      },
+      {
+        q: 'Quando você usaria Domain Events?',
+        level: 'pleno',
+        a: '<p>Domain Events quando:</p><ol><li><strong>Algo importante aconteceu no domínio</strong> que outros contextos se importam. OrderConfirmed → Inventory reserva estoque, Payments cobra, Notifications envia email. Sem eventos, cada handler seria responsabilidade do use case de Orders — acoplamento indevido.</li><li><strong>Desacoplar reação da ação.</strong> Order.confirm() não precisa saber que vai chamar email service. Publica OrderConfirmed, handlers reagem. Open/Closed no domínio.</li><li><strong>Event Sourcing</strong> como write side — eventos são o dado primário, estado é reconstruído.</li><li><strong>Saga</strong> — fluxo distribuído coordenado por eventos.</li></ol><p>Não usar Domain Events quando a reação é imediata, síncrona e no mesmo bounded context — adiciona complexidade sem ganho real.</p><p>Ponto crítico de implementação: publicar evento na mesma transação do aggregate (transactional outbox). Nunca publicar antes de salvar — inconsistência garantida em falha.</p>',
+      },
+      {
+        q: 'Diferença entre Domain Service e Application Service?',
+        level: 'pleno',
+        a: '<p><strong>Domain Service</strong>: contém regra de negócio que não pertence a nenhuma entity ou aggregate isolado. Exemplos: <code>PricingService.calculateDiscount(customer, product)</code> — a regra depende dos dois. <code>TransferFunds.execute(from, to, amount)</code> — envolve dois BankAccounts. Domain Service trabalha com domain objects, sem I/O.</p><p><strong>Application Service</strong>: orquestra casos de uso. Não contém regra de negócio — chama repos para buscar aggregates, invoca métodos do domínio, publica eventos, retorna resultado. <code>CreateOrderUseCase.exec(input)</code>.</p><p>Confusão mais comum: colocar regra de negócio no Application Service. Isso é o "anemic domain model" — entities viram bags de dados sem comportamento, regra vai toda pro service, que fica gordo e difícil de testar. Regra de negócio deve estar na entity/aggregate/VO ou no Domain Service — lugares onde a lógica é testável sem I/O.</p>',
+        tip: 'Teste prático: consegue testar sem banco, sem HTTP? Domain Service sim. Application Service não (precisa de repos). Se regra não é testável unitariamente, provavelmente está no lugar errado.',
+      },
+      {
+        q: 'Como DDD e Clean Architecture se complementam?',
+        level: 'senior',
+        a: '<p>São perfeitamente complementares e costumam ser usados juntos:</p><ul><li><strong>DDD</strong> responde "o que construir" — Bounded Contexts, Aggregates, Domain Events, Ubiquitous Language.</li><li><strong>Clean Architecture</strong> responde "como organizar" — camadas, Dependency Rule, ports e adapters.</li></ul><p>Mapeamento típico:</p><ul><li>DDD Entities/VOs/Aggregates → Clean Arch Entities (camada central)</li><li>DDD Application Services → Clean Arch Use Cases</li><li>DDD Repositories (interface) → Clean Arch Ports (driven ports)</li><li>DDD Infrastructure (ORM, messaging) → Clean Arch Adapters</li></ul><p>Bounded Context vira pasta/módulo na estrutura do projeto. Cada contexto tem suas camadas (domain, application, infrastructure). Context Map define como pastas/módulos se comunicam.</p><p>Juntos: você tem vocabulário de negócio (DDD) com isolamento de dependência (Clean Arch) — código que um especialista de domínio reconhece E que é testável sem framework.</p>',
+      },
+      {
+        q: 'O que é Anti-Corruption Layer e quando implementar?',
+        level: 'senior',
+        a: '<p>ACL é camada de tradução entre seu bounded context e um sistema externo que você não controla — legado, terceiro, parceiro, contexto upstream com modelo incompatível.</p><p>Protege seu domínio: se o ERP externo tem <code>PEDIDO_VENDA</code> com <code>COD_CLI</code> e <code>VLR_TOTAL</code>, seu domínio nunca vê esses termos. ACL converte pra <code>Order</code>, <code>customerId</code>, <code>totalAmount</code> — vocabulário do seu domínio.</p><p>Quando usar:</p><ol><li>Integração com sistema legado (campos bizarros, modelo incoerente)</li><li>API de terceiro que você não controla e pode mudar</li><li>Bounded context upstream com modelo incompatível</li><li>Migração gradual de legado — ACL isola enquanto migra</li></ol><p>Quando não usar: sistema externo tem modelo limpo e você pode ser Conformist sem custo. ACL tem custo (mais código, ponto de tradução, teste próprio) — só vale quando o externo é realmente incompatível.</p>',
+      },
+      {
+        q: 'Quando NÃO usar DDD?',
+        level: 'pleno',
+        a: '<p>CRUD simples sem regra de negócio rica — DDD vira cerimônia cara. Se 90% das operações são "salva no banco e devolve", você está criando entity/aggregate/repository pra nada. Controller → Service → ORM direto resolve com muito menos código.</p><p>Outros casos pra não usar:</p><ul><li><strong>Time sem acesso a especialista de domínio</strong>: DDD depende de conversa com negócio pra extrair Ubiquitous Language. Sem isso, você inventa domínio em vez de modelar.</li><li><strong>Produto pré-PMF</strong>: modelo muda toda semana. Clean Arch + DDD trava pivot. Prefere simplicidade até estabilizar.</li><li><strong>Time inexperiente</strong>: aplica cargo-cult (pasta com nomes DDD, entidades anêmicas, services com toda regra).</li><li><strong>Prazo muito curto</strong>: ROI de DDD é longo prazo. MVP em 2 semanas → CRUD.</li></ul><p>Critério: <strong>complexidade do domínio × vida do sistema</strong>. Fintech com regras fiscais complexas + sistema de 10 anos → DDD faz sentido. Dashboard interno de analytics → não.</p>',
+        tip: 'Demonstrar que sabe quando não usar é tão importante quanto saber usar. Filtra arquitetos cargo-cult.',
+      },
+      {
+        q: 'O que é Ubiquitous Language e como garantir na prática?',
+        level: 'pleno',
+        a: '<p>Vocabulário único entre devs, PO, e especialistas de domínio, refletido <strong>literalmente no código</strong>. Se negócio fala "shipment" e código tem "delivery", o tradutor humano vira bug. Cada classe, método, variável, tabela usa o termo do domínio.</p><p>Como garantir na prática:</p><ol><li><strong>Event Storming</strong> com especialistas de negócio — extrai o vocabulário direto da fonte.</li><li><strong>Glossário no repositório</strong> — documento vivo com termos definidos e exemplos.</li><li><strong>Code review</strong> foca em nomenclatura — PR com "delivery" quando deveria ser "shipment" é rejeitado.</li><li><strong>Testes que falam o domínio</strong> — test("quando pedido é confirmado sem itens, deve lançar erro") em vez de test("should throw when items is empty").</li><li><strong>Conversa constante</strong> — dev mostra o código pro especialista. Se ele não reconhece, o código está errado.</li></ol><p>O sinal de sucesso: especialista de negócio consegue ler um teste ou um use case e reconhecer como o processo que ele executa todos os dias.</p>',
+      },
+      {
+        q: 'Como definir o tamanho correto de um aggregate?',
+        level: 'senior',
+        a: '<p>Vaughn Vernon (Implementing DDD): <em>"design small aggregates"</em>. Aggregate gigante é o erro #1 de iniciante.</p><p>Critério principal: <strong>a invariante que precisa ser mantida consistentemente</strong>.</p><ul><li>Se invariante exige ver dois objetos juntos pra validar → mesmo aggregate</li><li>Se a regra tolera eventual consistency ("estoque vai ser atualizado em segundos") → aggregates separados, ligados por ID, comunicação via Domain Event</li></ul><p>Heurísticas práticas:</p><ol><li>Quanto menor, mais concorrência escalável (menos lock contention)</li><li>Transação em aggregate grande = risco de conflito de escrita em sistemas concorrentes</li><li>Aggregate com 10+ entidades filhas → candidato a quebrar</li><li>Order com OrderItems: ok (invariante "total" precisa de todos os itens). Order com CustomerInfo inteiro: errado (Customer é aggregate próprio, ligado só por customerId)</li></ol><p>Em caso de dúvida: começa menor, une se a invariante exigir. Mais fácil crescer do que quebrar.</p>',
+      },
+      {
+        q: 'Tradeoff entre rich domain model e anemic model + service?',
+        level: 'senior',
+        a: '<p><strong>Anemic model + Service:</strong> entities são bags de dados (só getters/setters), toda lógica nos services. Rápido de escrever, baixa curva, familiar. Risco: regra de negócio espalha pelos services (difícil de achar, de testar, de evoluir), duplicação de validação, sem encapsulamento real.</p><p><strong>Rich model (DDD):</strong> comportamento mora na entity/VO/aggregate. <code>order.confirm()</code> valida invariantes internamente. Encapsulamento real. Testável unitariamente sem banco. Mais código upfront, conversa constante com negócio, time disciplinado.</p><p>Quando cada um ganha:</p><ul><li><strong>Anemic:</strong> CRUD simples, reporting, dados fluem diretamente do banco pro cliente, sem regra rica.</li><li><strong>Rich model:</strong> domínio com regras complexas (fiscal, financeiro, fluxos de aprovação), invariantes que precisam ser garantidas, time experiente com acesso a especialista de domínio.</li></ul><p>Anti-pattern comum: rich model com entidades "gordas" mas com toda lógica nos Application Services. Cheiro: entity tem 50 getters, Application Service tem método de 200 linhas. Não é DDD — é anemic model com nomes de DDD.</p>',
+      },
+      {
+        q: 'Como bounded contexts se relacionam com microservices?',
+        level: 'senior',
+        a: '<p>Bounded context é <strong>lógico</strong> — fronteira de modelo e linguagem. Microservice é <strong>físico</strong> — fronteira de deploy e processo.</p><p>Não há relação 1:1 obrigatória. Um microservice pode conter múltiplos bounded contexts (se forem pequenos e relacionados). Um bounded context pode ser servido por múltiplos microservices (raro — aumenta complexidade). O erro mais comum: criar um microservice por entidade (UserService, OrderService, ItemService) sem analisar bounded contexts — gera distributed monolith onde todo request cruza 5 serviços.</p><p>Abordagem recomendada:</p><ol><li>Começa com monolito modular com bounded contexts bem separados (pastas, módulos)</li><li>Extrai pra microservice quando: escala independente justificada, deploy independente necessário, time autônomo claro, ou tecnologia específica requerida</li><li>Cada extração segue a fronteira do bounded context — não cria fronteiras artificiais novas</li></ol><p>Heurística de Newman: se precisa fazer deploy coordenado de dois serviços, a fronteira está errada.</p>',
+        tip: 'Mostrar que contexto ≠ microservice é diferencial de sênior. Junior acha que são sinônimos.',
+      },
+      {
+        q: 'Como você implementa Domain Events com garantia de entrega?',
+        level: 'senior',
+        a: '<p>Problema clássico: após aggregate.confirm(), publicar evento diretamente em Kafka/RabbitMQ tem race condition — salva, falha antes de publicar, estado inconsistente.</p><p><strong>Transactional Outbox Pattern</strong> — solução padrão:</p><ol><li>Na mesma transação do aggregate: salva estado + escreve evento em tabela <code>outbox_events</code></li><li>Worker (ou CDC via Debezium) le da outbox e publica no message broker</li><li>At-least-once garantido: se falhar após publicar, relay tenta de novo. Idempotência nos handlers é obrigatória.</li></ol><p>Implementação TypeScript (Prisma):</p><pre><code>await prisma.$transaction(async (tx) => {\n  await tx.order.update({ where: { id }, data: orderData })\n  await tx.outboxEvent.create({ data: {\n    type: \'OrderConfirmed\',\n    payload: JSON.stringify(event),\n    status: \'PENDING\',\n  }})\n})</code></pre><p>Alternativa: CDC (Debezium) le WAL do Postgres e pública em Kafka diretamente — sem outbox table manual, mais elegante, mas complexidade operacional maior.</p><p>Anti-pattern: <code>aggregate.confirm()</code> → <code>repo.save()</code> → <code>eventBus.publish()</code> sem transação. Falha entre save e publish = dado inconsistente.</p>',
+      },
+      {
+        q: 'O que é Event Storming e como usaria?',
+        level: 'senior',
+        a: '<p>Event Storming (Alberto Brandolini) é técnica colaborativa para explorar domínio. Sala grande, post-its coloridos, especialistas de negócio e devs juntos.</p><p>Fluxo básico (Big Picture Event Storming):</p><ol><li><strong>Laranja — Domain Events:</strong> "O que acontece no negócio?" — OrderPlaced, PaymentFailed, ShipmentDispatched. Na ordem temporal, sem julgamento.</li><li><strong>Azul — Commands:</strong> "O que causou o evento?" — PlaceOrder causa OrderPlaced. Mostrar quem dispara.</li><li><strong>Amarelo — Aggregates:</strong> "Quem processou o comando?" — Order aggregate.</li><li><strong>Roxo — Policies:</strong> "Quando X acontece, Y deve acontecer." — Automações e reações.</li><li><strong>Rosa — External Systems:</strong> sistemas fora do nosso controle.</li></ol><p>Resultado: você enxerga bounded contexts onde a linguagem muda, onde os eventos se agrupam, onde há pivoting points. Ubiquitous Language emerge naturalmente da sessão — todos usam os mesmos termos.</p><p>Dura 4-8h pra sistema médio. Mais valioso que qualquer documento de requisito porque é gerado pela conversa real com o negócio.</p>',
+        tip: 'Citar Event Storming e Alberto Brandolini é sinal de maturidade em DDD. Mostra que você conhece a prática além do livro do Evans.',
+      },
+    ],
+    exercises: [
+      {
+        level: 'iniciante',
+        title: 'Modelar Order Aggregate com invariantes',
+        description: 'Implemente a classe <code>Order</code> como Aggregate Root com: (1) factory method estático <code>Order.create(customerId)</code>, (2) método <code>addItem(sku, qty, price: Money)</code> que rejeita item com qty <= 0, (3) método <code>confirm()</code> que lança <code>EmptyOrderError</code> se sem itens e <code>InvalidStatusError</code> se já confirmado, (4) método <code>cancel(reason)</code> que lança erro se já enviado, (5) método <code>total()</code> que retorna <code>Money</code>. Escreva testes unitários para cada invariante sem usar banco ou framework.',
+        concepts: ['Aggregate Root', 'invariantes', 'Entity', 'Value Object', 'teste unitário de domínio'],
+        hint: 'Items são entidades filhas encapsuladas (não expor direto). Status é enum de estados válidos. Teste todas as transições inválidas — isso documenta as invariantes do domínio.',
+        relatedKeypoints: [2, 3],
+      },
+      {
+        level: 'iniciante',
+        title: 'Implementar Value Object Money imutável',
+        description: 'Implemente <code>Money</code> como Value Object: (1) construtor privado, factory <code>Money.of(amount, currency)</code> que rejeita valor negativo, (2) <code>add(other: Money): Money</code> que lança <code>CurrencyMismatchError</code> se moedas diferentes, (3) <code>multiply(factor: number): Money</code>, (4) <code>equals(other: Money): boolean</code> por valor, (5) <code>isGreaterThan(other: Money): boolean</code>. Escreva testes que provam imutabilidade (add retorna novo Money, não muta o original) e igualdade por valor.',
+        concepts: ['Value Object', 'imutabilidade', 'igualdade por valor', 'encapsulamento de validação'],
+        hint: 'Todos os campos são readonly. add() retorna new Money(...) nunca muta this. equals() compara amount E currency. Arredonda amount para 2 casas decimais no factory.',
+        relatedKeypoints: [3],
+      },
+      {
+        level: 'intermediario',
+        title: 'Domain Event com Transactional Outbox',
+        description: 'Implemente o fluxo completo: (1) <code>Order.confirm()</code> retorna <code>OrderConfirmed</code> domain event (imutável, campos no passado), (2) Application Service que usa Prisma <code>$transaction</code> para salvar Order E inserir evento na tabela <code>outbox_events</code>, (3) <code>StockReservationHandler</code> que consome <code>OrderConfirmed</code> e reserva estoque em bounded context separado, (4) Handler é idempotente (mesmo evento chega 2x sem problema).',
+        concepts: ['Domain Events', 'Transactional Outbox', 'idempotência', 'bounded context communication'],
+        hint: 'outbox_events tem: id, type, payload (JSON), status (PENDING/SENT), processedAt. Worker marca SENT após publicar. Handler verifica se orderId já foi processado antes de reservar.',
+        relatedKeypoints: [4, 5],
+      },
+      {
+        level: 'senior',
+        title: 'Context Map com Anti-Corruption Layer',
+        description: 'Implemente integração entre seu bounded context (Orders) e um ERP legado com modelo bizarro (<code>PEDIDO</code>, <code>COD_CLI</code>, <code>VLR_BRUTO</code>, <code>ST_PEDIDO</code> como "A"=aberto/"F"=faturado). Crie: (1) ACL que traduz <code>ErpOrder</code> para <code>Order</code> do seu domínio, (2) ACL que traduz <code>Order</code> pra formato ERP ao sincronizar, (3) testes que verificam que seu domínio nunca vê os campos do ERP diretamente, (4) strategy de polling que detecta mudanças no ERP e gera Domain Events no seu contexto.',
+        concepts: ['Anti-Corruption Layer', 'Context Map', 'integração com legado', 'bounded context isolation'],
+        hint: 'ACL é um adapter (no infra layer). Seu domínio recebe/retorna apenas tipos do próprio domínio. ErpClient é wrapped pelo ACL. Teste: se ERP mudar COD_CLI pra CODIGO_CLIENTE, só o ACL quebra — domínio intacto.',
+        relatedKeypoints: [7, 8],
+      },
+    ],
+    videos: [
+      { title: 'Domain-Driven Design in 100 Seconds', channel: 'Fireship', url: '', topic: 'Introdução rápida a DDD', note: 'Ponto de partida visual antes de ir nas fontes mais densas' },
+      { title: 'GOTO 2015 • DDD Today — Eric Evans', channel: 'GOTO Conferences', url: '', topic: 'Atualização do próprio Eric Evans sobre DDD moderno', note: 'Fonte primária — Evans revisita o que mudou desde o livro original de 2003' },
+      { title: 'Event Storming — Alberto Brandolini', channel: 'GOTO Conferences', url: '', topic: 'A técnica de Event Storming criada por Brandolini', note: 'Essencial para saber como extrair bounded contexts de verdade — não de suposição' },
+      { title: 'DDD com NestJS na prática', channel: 'Rocketseat', url: '', topic: 'Implementação prática de DDD com NestJS e TypeScript', note: 'Melhor recurso em português para implementação concreta' },
+      { title: 'Aggregate Design — Vaughn Vernon', channel: 'DDD Europe', url: '', topic: 'Design de aggregates com Vaughn Vernon', note: 'Referência definitiva sobre tamanho e design de aggregates — assista antes de criar um aggregate com 20 entidades' },
     ],
     resources: [
       { title: 'Domain-Driven Design (Eric Evans)', url: 'https://www.dddcommunity.org/book/evans_2003/', kind: 'livro' },
       { title: 'Implementing DDD (Vaughn Vernon)', url: 'https://www.amazon.com/Implementing-Domain-Driven-Design-Vaughn-Vernon/dp/0321834577', kind: 'livro' },
+      { title: 'Domain-Driven Design Distilled (Vernon)', url: 'https://www.amazon.com/Domain-Driven-Design-Distilled-Vaughn-Vernon/dp/0134434420', kind: 'livro' },
       { title: 'DDD Reference (Eric Evans)', url: 'https://www.domainlanguage.com/ddd/reference/', kind: 'docs' },
+      { title: 'Martin Fowler — Bounded Context', url: 'https://martinfowler.com/bliki/BoundedContext.html', kind: 'artigo' },
+      { title: 'Martin Fowler — Domain Event', url: 'https://martinfowler.com/eaaDev/DomainEvent.html', kind: 'artigo' },
+      { title: 'Martin Fowler — Ubiquitous Language', url: 'https://martinfowler.com/bliki/UbiquitousLanguage.html', kind: 'artigo' },
+      { title: 'Herberto Graça — Explicit Architecture', url: 'https://herbertograca.com/2017/11/16/explicit-architecture-01-ddd-hexagonal-onion-clean-cqrs-how-i-put-it-all-together/', kind: 'artigo' },
+      { title: 'Event Sourcing and CQRS (Greg Young)', url: 'https://cqrs.files.wordpress.com/2010/11/cqrs_documents.pdf', kind: 'artigo' },
       { title: 'DDD Community', url: 'https://www.dddcommunity.org/', kind: 'docs' },
-      { title: 'Martin Fowler — DDD', url: 'https://martinfowler.com/tags/domain%20driven%20design.html', kind: 'artigo' },
     ],
+    codeExamples: [
+      {
+        title: 'Order Aggregate completo com invariantes e Domain Events',
+        description: 'Aggregate Root com entidades filhas, Value Objects, invariantes protegidas e emissão de Domain Events',
+        language: 'typescript',
+        code: `// domain/value-objects/money.ts
+export class Money {
+  private constructor(
+    public readonly amount: number,
+    public readonly currency: 'BRL' | 'USD',
+  ) {}
+
+  static of(amount: number, currency: 'BRL' | 'USD'): Money {
+    if (amount < 0) throw new NegativeAmountError()
+    return new Money(Math.round(amount * 100) / 100, currency)
+  }
+
+  static zero(currency: 'BRL' | 'USD') { return Money.of(0, currency) }
+
+  add(other: Money): Money {
+    if (other.currency !== this.currency) throw new CurrencyMismatchError()
+    return Money.of(this.amount + other.amount, this.currency)
+  }
+
+  equals(other: Money): boolean {
+    return this.amount === other.amount && this.currency === other.currency
+  }
+}
+
+// domain/entities/order-item.ts
+export class OrderItem {
+  constructor(
+    public readonly sku: string,
+    public readonly qty: number,
+    public readonly price: Money,
+  ) {
+    if (qty <= 0) throw new InvalidQuantityError()
+  }
+
+  subtotal(): Money { return this.price.add(this.price.multiply(this.qty - 1)) }
+}
+
+// domain/events/order-confirmed.ts
+export class OrderConfirmed {
+  constructor(
+    public readonly orderId: string,
+    public readonly customerId: string,
+    public readonly total: Money,
+    public readonly confirmedAt: Date = new Date(),
+  ) {}
+}
+
+// domain/entities/order.ts — Aggregate Root
+export class Order {
+  private _items: OrderItem[] = []
+  private _status: 'pending' | 'confirmed' | 'cancelled' = 'pending'
+  private _events: object[] = []
+
+  private constructor(
+    public readonly id: string,
+    public readonly customerId: string,
+  ) {}
+
+  static create(customerId: string): Order {
+    return new Order(crypto.randomUUID(), customerId)
+  }
+
+  addItem(sku: string, qty: number, price: Money): void {
+    if (this._status !== 'pending') throw new OrderAlreadyClosedError()
+    this._items.push(new OrderItem(sku, qty, price))
+  }
+
+  confirm(): void {
+    if (this._items.length === 0) throw new EmptyOrderError()
+    if (this._status !== 'pending') throw new InvalidStatusTransitionError()
+    this._status = 'confirmed'
+    this._events.push(new OrderConfirmed(this.id, this.customerId, this.total()))
+  }
+
+  cancel(reason: string): void {
+    if (this._status === 'cancelled') throw new AlreadyCancelledError()
+    this._status = 'cancelled'
+  }
+
+  total(): Money {
+    return this._items.reduce(
+      (sum, i) => sum.add(i.subtotal()),
+      Money.zero('BRL'),
+    )
+  }
+
+  // Libera eventos para o Application Service publicar
+  pullEvents(): object[] {
+    const events = [...this._events]
+    this._events = []
+    return events
+  }
+
+  get status() { return this._status }
+  get items(): ReadonlyArray<OrderItem> { return [...this._items] }
+}`,
+      },
+    ],
+    mindmap: {
+      title: 'DDD — Mapa estratégico e tático',
+      html: `<div style="background:#0f172a;padding:32px 24px;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;color:#e2e8f0;">
+  <style>
+    .ddm-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .ddm-node{background:rgba(23,147,209,.07);border:1px solid rgba(23,147,209,.25);border-radius:10px;padding:13px 15px}
+    .ddm-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#38bdf8;margin-bottom:8px;letter-spacing:.5px}
+    .ddm-items{font-size:11px;color:#cbd5e1;line-height:1.8;padding:0;margin:0}
+    .ddm-items li{list-style:none;padding-left:14px;position:relative}
+    .ddm-items li::before{content:'→';position:absolute;left:0;color:#1793D1;font-weight:700}
+    .ddm-center{grid-column:1/-1;background:linear-gradient(90deg,rgba(23,147,209,.18),rgba(23,147,209,.06));border:2px solid #1793D1;border-radius:12px;padding:14px 18px;text-align:center;margin-bottom:4px}
+    .ddm-badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;color:#38bdf8;background:rgba(23,147,209,.2);margin:0 4px}
+  </style>
+  <div style="text-align:center;margin-bottom:18px">
+    <div style="font-size:16px;font-weight:700;color:#38bdf8">DDD — MAPA MENTAL</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px">Strategic + Tactical DDD</div>
+  </div>
+  <div class="ddm-wrap">
+    <div class="ddm-center">
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#38bdf8;margin-bottom:4px">MODELO MENTAL CENTRAL</div>
+      <div style="font-size:13px;font-weight:700;color:#fff">O código espelha o domínio de negócio</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px">Ubiquitous Language é o contrato entre devs e especialistas</div>
+    </div>
+    <div class="ddm-node">
+      <div class="ddm-title">STRATEGIC DDD</div>
+      <ul class="ddm-items">
+        <li>Bounded Context — fronteira de modelo</li>
+        <li>Ubiquitous Language — vocabulário único</li>
+        <li>Context Map — relações entre contextos</li>
+        <li>ACL, Customer-Supplier, Conformist</li>
+        <li>Event Storming — extração de domínio</li>
+      </ul>
+    </div>
+    <div class="ddm-node">
+      <div class="ddm-title">TACTICAL DDD</div>
+      <ul class="ddm-items">
+        <li>Entity — identidade única + mutável</li>
+        <li>Value Object — imutável + por valor</li>
+        <li>Aggregate Root — guardião de invariantes</li>
+        <li>Domain Event — fato imutável do passado</li>
+        <li>Repository + Domain Service</li>
+      </ul>
+    </div>
+    <div class="ddm-node">
+      <div class="ddm-title">QUANDO USAR</div>
+      <ul class="ddm-items">
+        <li>Domínio complexo com especialistas</li>
+        <li>Regras fiscais, financeiras, fluxos ricos</li>
+        <li>Sistema de longa vida (5+ anos)</li>
+        <li>Time com acesso a negócio</li>
+        <li>NÃO: CRUD, MVP, sem especialista</li>
+      </ul>
+    </div>
+    <div class="ddm-node">
+      <div class="ddm-title">INTEGRA COM</div>
+      <ul class="ddm-items">
+        <li>Clean Architecture — como organizar</li>
+        <li>CQRS — leitura separada do write</li>
+        <li>Event Sourcing — eventos como fonte</li>
+        <li>Microservices — bounded context = serviço</li>
+        <li>Saga — fluxo distribuído via eventos</li>
+      </ul>
+    </div>
+  </div>
+</div>`,
+      caption: 'DDD tem duas dimensões: Strategic (o mapa do território) e Tactical (as ferramentas de construção). Sem Strategic, Tactical vira cargo cult.',
+    },
   },
 
   'microservices': {

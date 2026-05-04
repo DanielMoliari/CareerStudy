@@ -3923,6 +3923,11 @@ resource <span class="str">"aws_instance" "worker"</span> {
         trick: "S3 = Storage do state. DynamoDB = trava (Lock).",
         explanation: "S3 armazena o arquivo terraform.tfstate (durável, versionado, criptografado). DynamoDB evita que dois applies rodem ao mesmo tempo com uma trava distribuída. Sempre os dois juntos — um sem o outro não é suficiente.",
       },
+      {
+        label: "MDF — quando usar módulos",
+        trick: "Módulo = Duas ou mais vezes o mesmo padrão. Docs + For_each = poder.",
+        explanation: "Extraia um módulo quando você perceber que está copiando e colando blocos HCL para ambientes diferentes. Um bom módulo tem: variáveis documentadas (description obrigatória), outputs úteis e for_each ou count no chamador para criar múltiplas instâncias. Sem for_each, o módulo perde metade do valor.",
+      },
     ],
     gotchas: [
       "State em disco local em time — se dois devs rodam terraform apply ao mesmo tempo sem locking, o state é corrompido e a recuperação é manual e trabalhosa. Configure remote backend com DynamoDB locking antes do primeiro apply em time.",
@@ -4036,23 +4041,6 @@ resource <span class="str">"aws_instance" "worker"</span> {
         q: "Como identificar e corrigir performance lenta em terraform plan ou apply?",
         a: "<p>Plans e applies lentos geralmente têm causas específicas e soluções diretas.</p><p><strong>1. Muitos recursos em um único state:</strong> Terraform lê o state e chama a API de cada recurso durante o refresh (para detectar drift). Com 500+ recursos, isso pode demorar minutos. Solução: fragmentar o state — separar infra de rede (VPC, subnets) de infra de aplicação (ECS, RDS). Cada state tem um scope menor e o plan é mais rápido.</p><p><strong>2. data sources lentos:</strong> data sources que consultam a API da AWS durante o plan adicionam latência. Use -refresh=false para planos em que você sabe que o state está atualizado (mas com cuidado — você pode perder drift). Alternativa: cachear outputs de módulos de rede em terraform_remote_state.</p><p><strong>3. -parallelism:</strong> o padrão é 10 operações paralelas. Aumentar para -parallelism=20 pode acelerar applies com muitos recursos independentes. Mas rate limits de API da AWS podem causar erros — teste com cautela.</p><p><strong>4. -target:</strong> plan/apply de um módulo ou recurso específico. Usar em desenvolvimento para iterar rápido, nunca em produção como prática regular (pode criar drift entre módulos).</p><p><strong>5. TF_LOG=JSON + timestamps:</strong> ativar logging detalhado ajuda a identificar qual chamada de API está demorando — frequentemente é um serviço específico com latência alta.</p>",
         level: "senior",
-      },
-    ],
-    mnemonics: [
-      {
-        label: "IPADS — ciclo de vida Terraform",
-        trick: "Init, Plan, Apply, Destroy, State",
-        explanation: "Os 5 comandos fundamentais do Terraform em ordem de uso. Init uma vez por workspace. Plan antes de qualquer Apply. Destroy com muito cuidado. State é o que o Terraform lê para calcular o diff — sem ele, nada funciona.",
-      },
-      {
-        label: "SG do State: S3 guarda, DynamoDB bloqueia",
-        trick: "S3 = Storage do state. DynamoDB = trava (Lock).",
-        explanation: "S3 armazena o arquivo terraform.tfstate (durável, versionado, criptografado). DynamoDB evita que dois applies rodem ao mesmo tempo com uma trava distribuída. Sempre os dois juntos — um sem o outro não é suficiente.",
-      },
-      {
-        label: "MDF — quando usar módulos",
-        trick: "Módulo = Duas ou mais vezes o mesmo padrão. Docs + For_each = poder.",
-        explanation: "Extraia um módulo quando você perceber que está copiando e colando blocos HCL para ambientes diferentes. Um bom módulo tem: variáveis documentadas (description obrigatória), outputs úteis e for_each ou count no chamador para criar múltiplas instâncias. Sem for_each, o módulo perde metade do valor.",
       },
     ],
     videos: [

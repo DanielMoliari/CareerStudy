@@ -2806,8 +2806,136 @@ labels:
         title: "Error budget policy",
         body: "Política formal que define ações quando o budget atinge thresholds: budget 50% consumido → revisão de práticas de deploy. Budget 90% consumido → feature freeze, foco em reliability. Budget esgotado → sprint de reliability obrigatório, revisão de SLO se impossível de manter. Sem policy, SLO vira métrica de vaidade sem ação.",
       },
+      {
+        title: "Toil — o inimigo da escala",
+        body: "Toil é trabalho manual, repetitivo, sem valor duradouro que cresce linearmente com o volume do sistema. Exemplos: executar deploys manualmente, responder alertas ruidosos toda semana, rotacionar certificados na mão. SRE deve manter toil < 50% do tempo — acima disso não sobra tempo para engenharia de confiabilidade. Error budget policy ajuda: quando budget está sendo consumido por toil (incidentes repetitivos), a sprint de reliability se torna obrigatória.",
+      },
+      {
+        title: "Quatro alertas SRE Workbook — 14·6·3·1",
+        body: "O SRE Workbook define 4 alertas de burn rate que cobrem todos os horizontes: Page rápido (burn rate 14× em janela 1h+5m — esgota em 2 dias), Page lento (6× em 6h+30m — esgota em 5 dias), Ticket urgente (3× em 24h+2h — esgota em 10 dias), Ticket longo (1× em 3d+6h — consumo exato). Juntos, eles detectam tanto picos agudos quanto degradação gradual invisível. Memorize: 14·6·3·1.",
+        code: `# Os 4 alertas do SRE Workbook (SLO 99,9%)
+# Cada par combina janela curta E longa (multi-window AND)
+
+# 1. Page — rápido (esgota em ~2 dias)
+burn_1h  > 14 * 0.001  AND  burn_5m  > 14 * 0.001
+
+# 2. Page — lento (esgota em ~5 dias)
+burn_6h  > 6  * 0.001  AND  burn_30m > 6  * 0.001
+
+# 3. Ticket — urgente (esgota em ~10 dias)
+burn_1d  > 3  * 0.001  AND  burn_2h  > 3  * 0.001
+
+# 4. Ticket — longo (consumo na taxa esperada)
+burn_3d  > 1  * 0.001  AND  burn_6h  > 1  * 0.001`,
+      },
+      {
+        title: "SLI de latência versus SLI de disponibilidade",
+        body: "Disponibilidade mede se o serviço respondeu (status != 5xx). Latência mede se respondeu dentro do tempo aceitável. Para muitos produtos, latência é mais importante: um checkout que responde em 8s é 'disponível' mas causa abandono. Bons SLIs de latência usam proporção de requests dentro do bucket: (requests < 500ms) / total — não média nem p99 bruto (ambos são SLIs ruins, não proporções). Synthetic monitoring (checks externos) captura latência de rede + DNS + TLS — muito mais próximo do que o usuário sente do que métricas server-side.",
+      },
     ],
     diagrams: [
+      {
+        title: "Matemática do SLO — noves e downtime permitido por ano",
+        html: `<style>
+.slm-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.slm-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(230,82,44,.4);display:inline}
+.slm-tip:hover .slm-tb{display:block}
+.slm-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:230px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.8)}
+.slm-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
+.slm-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b}
+.slm-row:last-child{border-bottom:none}
+.slm-slo{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;width:60px;flex-shrink:0}
+.slm-bar{flex:1;height:12px;border-radius:6px;background:#1e293b;overflow:hidden;position:relative}
+.slm-fill{height:100%;border-radius:6px}
+.slm-down{font-family:'JetBrains Mono',monospace;font-size:11px;width:120px;flex-shrink:0;text-align:right;color:#64748b}
+.slm-note{font-size:9px;color:#475569;margin-left:6px;white-space:nowrap}
+@keyframes slm-grow{from{width:0}to{width:var(--w)}}
+</style>
+<div class="slm-wrap">
+  <p style="font-size:12px;font-weight:600;margin:0 0 4px;color:#E6522C">Matemática do SLO — noves e downtime permitido por ano</p>
+  <p style="font-size:10px;color:#475569;margin:0 0 14px">Passe o mouse nos <span style="border-bottom:1px dashed rgba(230,82,44,.4)">termos</span>. Cada nove a mais reduz 10× o downtime permitido.</p>
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:8px;padding:6px 0;margin-bottom:4px">
+    <div style="width:60px;font-size:8px;color:#475569;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0">SLO</div>
+    <div style="flex:1;font-size:8px;color:#475569;letter-spacing:.1em;text-transform:uppercase">error budget anual</div>
+    <div style="width:120px;font-size:8px;color:#475569;letter-spacing:.1em;text-transform:uppercase;text-align:right">downtime/ano</div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#4ade80">
+      <span class="slm-tip">99%<span class="slm-tb">Um nove: 1% de margem. Típico para sistemas internos não críticos. 87,6 horas de downtime anual — dá pra ter 3 dias de manutenção por mês.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:80%;background:linear-gradient(90deg,#4ade80,#22c55e)"></div></div>
+    <div class="slm-down">87h 36m <span class="slm-note">3,65 dias</span></div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#a3e635">
+      <span class="slm-tip">99,5%<span class="slm-tb">Um nove e meio: comum como SLO inicial de APIs importantes. 43,8 horas/ano = ~2 dias de downtime tolerado. Bom ponto de partida antes de ter dados históricos reais.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:60%;background:linear-gradient(90deg,#a3e635,#84cc16)"></div></div>
+    <div class="slm-down">43h 50m <span class="slm-note">1,83 dias</span></div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#fbbf24">
+      <span class="slm-tip">99,9%<span class="slm-tb">Três noves: padrão de mercado para serviços de produção. 8,76 horas/ano = apenas 43,8 minutos/mês. Cada deploy com problema pode consumir 5–10% do budget mensal.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:40%;background:linear-gradient(90deg,#fbbf24,#f59e0b)"></div></div>
+    <div class="slm-down">
+      <span class="slm-tip" style="color:#fbbf24">8h 45m<span class="slm-tb">Traduz para 43,8 minutos por mês. Burn rate 14 = você esgota esses 43,8 min em apenas 3 dias de degradação contínua.</span></span>
+      <span class="slm-note">≈ 44 min/mês</span>
+    </div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#f97316">
+      <span class="slm-tip">99,95%<span class="slm-tb">Três noves e meio: entre três e quatro noves. Exige processos de deploy muito maduros — blue/green, feature flags, automação de rollback. Aproximadamente 4,4h/ano.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:25%;background:linear-gradient(90deg,#f97316,#ea580c)"></div></div>
+    <div class="slm-down">4h 22m <span class="slm-note">≈ 22 min/mês</span></div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#ef4444">
+      <span class="slm-tip">99,99%<span class="slm-tb">Quatro noves: apenas 52 minutos no ano inteiro. Requer redundância geográfica, zero downtime deployments, chaos engineering e on-call 24/7 muito eficiente. Típico de plataformas de pagamento.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:12%;background:linear-gradient(90deg,#ef4444,#dc2626)"></div></div>
+    <div class="slm-down">52m 35s <span class="slm-note">≈ 4,3 min/mês</span></div>
+  </div>
+
+  <div class="slm-row">
+    <div class="slm-slo" style="color:#dc2626">
+      <span class="slm-tip">99,999%<span class="slm-tb">Cinco noves: menos de 6 minutos por ano. Praticamente impossível de manter em software convencional. Apenas hardware especializado e sistemas com redundância múltipla conseguem. Custo é exponencialmente maior.</span></span>
+    </div>
+    <div class="slm-bar"><div class="slm-fill" style="width:4%;background:linear-gradient(90deg,#dc2626,#b91c1c)"></div></div>
+    <div class="slm-down">5m 15s <span class="slm-note">≈ 26 seg/mês</span></div>
+  </div>
+
+  <!-- SLO vs SLA -->
+  <div style="margin-top:14px;background:#1e293b;border-radius:8px;padding:12px 14px;border:1px solid rgba(230,82,44,.2)">
+    <div style="font-size:9px;color:#E6522C;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Hierarquia de rigor: SLO interno &gt; SLA externo</div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;flex-wrap:wrap">
+      <div style="background:#0f172a;border:1.5px solid rgba(230,82,44,.5);border-radius:6px;padding:6px 12px;text-align:center">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">SLO interno</div>
+        <div style="color:#E6522C;font-weight:700;font-family:'JetBrains Mono',monospace">99,95%</div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px">engenharia age aqui</div>
+      </div>
+      <div style="color:#334155;font-size:18px">⊃</div>
+      <div style="background:#0f172a;border:1.5px solid rgba(251,191,36,.4);border-radius:6px;padding:6px 12px;text-align:center">
+        <div style="font-size:9px;color:#64748b;margin-bottom:2px">SLA com cliente</div>
+        <div style="color:#fbbf24;font-weight:700;font-family:'JetBrains Mono',monospace">99,9%</div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px">contrato + penalidade</div>
+      </div>
+      <div style="font-size:10px;color:#64748b;flex:1;min-width:120px;line-height:1.5">
+        O buffer entre SLO e SLA é a margem de segurança. Se o SLO for violado, você ainda não violou o contrato — tempo para agir.
+      </div>
+    </div>
+  </div>
+</div>`,
+        caption: "Cada nove a mais reduz 10× o downtime permitido. Assinar um SLA de 99,9% com SLO interno de 99,9% não deixa margem — qualquer incidente vira violação contratual.",
+      },
       {
         title: "SLI → SLO → Error Budget → Decisão",
         html: `<style>
@@ -2960,16 +3088,65 @@ labels:
       },
       {
         q: "Como você responderia a um incidente onde o error budget está 80% consumido?",
-        a: "Ação imediata: verificar se o incidente ainda está ativo e conter. Com 80% consumido: 1. Ativar error budget policy — comunicar ao time de produto que qualquer novo deploy precisa passar por revisão extra. 2. Exigir feature flags em todas as mudanças de código para rollback imediato. 3. Priorizar automação de rollback e batermas de smoke test no deploy pipeline. 4. Revisão post-mortem blameless do incidente que consumiu o budget. 5. Se o SLO é sistematicamente inatingível: revisar o SLO (pode estar muito apertado para o estado atual do sistema) em vez de fingir que o número é correto.",
+        a: "Ação imediata: verificar se o incidente ainda está ativo e conter. Com 80% consumido: 1. Ativar error budget policy — comunicar ao time de produto que qualquer novo deploy precisa passar por revisão extra. 2. Exigir feature flags em todas as mudanças de código para rollback imediato. 3. Priorizar automação de rollback e baterias de smoke test no deploy pipeline. 4. Revisão post-mortem blameless do incidente que consumiu o budget. 5. Se o SLO é sistematicamente inatingível: revisar o SLO (pode estar muito apertado para o estado atual do sistema) em vez de fingir que o número é correto.",
         tip: "Mencionar revisão de SLO quando inatingível mostra maturidade — SLO não é número sagrado.",
         level: "senior",
+      },
+      {
+        q: "Qual a diferença entre alerta baseado em sintoma e alerta baseado em causa?",
+        a: "Alerta baseado em sintoma: o que o usuário está sentindo — error rate alto, p99 de latência violado, SLO burn rate acima do threshold. É o que você deve usar para acordar alguém às 3h. Alerta baseado em causa: CPU alta, disco cheio, memória chegando ao limite. Útil para antecipar problemas mas não para acordar o plantão — CPU a 90% pode não estar afetando o usuário. A estratégia correta: page em sintoma (error rate > SLO), ticket em causa (disco em 80%). Se você acorda o time com 'CPU alta' sem impacto no usuário, gera alert fatigue que faz as pessoas ignorarem alertas — incluindo os urgentes. SLO-based alerting é a formalização de 'alerte no sintoma'.",
+        tip: "A distinção sintoma vs. causa é o núcleo do Google SRE alerting philosophy — mencionar que você aplica isso em prática diferencia.",
+        level: "pleno",
+      },
+      {
+        q: "O que é toil e como SRE mede e limita?",
+        a: "Toil é trabalho manual, repetitivo, tático, sem valor duradouro que escala linearmente com o volume do sistema. Exemplos: responder alertas ruidosos manualmente toda semana, fazer deploy na mão, rotacionar certificados com script manual que alguém precisa executar. Não é toil: projetar automação de deploy (escala sub-linearly), criar runbooks (tem valor duradouro), refatorar para reduzir incidentes (reduz futuro toil). SRE deve manter toil abaixo de 50% do tempo. Como medir: log tempo gasto em cada atividade, classifique como toil ou engineering. Como eliminar: automatize o que dispara alerta ruidoso, escreva runbook que seja o último — depois automatize o runbook. Error budget policy indiretamente controla toil: incidentes repetitivos que consomem budget disparam sprint de reliability para eliminar a causa.",
+        tip: "Definir com exemplo do que É e do que NÃO É toil mostra que você entendeu a nuance — é um erro comum classificar qualquer trabalho operacional como toil.",
+        level: "senior",
+      },
+      {
+        q: "Como você calcularia o burn rate e o tempo restante de error budget?",
+        a: "Burn rate = (taxa atual de erro) / (taxa de erro permitida pelo SLO). Com SLO de 99,9%, a taxa de erro permitida é 0,1% (0,001). Se a taxa atual de erro é 1,4% (0,014), o burn rate é 0,014 / 0,001 = 14. Tempo até esgotar o budget: se o burn rate é 14 e o budget é mensal (30 dias), você esgota em 30 / 14 ≈ 2,1 dias. Para saber o budget restante: (budget_total - budget_consumido) / taxa_de_consumo_atual. Em PromQL: job:sli_errors:ratio_rate1h > (14 * 0.001) é o alerta crítico. A beleza do burn rate é ser agnóstico a janela: burn rate 1 é sustentável por definição; qualquer coisa acima de 1 está consumindo o budget; acima de 14 exige ação imediata.",
+        tip: "Fazer o cálculo em voz alta (0,014/0,001=14, 30/14=2,1 dias) em entrevista prova que você não só decorou o conceito — você opera com ele.",
+        level: "senior",
+      },
+      {
+        q: "O que é SLO de latência e por que proporção de requests é melhor que p99?",
+        a: "SLI de latência como proporção: (requests completadas em < 500ms) / total. SLI de latência como p99: o valor bruto do 99º percentil. O problema do p99 bruto como SLI é que não é uma proporção — você não consegue calcular error budget de forma consistente com o budget de disponibilidade. A proporção resolve isso: se seu SLO é '95% das requests em < 500ms', o error budget é 5% de requests que podem exceder 500ms — direto e comparável. Outro problema do p99 bruto: não agrega entre instâncias (Summary não agrega). Use histogram: proportion = requests_no_bucket_500ms / total_requests. Synthetic monitoring complementa: mede a latência que o usuário realmente experimenta, incluindo rede, DNS, TLS — muito mais honesto que métrica server-side.",
+        tip: "A explicação de 'por que proporção e não p99 bruto' é a parte que separa quem leu o SRE Book de quem apenas usou Prometheus.",
+        level: "senior",
+      },
+      {
+        q: "Como você explica error budget para um time de produto não técnico?",
+        a: "Analogia de cartão de crédito: o time tem um 'cartão de crédito de confiabilidade' com um limite mensal. Cada incidente, deploy problemático ou manutenção debita desse cartão. Quando o limite está cheio, o time tem liberdade para lançar features, fazer experimentos e deploys arriscados — está 'pagando com confiabilidade acumulada'. Quando o cartão está no limite, o time precisa 'pagar a fatura' antes de fazer mais gastos — sprint de reliability. Isso transforma a conversa: em vez de SRE dizendo 'não pode fazer deploy', a conversa é 'vocês têm X% de budget restante — esse deploy arrisca esgotar? Qual o plano de rollback?'. O budget torna o tradeoff velocidade vs. confiabilidade explícito, mensurável e compartilhado entre produto e engenharia.",
+        tip: "A analogia de cartão de crédito é a que mais funciona na prática com product managers — usar em entrevista mostra que você consegue comunicar conceitos técnicos para stakeholders não técnicos.",
+        level: "pleno",
+      },
+    ],
+    mnemonics: [
+      {
+        label: "SLI-SLO-SLA — do menor para o maior",
+        trick: "Indicator → Objective → Agreement (IOA: do interno ao externo)",
+        explanation: "SLI é a métrica (o que medimos), SLO é a meta interna (o que perseguimos), SLA é o contrato externo (o que prometemos). Sempre nessa ordem de rigor: SLO mais restritivo que SLA — a diferença é o buffer de segurança antes da violação contratual.",
+      },
+      {
+        label: "Burn rate 14·6·3·1 — os 4 alertas do SRE Workbook",
+        trick: "14=2 dias, 6=5 dias, 3=10 dias, 1=consumo exato",
+        explanation: "Quatro alertas cobrindo todos os horizontes temporais: 14× (page imediato, esgota em 2 dias), 6× (page secundário, 5 dias), 3× (ticket urgente, 10 dias), 1× (ticket longo, consumo normal). Cada par usa multi-window AND: janela curta detecta, janela longa confirma.",
+      },
+      {
+        label: "SLI bom — PROP (PROPorção de bons eventos)",
+        trick: "SLI = bons / total — sempre uma proporção, nunca uma média ou percentil bruto",
+        explanation: "SLI válido: (requests com status < 500) / total, (requests < 500ms) / total. SLI inválido: CPU%, memória%, p99 bruto (não é proporção, não dá para calcular error budget). A regra PROP garante que o SLI pode ser integrado ao cálculo de error budget de forma consistente.",
       },
     ],
     resources: [
       { title: "Google SRE Book — SLOs", url: "https://sre.google/sre-book/service-level-objectives/", kind: "livro" },
       { title: "Google SRE Workbook — Implementing SLOs", url: "https://sre.google/workbook/implementing-slos/", kind: "docs" },
+      { title: "Google SRE Workbook — Alerting on SLOs (multi-window)", url: "https://sre.google/workbook/alerting-on-slos/", kind: "docs" },
       { title: "Alex Ewerlof — SLO guide", url: "https://alexewerlof.substack.com/", kind: "artigo" },
       { title: "Google — Art of SLOs workshop", url: "https://sre.google/resources/practices-and-processes/art-of-slos/", kind: "pratica" },
+      { title: "SLO adoption study — Nobl9", url: "https://nobl9.com/resources/slo-adoption-study/", kind: "artigo" },
     ],
   },
 } satisfies SkillContentMap

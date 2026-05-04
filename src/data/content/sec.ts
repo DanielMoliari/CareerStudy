@@ -248,6 +248,13 @@ if (isPrivateIP(resolved.address)) throw new Error('IP privado não permitido')`
       'CORS mal configurado (Access-Control-Allow-Origin: *) não causa CSRF diretamente, mas permite que origens arbitrárias leiam respostas — entender a diferença é essencial.',
       'Rate limiting só no frontend é bypassável em segundos — deve ser server-side e por IP + por usuário.',
     ],
+    mnemonics: [
+      {
+        trick: 'BC-IIS-VAS-IL',
+        label: 'OWASP Top 10 2021 — ordem das categorias',
+        explanation: 'A01 Broken Access Control, A02 Cryptographic Failures, A03 Injection, A04 Insecure Design, A05 Security Misconfiguration, A06 Vulnerable Components, A07 Auth Failures, A08 Software Integrity Failures, A09 Logging Failures, A10 SSRF. Lembre como: "Broken Crypto Injections — Insecure Security, Vulnerable Auth Software — Logs Surrendered".',
+      },
+    ],
     resources: [
       { title: 'OWASP Top 10 — Documentação oficial 2021', url: 'https://owasp.org/Top10/', kind: 'docs' },
       { title: 'OWASP Cheat Sheet Series', url: 'https://cheatsheetseries.owasp.org/', kind: 'docs' },
@@ -295,18 +302,37 @@ await User.update(req.params.id, { name, email, bio }) // role não entra`,
         body: 'Diferente de BOLA (objeto): aqui o usuário acessa funções/endpoints que não deveria — ex: endpoint de admin acessível por usuário comum porque a verificação de role está ausente ou só no frontend.',
       },
       {
-        title: 'API6/7 — Excessive Data Exposure & Security Misconfiguration',
-        body: 'API retorna mais campos do que o cliente precisa (hash de senha, dados de outros usuários), esperando que o frontend filtre. A defesa é projetar DTOs explícitos — o servidor deve retornar apenas o necessário, nunca serializar o objeto inteiro do banco.',
-        code: `// Vulnerável: serializa o objeto inteiro do banco (inclui passwordHash, etc)
-res.json(user)
+        title: 'API6 — Unrestricted Access to Sensitive Business Flows',
+        body: 'Fluxos de negócio sensíveis sem controle adequado: comprar item com quantidade negativa, abusar de cupons de desconto ilimitadamente, fazer scraping de catálogo sem throttle. Diferente de rate limiting genérico — é sobre lógica de negócio que permite abusos automatizados. Requer modelagem de casos de abuso durante o design.',
+      },
+      {
+        title: 'API7 — Server-Side Request Forgery (SSRF) em APIs',
+        body: 'APIs que aceitam URLs de usuário (webhooks, importação de arquivo, preview de link) e fazem fetch server-side sem validar o destino. Um atacante pode apontar para metadados de cloud (169.254.169.254), serviços internos ou exfiltrar dados. Mitigue com allowlist de domínios + bloqueio de IPs privados.',
+        code: `// Vulnerável: aceita qualquer URL de webhook sem validação
+async function testWebhook(url: string) {
+  return fetch(url) // pode ser http://169.254.169.254/latest/meta-data/
+}
 
-// Seguro: DTO explícito
-res.json({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  // passwordHash, internalNotes, etc. — jamais
-})`,
+// Seguro: allowlist + bloqueio de IPs privados
+import { isPrivateIP } from 'is-private-ip'
+async function testWebhook(url: string) {
+  const parsed = new URL(url)
+  if (!ALLOWED_DOMAINS.includes(parsed.hostname)) throw new Error('Domínio não permitido')
+  const { address } = await dns.lookup(parsed.hostname)
+  if (isPrivateIP(address)) throw new Error('IP privado bloqueado')
+  return fetch(url)
+}`,
+      },
+      {
+        title: 'API8/9/10 — Security Misconfiguration, Improper Inventory, Unsafe Consumption',
+        body: 'API8: headers de segurança ausentes, CORS aberto demais, stack traces em produção, verbose error messages. API9: shadow APIs e APIs zumbis — versões antigas (v1, v2) esquecidas sem deprecação ou autenticação, expostas na internet. API10: confiar cegamente em respostas de APIs de terceiros sem validar schema, Content-Type ou tamanho — pode levar a injection ou crashes.',
+        code: `// API9: auditar versões de API expostas — remover ou autenticar versões antigas
+// Ruim: /api/v1/users (sem auth) ainda acessível após lançar /api/v2
+// Bom: manter inventário de endpoints, deprecar v1 com sunset header e remover
+
+// API10: validar resposta de API externa antes de usar
+const raw = await fetch('https://parceiro.com/api/dados').then(r => r.json())
+const safe = externalDataSchema.parse(raw) // Zod valida shape + tipos antes de usar`,
       },
     ],
     diagrams: [
@@ -350,6 +376,100 @@ res.json({
 </div>`,
         caption: 'BOLA e BFLA juntas respondem pela maioria dos incidentes reais de APIs. A diferença: BOLA = "objeto errado via função certa", BFLA = "função errada, independente do objeto".',
       },
+      {
+        title: 'OWASP API Top 10 (2023) — Mapa completo das 10 categorias',
+        html: `<style>
+.ow2-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:20px;max-width:680px}
+.ow2-row{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:4px;transition:background .15s;cursor:default;position:relative}
+.ow2-row:hover{background:#1e293b}
+.ow2-badge{min-width:42px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.05em;flex-shrink:0;margin-top:1px}
+.ow2-name{flex:1;font-size:11px;color:#e2e8f0;font-weight:600;line-height:1.4}
+.ow2-tag{font-size:9px;font-weight:700;color:#0c8a9e;background:rgba(12,132,158,.12);border-radius:3px;padding:1px 5px;display:inline-block;margin-top:3px}
+.ow2-tip{position:relative;flex-shrink:0}
+.ow2-tip:hover .ow2-tb{display:block}
+.ow2-tb{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:10px;line-height:1.65;z-index:40;color:#94a3b8;width:270px;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.85)}
+.ow2-icon{font-size:12px;cursor:help;color:#475569}
+.ow2-icon:hover{color:#0c8a9e}
+.ow2-legend{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+.ow2-leg{display:flex;align-items:center;gap:5px;font-size:9px;color:#64748b}
+.ow2-dot{width:8px;height:8px;border-radius:2px}
+</style>
+<div class="ow2-wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div>
+      <p style="color:#0c8a9e;font-size:13px;font-weight:700;margin:0">OWASP API Security Top 10 — 2023</p>
+      <p style="color:#475569;font-size:10px;margin:4px 0 0">Passe o mouse no ? para ver o vetor de ataque e mitigação de cada categoria.</p>
+    </div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(239,68,68,.18);color:#ef4444">API1</div>
+    <div class="ow2-name">Broken Object Level Authorization<br><span class="ow2-tag">BOLA / IDOR</span></div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> GET /orders/9999 retorna pedido de outro usuário sem checar ownership.<br><strong>Mitigue:</strong> sempre verificar no service layer se o objeto pertence ao usuário autenticado.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(239,68,68,.18);color:#ef4444">API2</div>
+    <div class="ow2-name">Broken Authentication</div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> tokens sem expiração, refresh tokens permanentes, JWTs sem verificar assinatura.<br><strong>Mitigue:</strong> expiração curta, rotação de refresh tokens, sempre jwt.verify() — nunca jwt.decode().</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(249,115,22,.18);color:#f97316">API3</div>
+    <div class="ow2-name">Broken Object Property Level Auth<br><span class="ow2-tag">Mass Assignment + Over-exposure</span></div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> POST /users com {role:"admin"} e ORM salva sem filtrar. Ou GET /users retorna passwordHash.<br><strong>Mitigue:</strong> allowlist de campos aceitos (Zod/DTO) + DTOs de resposta explícitos.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(249,115,22,.18);color:#f97316">API4</div>
+    <div class="ow2-name">Unrestricted Resource Consumption</div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> flood de requests, GraphQL query recursiva, upload de arquivo sem limite de tamanho.<br><strong>Mitigue:</strong> rate limit por IP + por usuário, query depth limit, payload size limit, paginação obrigatória.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(239,68,68,.18);color:#ef4444">API5</div>
+    <div class="ow2-name">Broken Function Level Authorization<br><span class="ow2-tag">BFLA</span></div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> DELETE /admin/users/42 acessível por usuário sem role de admin.<br><strong>Mitigue:</strong> verificar role server-side em cada endpoint sensível; não esconder no frontend.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(100,116,139,.18);color:#94a3b8">API6</div>
+    <div class="ow2-name">Unrestricted Access to Sensitive Business Flows</div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> bot compra estoque inteiro, abusa cupons ilimitadamente, faz scraping sem throttle.<br><strong>Mitigue:</strong> modelar casos de abuso no design; CAPTCHA, rate limit por fluxo, device fingerprinting.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(239,68,68,.18);color:#ef4444">API7</div>
+    <div class="ow2-name">Server-Side Request Forgery<br><span class="ow2-tag">SSRF via webhook/URL</span></div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> webhook URL aponta para 169.254.169.254 — servidor faz fetch e retorna credenciais IAM.<br><strong>Mitigue:</strong> allowlist de domínios, bloquear IPs privados/link-local após resolução DNS.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(100,116,139,.18);color:#94a3b8">API8</div>
+    <div class="ow2-name">Security Misconfiguration</div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> CORS com Allow-Origin: *, stack traces em respostas de erro, headers de segurança ausentes.<br><strong>Mitigue:</strong> helmet.js, CORS restrito a origens conhecidas, erros genéricos em produção.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(100,116,139,.18);color:#94a3b8">API9</div>
+    <div class="ow2-name">Improper Inventory Management<br><span class="ow2-tag">APIs zumbi / shadow APIs</span></div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> /api/v1/users ainda acessível sem autenticação após lançar v2 com auth.<br><strong>Mitigue:</strong> inventário de todas as APIs expostas, sunset header em versões deprecated, remoção ativa.</div></div>
+  </div>
+
+  <div class="ow2-row">
+    <div class="ow2-badge" style="background:rgba(100,116,139,.18);color:#94a3b8">API10</div>
+    <div class="ow2-name">Unsafe Consumption of APIs</div>
+    <div class="ow2-tip"><span class="ow2-icon">?</span><div class="ow2-tb"><strong>Ataque:</strong> parceiro comprometido retorna payload malicioso que causa injection ou crash no sistema.<br><strong>Mitigue:</strong> validar schema da resposta externa (Zod), não confiar em Content-Type, limitar tamanho.</div></div>
+  </div>
+
+  <div class="ow2-legend">
+    <div class="ow2-leg"><div class="ow2-dot" style="background:#ef4444"></div>Controle de acesso (alto impacto)</div>
+    <div class="ow2-leg"><div class="ow2-dot" style="background:#f97316"></div>Recursos e dados</div>
+    <div class="ow2-leg"><div class="ow2-dot" style="background:#94a3b8"></div>Configuração e inventário</div>
+  </div>
+</div>`,
+        caption: 'OWASP API Top 10 2023. API1, API2 e API5 (controle de acesso) são as categorias de maior impacto — juntas cobrem a maioria dos incidentes reais de APIs.',
+      },
     ],
     interview: [
       {
@@ -374,6 +494,18 @@ res.json({
         q: 'O que é Excessive Data Exposure e por que "filtrar no frontend" é uma solução errada?',
         a: 'Excessive Data Exposure é quando a API retorna mais dados do que o cliente precisa — ex: serializar o objeto User inteiro (com passwordHash, internal notes, dados de outros usuários) esperando que o frontend mostre apenas nome e avatar. A solução errada é "o frontend não exibe os campos extra" — qualquer usuário com DevTools ou curl vê todos os campos retornados. A solução correta é projetar DTOs explícitos no servidor: a API retorna apenas os campos que o cliente precisa para aquele endpoint específico. Nunca serializar o objeto do banco diretamente como resposta.',
         tip: 'Essa pergunta frequentemente leva a uma discussão sobre DTOs vs. entidades de banco — mostrar que você pensa na separação de camadas é o diferencial.',
+        level: 'pleno',
+      },
+      {
+        q: 'Como um webhook pode se tornar um vetor de SSRF? Como você mitiga isso?',
+        a: 'Quando a API aceita uma URL de callback de webhook configurada pelo usuário e faz uma requisição server-side para essa URL (para testar ou notificar), um atacante pode configurar a URL como http://169.254.169.254/latest/meta-data/ — o endpoint de metadados de instância EC2 que retorna credenciais IAM temporárias da role da máquina. O servidor faz o fetch e pode retornar as credenciais ao atacante. A mitigação tem quatro camadas: (1) allowlist de domínios permitidos para webhooks; (2) resolver o hostname via DNS antes do fetch e rejeitar se o IP resultar em range privado (10.x, 172.16-31.x, 192.168.x, 169.254.x) — fazer isso após a resolução DNS previne DNS rebinding; (3) desabilitar redirects no fetch para evitar redirecionamento para IPs internos; (4) em AWS, habilitar IMDSv2 que exige token de sessão — mitiga SSRF simples via metadados.',
+        tip: 'Citar DNS rebinding e IMDSv2 demonstra conhecimento além do básico — diferencial em entrevistas de backend com foco em segurança cloud.',
+        level: 'senior',
+      },
+      {
+        q: 'Como você preveniria Mass Assignment em uma API NestJS com TypeORM?',
+        a: 'Em NestJS, a abordagem canônica é usar DTOs com class-validator e class-transformer: criar um UpdateUserDto com apenas os campos que o usuário pode alterar (name, bio, avatarUrl), decorar com @IsString(), @IsOptional() etc., e usar @Body() updateDto: UpdateUserDto no controller. O TypeORM recebe apenas o objeto tipado, não o req.body completo. Complementar com a opção excludeExtraneousValues: true no ClassSerializerInterceptor para garantir que campos não declarados no DTO sejam descartados mesmo se o cliente os enviar. Para a camada de banco, usar QueryBuilder ou save() com o objeto DTO diretamente — nunca update(id, req.body). Em Express puro sem framework, o equivalente é destruturação explícita: const { name, bio } = req.body e salvar só esses campos.',
+        tip: 'Mostrar o padrão completo NestJS (DTO + class-validator + excludeExtraneousValues) diferencia quem conhece o ecossistema de quem apenas descreve o conceito.',
         level: 'pleno',
       },
     ],

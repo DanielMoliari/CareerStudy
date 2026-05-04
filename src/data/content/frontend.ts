@@ -1658,6 +1658,135 @@ type EventName = \`on\${string}\`          // template literal — não dá em i
         label: "Formas de narrowing em ordem de uso",
         explanation: "S = typeof (strings/numbers/booleans). P = Predicate (x is Type). N = 'in' (propriedade no objeto). a = asserts (testa + lança). I = instanceof (classes). F = Field literal (discriminated union). Lembre como 'Super Predicate Narrows and Illuminates Features'.",
       },
+      {
+        trick: "PRORE-RAP",
+        label: "Utility types essenciais em ordem CRUD",
+        explanation: "P = Partial (update / PATCH). R = Required (forçar completude). O = Omit (criar sem campos gerados). R = Readonly (imutabilidade). E = Extract / Exclude (filtrar unions). R = ReturnType (tipar retorno de função). A = Awaited (desembrulhar Promise). P = Parameters (tipar argumentos). Leia como 'PRO-RE-RAP' e lembre: cada letra é um utility type.",
+      },
+    ],
+    exercises: [
+      {
+        level: "iniciante",
+        title: "Tipar um CRUD de usuários com utility types",
+        description: "Crie o tipo User com campos id, name, email, role e createdAt. A partir de User, derive CreateUser (sem id e createdAt), UpdateUser (só name e email, todos opcionais) e UserPreview (só id e name). Use apenas Omit, Pick e Partial — sem duplicar campos.",
+        concepts: ["Omit", "Pick", "Partial", "utility types"],
+        hint: "Uma fonte de verdade (User) deve gerar todos os outros tipos sem repetir definições.",
+      },
+      {
+        level: "intermediario",
+        title: "Implementar DeepReadonly e DeepPartial com mapped types",
+        description: "Implemente DeepReadonly<T> que torna todos os campos e subobjectos readonly recursivamente. Em seguida, implemente DeepPartial<T> que torna todos os campos e subcampos opcionais. Teste com um objeto aninhado: { user: { name: string; address: { city: string } } }.",
+        concepts: ["mapped types", "conditional types", "recursão de tipos", "keyof"],
+        hint: "Use T[K] extends object ? ... : T[K] para decidir quando recursão é necessária. Tenha cuidado com arrays e datas.",
+      },
+      {
+        level: "senior",
+        title: "Type-safe event emitter com template literal types",
+        description: "Implemente um EventEmitter genérico onde: (1) os eventos são definidos como um mapa (EventMap), (2) on() aceita apenas chaves válidas do mapa, (3) o callback recebe o payload do tipo correto para aquele evento. Use conditional types e keyof para fazer tudo type-safe sem precisar de cast.",
+        concepts: ["generics", "keyof", "indexed access", "conditional types", "template literal types"],
+        hint: "O tipo do segundo argumento de on() deve ser inferido do EventMap usando EventMap[K]. Considere usar overloads ou distribuição de generics.",
+      },
+    ],
+    videos: [
+      { title: "TypeScript Course for Beginners", channel: "Academind", url: "", topic: "Fundamentos de TypeScript do zero" },
+      { title: "No More Wasted Time on TypeScript", channel: "Matt Pocock", url: "", topic: "Recursos avançados — generics, conditional types, utility types" },
+      { title: "TypeScript — The Full Course", channel: "Fireship", url: "", topic: "Visão geral rápida e densa de todo o sistema de tipos" },
+      { title: "Advanced TypeScript Patterns", channel: "Jack Herrington", url: "", topic: "Padrões reais em codebases React com TypeScript avançado" },
+      { title: "TypeScript Satisfies Operator", channel: "Matt Pocock", url: "", topic: "Operador satisfies em profundidade" },
+    ],
+    codeExamples: [
+      {
+        title: "Discriminated union para modelar estados de API",
+        description: "Padrão mais seguro para modelar respostas de API com TypeScript — garante exaustividade em switch.",
+        language: "typescript",
+        code: `type ApiResult<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error';   message: string; code: number }
+
+function renderResult<T>(result: ApiResult<T>): string {
+  switch (result.status) {
+    case 'idle':    return 'Aguardando...'
+    case 'loading': return 'Carregando...'
+    case 'success': return \`Dados: \${JSON.stringify(result.data)}\`
+    case 'error':   return \`Erro \${result.code}: \${result.message}\`
+    // TypeScript avisa se você esquecer um case
+  }
+}
+
+// Exhaustiveness check com never:
+function assertNever(x: never): never {
+  throw new Error(\`Caso não tratado: \${JSON.stringify(x)}\`)
+}`,
+      },
+      {
+        title: "Builder pattern com generics e fluent API type-safe",
+        description: "Como encadear métodos mantendo type safety — padrão útil para query builders, construtores de configuração e pipelines.",
+        language: "typescript",
+        code: `class QueryBuilder<T extends object> {
+  private filters: Partial<T> = {}
+  private _limit = 100
+
+  where<K extends keyof T>(key: K, value: T[K]): this {
+    this.filters[key] = value
+    return this
+  }
+
+  limit(n: number): this {
+    this._limit = n
+    return this
+  }
+
+  build(): { filters: Partial<T>; limit: number } {
+    return { filters: this.filters, limit: this._limit }
+  }
+}
+
+interface User { id: string; name: string; role: 'admin' | 'user' }
+
+const query = new QueryBuilder<User>()
+  .where('role', 'admin')   // OK — 'admin' é válido para role
+  .where('name', 'Ana')     // OK — string para name
+  // .where('name', 123)    // ERRO — number não é string
+  .limit(10)
+  .build()`,
+      },
+      {
+        title: "Utility types customizados — DeepPartial e PickByValue",
+        description: "Exemplos de utility types avançados que você pode precisar criar quando os built-ins não são suficientes.",
+        language: "typescript",
+        code: `// DeepPartial — torna todos os campos recursivamente opcionais
+type DeepPartial<T> = T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : T
+
+// PickByValue — seleciona campos pelo tipo do valor
+type PickByValue<T, V> = {
+  [K in keyof T as T[K] extends V ? K : never]: T[K]
+}
+
+// Exemplo:
+interface Config {
+  host: string
+  port: number
+  debug: boolean
+  timeout: number
+}
+
+type StringFields  = PickByValue<Config, string>   // { host: string }
+type NumberFields  = PickByValue<Config, number>   // { port: number; timeout: number }
+
+// Paths aninhados para formulários (padrão React Hook Form):
+type Paths<T, Prefix extends string = ''> = {
+  [K in keyof T]: T[K] extends object
+    ? Paths<T[K], \`\${Prefix}\${string & K}.\`>
+    : \`\${Prefix}\${string & K}\`
+}[keyof T]
+
+type UserPaths = Paths<{ name: string; address: { city: string } }>
+// 'name' | 'address.city'`,
+      },
     ],
     resources: [
       { title: "TypeScript Handbook", url: "https://www.typescriptlang.org/docs/handbook/intro.html", kind: "docs" },
@@ -1665,7 +1794,93 @@ type EventName = \`on\${string}\`          // template literal — não dá em i
       { title: "TypeScript Playground", url: "https://www.typescriptlang.org/play", kind: "pratica" },
       { title: "Type Challenges", url: "https://github.com/type-challenges/type-challenges", kind: "pratica" },
       { title: "TypeScript Deep Dive (Basarat)", url: "https://basarat.gitbook.io/typescript/", kind: "livro" },
+      { title: "TypeScript Release Notes", url: "https://www.typescriptlang.org/docs/handbook/release-notes/overview.html", kind: "docs" },
+      { title: "DefinitelyTyped", url: "https://github.com/DefinitelyTyped/DefinitelyTyped", kind: "pratica" },
     ],
+    mindmap: {
+      title: "TypeScript — Mapa mental do sistema de tipos",
+      html: `<style>
+.tsm-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:24px;color:#e2e8f0}
+.tsm-center{background:#1e3a5c;border:2px solid #3178C6;border-radius:10px;padding:10px 18px;text-align:center;font-weight:700;font-size:13px;color:#93c5fd;display:inline-block}
+.tsm-branch{display:flex;flex-direction:column;gap:6px}
+.tsm-node{background:#1e293b;border:1.5px solid #334155;border-radius:7px;padding:6px 12px;font-size:11px;color:#94a3b8;cursor:default}
+.tsm-node:hover{border-color:#3178C6;color:#93c5fd}
+.tsm-label{font-size:9px;color:#3178C6;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.tsm-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start}
+.tsm-col{display:flex;flex-direction:column;gap:12px}
+.tsm-center-col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+</style>
+<div class="tsm-wrap">
+  <p style="color:#93c5fd;font-size:12px;font-weight:700;margin:0 0 20px">TypeScript — Mapa de Conceitos</p>
+  <div class="tsm-grid">
+    <div class="tsm-col">
+      <div>
+        <div class="tsm-label">Hierarquia de tipos</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">unknown — supertipo seguro</div>
+          <div class="tsm-node">any — opt-out do sistema</div>
+          <div class="tsm-node">Primitivos: string, number, boolean</div>
+          <div class="tsm-node">Literais: 'ok', 42, true</div>
+          <div class="tsm-node">never — conjunto vazio</div>
+        </div>
+      </div>
+      <div>
+        <div class="tsm-label">Narrowing</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">typeof → primitivos</div>
+          <div class="tsm-node">instanceof → classes</div>
+          <div class="tsm-node">'prop' in x → objetos</div>
+          <div class="tsm-node">x is Type → predicates</div>
+          <div class="tsm-node">Discriminated union</div>
+        </div>
+      </div>
+      <div>
+        <div class="tsm-label">Interface vs type</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">interface: declaration merging</div>
+          <div class="tsm-node">type: union, intersection, conditional</div>
+          <div class="tsm-node">Prefira type na maioria dos casos</div>
+        </div>
+      </div>
+    </div>
+    <div class="tsm-center-col">
+      <div class="tsm-center">TypeScript<br><span style="font-size:10px;opacity:.7">Sistema de tipos</span></div>
+      <div style="height:2px;width:2px;background:#3178C6;border-radius:50%"></div>
+    </div>
+    <div class="tsm-col">
+      <div>
+        <div class="tsm-label">Utility types</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">Partial / Required / Readonly</div>
+          <div class="tsm-node">Pick / Omit / Record</div>
+          <div class="tsm-node">Extract / Exclude / NonNullable</div>
+          <div class="tsm-node">ReturnType / Parameters / Awaited</div>
+        </div>
+      </div>
+      <div>
+        <div class="tsm-label">Tipos avançados</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">Generics com constraints</div>
+          <div class="tsm-node">Conditional types + infer</div>
+          <div class="tsm-node">Mapped types + keyof</div>
+          <div class="tsm-node">Template literal types</div>
+          <div class="tsm-node">satisfies operator</div>
+        </div>
+      </div>
+      <div>
+        <div class="tsm-label">tsconfig essencial</div>
+        <div class="tsm-branch">
+          <div class="tsm-node">strict: true — sempre ative</div>
+          <div class="tsm-node">moduleResolution: bundler</div>
+          <div class="tsm-node">noUncheckedIndexedAccess</div>
+          <div class="tsm-node">paths — aliases de importação</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Visão geral do sistema de tipos TypeScript — da hierarquia básica (unknown → never) aos tipos avançados (generics, conditional, mapped).",
+    },
   },
 
   "next-js": {
@@ -2000,18 +2215,336 @@ export async function generateMetadata({ params }): Promise<Metadata> {
         level: "senior",
       },
     ],
+    mnemonics: [
+      {
+        trick: "SSIC",
+        label: "As 4 rendering strategies do Next.js",
+        explanation: "S = Static (SSG) — gerado em build, serve do CDN. S = Server (SSR) — gerado por request, usa cookies/headers. I = Incremental (ISR) — SSG com revalidação periódica em background. C = Client (CSR) — renderizado no browser, sem SEO. Lembre: 'Slow Server Is Client' — do mais rápido ao mais interativo.",
+      },
+      {
+        trick: "D-F-R-R",
+        label: "As 4 camadas de cache do App Router",
+        explanation: "D = Deduplication (Request Memoization) — deduplication numa request. F = Fetch cache (Data Cache) — persiste entre requests. R = Route cache (Full Route Cache) — HTML+RSC em build. R = Router cache — client-side, sessão do browser. 'Do Fetch Ao Route'.",
+      },
+      {
+        trick: "PUSH",
+        label: "Quando usar 'use client'",
+        explanation: "P = Props interativas (onClick, onChange). U = useEffect/useState/hooks. S = Session/cookies do browser. H = HTML APIs (window, document, localStorage). Se o componente usa qualquer um desses, precisa de 'use client'. Caso contrário, mantenha como Server Component.",
+      },
+    ],
+    cheatsheet: {
+      title: "Next.js App Router — Referência Rápida",
+      html: `<style>
+.njc-wrap{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.njc-section{margin-bottom:18px}
+.njc-title{font-size:9px;color:#e2e8f0;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #1e293b}
+.njc-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.njc-table th{color:#475569;font-weight:500;text-align:left;padding:4px 8px;border-bottom:1px solid #1e293b}
+.njc-table td{padding:5px 8px;border-bottom:1px solid #0f172a;vertical-align:top}
+.njc-table tr:hover td{background:#1e293b}
+.njc-name{color:#4ade80}
+.njc-code{color:#94a3b8;font-size:10px}
+.njc-note{color:#475569;font-size:10px}
+</style>
+<div class="njc-wrap">
+  <p style="color:#e2e8f0;font-size:12px;font-weight:700;margin:0 0 18px">Next.js App Router — Referência Rápida</p>
+  <div class="njc-section">
+    <div class="njc-title">Arquivos especiais do App Router</div>
+    <table class="njc-table">
+      <tr><th>Arquivo</th><th>Propósito</th></tr>
+      <tr><td class="njc-name">page.tsx</td><td class="njc-code">Rota — renderiza a UI da URL</td></tr>
+      <tr><td class="njc-name">layout.tsx</td><td class="njc-code">UI persistente entre navegações no segmento</td></tr>
+      <tr><td class="njc-name">template.tsx</td><td class="njc-code">Como layout, mas recriado em cada navegação</td></tr>
+      <tr><td class="njc-name">loading.tsx</td><td class="njc-code">Skeleton/fallback enquanto page.tsx carrega</td></tr>
+      <tr><td class="njc-name">error.tsx</td><td class="njc-code">UI de erro ('use client' obrigatório)</td></tr>
+      <tr><td class="njc-name">not-found.tsx</td><td class="njc-code">UI quando notFound() é chamado</td></tr>
+      <tr><td class="njc-name">route.ts</td><td class="njc-code">Route Handler — API endpoint HTTP</td></tr>
+      <tr><td class="njc-name">middleware.ts</td><td class="njc-code">Roda antes de toda request (Edge Runtime)</td></tr>
+    </table>
+  </div>
+  <div class="njc-section">
+    <div class="njc-title">Rendering strategies — inferência automática</div>
+    <table class="njc-table">
+      <tr><th>O que a rota usa</th><th>Estratégia inferida</th></tr>
+      <tr><td class="njc-name">Nada dinâmico</td><td class="njc-code">SSG — gerado em build</td></tr>
+      <tr><td class="njc-name">export const revalidate = N</td><td class="njc-code">ISR — revalida a cada N segundos</td></tr>
+      <tr><td class="njc-name">cookies() / headers()</td><td class="njc-code">SSR — gerado por request</td></tr>
+      <tr><td class="njc-name">cache: 'no-store'</td><td class="njc-code">SSR — sem cache de data</td></tr>
+      <tr><td class="njc-name">'use client' + fetch no browser</td><td class="njc-code">CSR — renderizado no browser</td></tr>
+    </table>
+  </div>
+  <div class="njc-section">
+    <div class="njc-title">Cache — invalidação</div>
+    <table class="njc-table">
+      <tr><th>Função</th><th>O que invalida</th></tr>
+      <tr><td class="njc-name">revalidatePath('/posts')</td><td class="njc-code">Full Route Cache + Data Cache da rota</td></tr>
+      <tr><td class="njc-name">revalidateTag('posts')</td><td class="njc-code">Todos os fetches com { next: { tags: ['posts'] } }</td></tr>
+      <tr><td class="njc-name">router.refresh()</td><td class="njc-code">Router Cache (client-side) da rota atual</td></tr>
+      <tr><td class="njc-name">cache: 'no-store'</td><td class="njc-code">Opt-out do Data Cache por fetch</td></tr>
+    </table>
+  </div>
+  <div class="njc-section">
+    <div class="njc-title">Variáveis de ambiente</div>
+    <table class="njc-table">
+      <tr><th>Prefixo</th><th>Disponível em</th></tr>
+      <tr><td class="njc-name">NEXT_PUBLIC_*</td><td class="njc-code">Browser + servidor (exposta no bundle)</td></tr>
+      <tr><td class="njc-name">Sem prefixo</td><td class="njc-code">Somente no servidor — nunca chega ao cliente</td></tr>
+    </table>
+  </div>
+  <div class="njc-section">
+    <div class="njc-title">Imports essenciais — App Router</div>
+    <table class="njc-table">
+      <tr><th>Hook/função</th><th>De onde importar</th></tr>
+      <tr><td class="njc-name">useRouter, usePathname, useParams</td><td class="njc-code">next/navigation (App Router)</td></tr>
+      <tr><td class="njc-name">cookies, headers</td><td class="njc-code">next/headers (Server Component)</td></tr>
+      <tr><td class="njc-name">notFound, redirect</td><td class="njc-code">next/navigation (Server Component)</td></tr>
+      <tr><td class="njc-name">Image</td><td class="njc-code">next/image</td></tr>
+      <tr><td class="njc-name">Link</td><td class="njc-code">next/link</td></tr>
+    </table>
+  </div>
+</div>`,
+    },
+    mindmap: {
+      title: "Next.js App Router — Mapa mental",
+      html: `<style>
+.njm-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:24px;color:#e2e8f0}
+.njm-center{background:#1a2a1a;border:2px solid #4ade80;border-radius:10px;padding:10px 18px;text-align:center;font-weight:700;font-size:13px;color:#4ade80;display:inline-block}
+.njm-node{background:#1e293b;border:1.5px solid #334155;border-radius:7px;padding:6px 12px;font-size:11px;color:#94a3b8;cursor:default;margin-bottom:5px}
+.njm-node:hover{border-color:#4ade80;color:#e2e8f0}
+.njm-label{font-size:9px;color:#4ade80;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.njm-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start}
+.njm-col{display:flex;flex-direction:column;gap:12px}
+</style>
+<div class="njm-wrap">
+  <p style="color:#e2e8f0;font-size:12px;font-weight:700;margin:0 0 20px">Next.js App Router — Mapa de Conceitos</p>
+  <div class="njm-grid">
+    <div class="njm-col">
+      <div>
+        <div class="njm-label">Rendering</div>
+        <div class="njm-node">SSG — build time, CDN</div>
+        <div class="njm-node">ISR — revalidate periódico</div>
+        <div class="njm-node">SSR — por request, cookies</div>
+        <div class="njm-node">CSR — browser, 'use client'</div>
+      </div>
+      <div>
+        <div class="njm-label">Arquivos especiais</div>
+        <div class="njm-node">page.tsx — UI da rota</div>
+        <div class="njm-node">layout.tsx — UI persistente</div>
+        <div class="njm-node">loading.tsx — Suspense fallback</div>
+        <div class="njm-node">error.tsx — captura erros</div>
+        <div class="njm-node">route.ts — API endpoint</div>
+      </div>
+      <div>
+        <div class="njm-label">Organização</div>
+        <div class="njm-node">(group) — Route Groups</div>
+        <div class="njm-node">_folder — sem rota</div>
+        <div class="njm-node">@slot — Parallel Routes</div>
+        <div class="njm-node">(.)rota — Intercepting</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center">
+      <div class="njm-center">Next.js<br><span style="font-size:10px;opacity:.7">App Router</span></div>
+    </div>
+    <div class="njm-col">
+      <div>
+        <div class="njm-label">Cache (4 camadas)</div>
+        <div class="njm-node">Request Memoization — 1 request</div>
+        <div class="njm-node">Data Cache — persiste entre requests</div>
+        <div class="njm-node">Full Route Cache — HTML em build</div>
+        <div class="njm-node">Router Cache — client, sessão</div>
+      </div>
+      <div>
+        <div class="njm-label">Data &amp; mutations</div>
+        <div class="njm-node">fetch() em Server Component</div>
+        <div class="njm-node">Server Actions ('use server')</div>
+        <div class="njm-node">revalidatePath / revalidateTag</div>
+        <div class="njm-node">Route Handlers para APIs públicas</div>
+      </div>
+      <div>
+        <div class="njm-label">Otimizações</div>
+        <div class="njm-node">next/image — WebP + srcset</div>
+        <div class="njm-node">next/font — self-hosted fonts</div>
+        <div class="njm-node">next/dynamic — code splitting</div>
+        <div class="njm-node">Middleware — Edge Runtime</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Visão geral do Next.js App Router — rendering strategies, arquivos especiais, cache em 4 camadas e otimizações automáticas.",
+    },
+    exercises: [
+      {
+        level: "iniciante",
+        title: "Criar um blog estático com App Router",
+        description: "Crie um blog com Next.js App Router: página inicial listando posts, página de detalhe [slug]/page.tsx. Use um array de objetos como data source (sem banco). Todos os componentes devem ser Server Components. Gere as páginas de detalhe estaticamente com generateStaticParams.",
+        concepts: ["Server Components", "SSG", "generateStaticParams", "layout.tsx", "page.tsx"],
+        hint: "generateStaticParams retorna o array de slugs para geração estática. A rota [slug]/page.tsx recebe params.slug como prop.",
+      },
+      {
+        level: "intermediario",
+        title: "Dashboard com Server Actions e revalidação",
+        description: "Crie um dashboard com lista de tarefas. Server Component busca as tarefas. Client Component tem formulário para criar nova tarefa usando Server Action. Após criar, a lista deve atualizar sem reload — use revalidatePath. Adicione loading.tsx como skeleton e error.tsx para erros de rede.",
+        concepts: ["Server Actions", "revalidatePath", "loading.tsx", "error.tsx", "useFormStatus"],
+        hint: "O formulário usa action={serverAction}. useFormStatus() (de react-dom) dá acesso ao estado pending sem state manual.",
+      },
+      {
+        level: "senior",
+        title: "Implementar autenticação com Middleware e Route Groups",
+        description: "Organize o projeto com Route Groups: (public) sem auth e (dashboard) com auth. Crie Middleware que verifica o cookie de sessão e redireciona para /login se a rota /dashboard/* for acessada sem sessão. Use Server Actions para login/logout. Garanta que Server Actions dentro do dashboard validem a sessão independentemente do Middleware.",
+        concepts: ["Middleware", "Route Groups", "Server Actions", "cookies", "auth pattern"],
+        hint: "O Middleware protege as rotas no nível de HTTP. A validação nas Server Actions é a segunda linha de defesa — sempre valide nos dois lugares.",
+      },
+    ],
+    videos: [
+      { title: "Next.js 14 Full Course", channel: "Traversy Media", url: "", topic: "Next.js 14 com App Router do zero ao deploy" },
+      { title: "Next.js App Router: The Good, The Bad, The Ugly", channel: "Theo - t3.gg", url: "", topic: "Análise honesta do App Router em produção" },
+      { title: "Server Actions Are Here", channel: "Vercel", url: "", topic: "Server Actions em profundidade com exemplos reais" },
+      { title: "Next.js Caching Explained", channel: "Fireship", url: "", topic: "As 4 camadas de cache do App Router explicadas" },
+      { title: "I Fixed My Next.js App Performance", channel: "Lee Robinson", url: "", topic: "Otimizações de performance com next/image, font e streaming" },
+    ],
+    codeExamples: [
+      {
+        title: "Composição Server + Client Component correta",
+        description: "Padrão fundamental: Server Component busca dados, Client Component cuida da interatividade. Server Component pode ser passado como children.",
+        language: "tsx",
+        code: `// app/posts/page.tsx — Server Component
+import { PostList } from './_components/PostList'
+import { CreatePostButton } from './_components/CreatePostButton'
+import { db } from '@/lib/db'
+
+export default async function PostsPage() {
+  const posts = await db.post.findMany({ orderBy: { createdAt: 'desc' } })
+
+  return (
+    // CreatePostButton é Client Component com estado de modal
+    // PostList é Server Component renderizado como children
+    <CreatePostButton>
+      <PostList posts={posts} />
+    </CreatePostButton>
+  )
+}
+
+// app/posts/_components/CreatePostButton.tsx — Client Component
+'use client'
+import { useState } from 'react'
+
+export function CreatePostButton({ children }: { children: React.ReactNode }) {
+  const [showForm, setShowForm] = useState(false)
+
+  return (
+    <div>
+      <button onClick={() => setShowForm(true)}>Criar post</button>
+      {showForm && <CreatePostForm onClose={() => setShowForm(false)} />}
+      {children}  {/* Server Component renderizado aqui — sem virar Client */}
+    </div>
+  )
+}`,
+      },
+      {
+        title: "Server Action com validação Zod e revalidação",
+        description: "Server Action completa: autenticação, validação, persistência e revalidação de cache.",
+        language: "typescript",
+        code: `// app/actions/post.ts
+'use server'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
+
+const createPostSchema = z.object({
+  title:   z.string().min(3, 'Mínimo 3 caracteres').max(100),
+  content: z.string().min(10, 'Mínimo 10 caracteres'),
+})
+
+export async function createPost(formData: FormData) {
+  // 1. Autenticação
+  const session = await auth()
+  if (!session) return { error: 'Não autenticado' }
+
+  // 2. Validação
+  const result = createPostSchema.safeParse({
+    title:   formData.get('title'),
+    content: formData.get('content'),
+  })
+  if (!result.success) {
+    return { error: result.error.flatten().fieldErrors }
+  }
+
+  // 3. Persistência
+  try {
+    const post = await db.post.create({
+      data: { ...result.data, authorId: session.user.id },
+    })
+    // 4. Invalidação de cache
+    revalidatePath('/posts')
+    return { success: true, postId: post.id }
+  } catch {
+    return { error: 'Erro ao criar post. Tente novamente.' }
+  }
+}`,
+      },
+      {
+        title: "Middleware de autenticação com Route Groups",
+        description: "Proteger rotas automaticamente via Middleware — centralizado, sem código de proteção nos componentes.",
+        language: "typescript",
+        code: `// middleware.ts (raiz do projeto)
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { verifyJWT } from '@/lib/auth'
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Rotas públicas — não verificar
+  const publicRoutes = ['/login', '/register', '/api/auth']
+  if (publicRoutes.some(r => pathname.startsWith(r))) {
+    return NextResponse.next()
+  }
+
+  // Verificar sessão via cookie
+  const token = request.cookies.get('session')?.value
+
+  if (!token) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('from', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  try {
+    const payload = await verifyJWT(token)
+    // Passar userId para Server Components via header
+    const response = NextResponse.next()
+    response.headers.set('x-user-id', payload.userId)
+    return response
+  } catch {
+    // Token inválido
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    response.cookies.delete('session')
+    return response
+  }
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}`,
+      },
+    ],
     resources: [
       { title: "Next.js docs", url: "https://nextjs.org/docs", kind: "docs" },
       { title: "Next.js App Router tutorial", url: "https://nextjs.org/learn", kind: "curso" },
       { title: "Next.js caching — documentação completa", url: "https://nextjs.org/docs/app/building-your-application/caching", kind: "docs" },
       { title: "Vercel — Next.js Conf talks", url: "https://nextjs.org/conf", kind: "video" },
+      { title: "Josh Comeau — Joy of React + Next.js", url: "https://www.joyofreact.com/", kind: "curso" },
+      { title: "Dominik D. — Practical React Query", url: "https://tkdodo.eu/blog/practical-react-query", kind: "artigo" },
     ],
   },
 
   "vue": {
     tagline: "Framework JavaScript progressivo para construir interfaces com sistema reativo baseado em Proxy.",
     why: "Vue é amplamente adotado no mercado brasileiro e europeu. Composition API (Vue 3) alinha Vue com padrões modernos de hooks. Saber Vue abre vagas onde React não domina — e saber comparar os dois em entrevista é diferencial real.",
-    summary: "Vue é um framework JavaScript progressivo com sistema de reatividade baseado em Proxy (Vue 3). Tem Composition API (similar a React hooks, mas com reatividade automática) e Options API (legado, Vue 2). Template syntax com diretivas declarativas (v-if, v-for, v-model). Ecossistema maduro: Pinia (estado global), Vue Router, Nuxt (meta-framework), Vite (build).",
+    prerequisite: "JavaScript ES6+ (arrow functions, destructuring, spread, módulos, Promises, async/await). HTML e CSS básicos. Entender o conceito de componente e eventos do DOM facilita muito a curva inicial.",
+    summary: "Vue é um framework JavaScript progressivo com sistema de reatividade baseado em Proxy (Vue 3). Tem Composition API (similar a React hooks, mas com reatividade automática) e Options API (legado, Vue 2). Template syntax com diretivas declarativas (v-if, v-for, v-model). Ecossistema maduro: Pinia (estado global), Vue Router, Nuxt (meta-framework), Vite (build). O grande diferencial do Vue em relação ao React é a reatividade automática: você muta o estado diretamente e o Vue rastreia quais partes do template dependem de quê, atualizando só o necessário. Isso resulta em menos boilerplate para casos simples, mas exige entender o modelo de Proxy para não quebrar a reatividade.",
+    howToStudy: "<strong>Modelo mental central:</strong> <code>setup()</code> é o coração — tudo que você retorna de setup está disponível no template. refs são reativos, computed é derivado (memorizado), watch observa efeitos colaterais. Composition API = hooks React, mas com rastreamento automático de dependências.<br><br><strong>Sequência recomendada:</strong><ol><li>Comece pela Composition API com <code>&lt;script setup&gt;</code> — ignore Options API por enquanto (é legado).</li><li>Entenda ref vs reactive, e por que desestruturar reactive quebra reatividade.</li><li>Aprenda as diretivas (v-if, v-for, v-model) e o ciclo de vida (onMounted, onUnmounted).</li><li>Construa um pequeno app: todo list com Pinia, Vue Router e Composition API.</li><li>Depois: composables, provide/inject, Teleport, watchEffect vs watch.</li></ol><br><strong>Em 30 minutos:</strong> Leia o tutorial oficial (vuejs.org/tutorial) — é interativo e cobre ref, template, v-if, v-for, eventos e formulários.<br><strong>Em um fim de semana:</strong> Faça o tutorial completo + crie um app CRUD com Pinia e Vue Router.<br><strong>Em uma semana:</strong> Nuxt 3 (meta-framework), composables avançados, TypeScript com defineProps, testes com Vitest.",
     diagrams: [
       {
         title: "Sistema de reatividade Vue 3 — Proxy rastreando dependências automaticamente",
@@ -2071,153 +2604,1123 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       },
     ],
     keypoints: [
-      { title: "Composition API", body: "Vue 3 introduziu Composition API: ref(), reactive(), computed(), watch(), onMounted() e outros. Similar a React hooks em estrutura mas diferente em mecanismo — Vue rastreia dependências automaticamente por Proxy, sem array de deps manual.", code: `<script setup>
-import { ref, computed } from 'vue'
+      { title: "Composition API e script setup", body: "Vue 3 introduziu Composition API: ref(), reactive(), computed(), watch(), onMounted() e outros. <script setup> é a sintaxe moderna — elimina o return manual e o componente fica mais conciso. Similar a React hooks em estrutura mas diferente em mecanismo: Vue rastreia dependências automaticamente por Proxy, sem array de deps manual.", code: `<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
 const count = ref(0)
 const double = computed(() => count.value * 2)
+
 function inc() { count.value++ }
-</script>` },
-      { title: "Sistema de reatividade com Proxy", body: "Vue 3 usa Proxy JavaScript para interceptar acesso e mutação de propriedades. Quando você acessa reactive.prop dentro de um computed ou template, Vue registra a dependência. Quando muda, Vue re-executa só o que depende dela — sem virtual DOM diffing completo como React.", code: `const state = reactive({ count: 0, name: 'Vue' })
-// Desestruturar QUEBRA a reatividade:
-const { count } = state // count é number não-reativo
-// Correto:
-const { count } = toRefs(state) // count.value é reativo` },
-      { title: "ref() vs reactive()", body: "ref() cria um wrapper reativo para qualquer valor (primitivo ou objeto). Acesso via .value em JS, auto-unwrap no template. reactive() cria um objeto Proxy — acesso direto sem .value, mas perde reatividade ao desestruturar.", code: `const n = ref(0)    // n.value em JS, {{n}} no template
-const obj = reactive({ x: 1 }) // obj.x — sem .value` },
-      { title: "v-model e two-way binding", body: "v-model em input é açúcar para :value + @input. Em componentes customizados: prop modelValue + emit('update:modelValue', val). Vue 3 permite múltiplos v-model: v-model:title, v-model:content.", code: `<!-- equivalente: -->
+
+onMounted(() => {
+  console.log('componente montado, count =', count.value)
+})
+</script>
+
+<template>
+  <button @click="inc">{{ count }} × 2 = {{ double }}</button>
+</template>` },
+      { title: "Sistema de reatividade com Proxy", body: "Vue 3 usa Proxy JavaScript para interceptar acesso e mutação de propriedades. Quando um computed ou watchEffect roda, qualquer acesso a propriedade reativa registra uma dependência. Quando muda, Vue re-executa só o que depende dela. O gotcha crítico: desestruturar reactive() quebra a reatividade porque os valores primitivos extraídos não são mais Proxies.", code: `const state = reactive({ count: 0, name: 'Vue' })
+
+// ✗ QUEBRA reatividade — count é number puro:
+const { count } = state
+
+// ✓ CORRETO — use toRefs para manter reatividade:
+const { count } = toRefs(state) // count.value é reativo
+
+// ✓ OU use ref() desde o início (mais simples):
+const count = ref(0) // sem problema de desestruturação` },
+      { title: "ref() vs reactive()", body: "ref() cria um wrapper reativo para qualquer valor (primitivo ou objeto). Acesso via .value em JS, auto-unwrap no template. reactive() cria um objeto Proxy — acesso direto sem .value, mas perde reatividade ao desestruturar. Convenção atual: prefira ref() para tudo — é mais consistente.", code: `const n = ref(0)         // n.value em JS, {{n}} no template
+const nome = ref('Vue')  // funciona com primitivos
+
+const obj = reactive({ x: 1, y: 2 }) // obj.x — sem .value
+// Mas: const { x } = obj  →  x não é reativo!
+
+// shallowRef e shallowReactive para performance:
+const big = shallowRef({ items: [] }) // só .value é reativo, não .value.items` },
+      { title: "watch vs watchEffect", body: "watch() observa uma ou mais fontes explícitas e recebe o valor anterior — lazy por padrão (não roda ao montar). watchEffect() rastreia automaticamente todas as dependências acessadas dentro dele e roda imediatamente. Use watch quando precisar do valor anterior ou querer controle fino; watchEffect para efeitos que simplesmente reagem a estado.", code: `// watch — explícito, lazy, tem oldVal:
+watch(count, (newVal, oldVal) => {
+  console.log('mudou de', oldVal, 'para', newVal)
+})
+watch(count, callback, { immediate: true }) // roda no mount
+
+// watchEffect — automático, imediato:
+watchEffect(() => {
+  // qualquer ref acessada aqui vira dependência
+  document.title = \`Contagem: \${count.value}\`
+})` },
+      { title: "v-model e two-way binding", body: "v-model em input é açúcar para :value + @input. Em componentes customizados: prop modelValue + emit('update:modelValue', val). Vue 3 permite múltiplos v-model em um único componente com modificadores.", code: `<!-- equivalente: -->
 <input :value="name" @input="name = $event.target.value" />
 <input v-model="name" />
 
-<!-- em componente filho: -->
-defineProps(['modelValue'])
-defineEmits(['update:modelValue'])` },
-      { title: "Diretivas e templates", body: "v-if/v-else: renderização condicional. v-for: lista com :key obrigatório. v-bind (ou :): binding de atributo. v-on (ou @): event listener. v-show: display:none vs v-if que remove do DOM. Sempre prefira v-if para elementos que raramente aparecem; v-show para toggle frequente." },
-      { title: "defineProps e defineEmits (script setup)", body: "Com <script setup>, use defineProps e defineEmits (macros de compilador — não precisam ser importados). Props são readonly. Emits declaram o contrato de eventos do componente.", code: `const props = defineProps<{ title: string; count?: number }>()
-const emit = defineEmits<{ change: [value: number] }>()
-emit('change', props.count + 1)` },
+<!-- Componente com v-model (script setup): -->
+const props = defineProps<{ modelValue: string }>()
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+
+<!-- Uso com múltiplos v-model: -->
+<MeuInput v-model:title="titulo" v-model:content="conteudo" />` },
+      { title: "Diretivas essenciais", body: "v-if/v-else: renderização condicional — remove do DOM. v-show: display:none — mantém no DOM. v-for com :key obrigatório. v-bind (ou :) para atributos dinâmicos. v-on (ou @) para eventos. v-memo para memoização de sublistas (performance).", code: `<template>
+  <!-- v-if remove do DOM; v-show aplica display:none -->
+  <Modal v-if="isOpen" />
+  <Tooltip v-show="hovered" />
+
+  <!-- v-for com key estável (não use index!) -->
+  <li v-for="item in items" :key="item.id">{{ item.name }}</li>
+
+  <!-- v-bind shorthand -->
+  <img :src="url" :alt="desc" />
+
+  <!-- v-on shorthand + modificadores -->
+  <form @submit.prevent="handleSubmit">
+    <input @keyup.enter="confirm" />
+  </form>
+</template>` },
+      { title: "defineProps e defineEmits com TypeScript", body: "Com script setup, use defineProps e defineEmits (macros de compilador — não precisam de import). Props são readonly. withDefaults fornece valores padrão. defineExpose expõe métodos para o componente pai via template ref.", code: `// Props com TypeScript genérico:
+const props = withDefaults(
+  defineProps<{ title: string; count?: number; disabled?: boolean }>(),
+  { count: 0, disabled: false }
+)
+
+// Emits tipados:
+const emit = defineEmits<{
+  change: [value: number]
+  close: []
+}>()
+
+// Expor para o pai:
+defineExpose({ focus, reset })` },
+      { title: "provide e inject — comunicação sem props drilling", body: "provide/inject é o equivalente ao React Context. O componente pai fornece um valor com provide(); componentes descendentes (em qualquer profundidade) consomem com inject(). Use InjectionKey para type safety.", code: `// Pai — define e fornece:
+import { provide, ref } from 'vue'
+import type { InjectionKey, Ref } from 'vue'
+
+export const ThemeKey: InjectionKey<Ref<'dark' | 'light'>> = Symbol('theme')
+
+const theme = ref<'dark' | 'light'>('dark')
+provide(ThemeKey, theme)
+
+// Descendente — consome:
+import { inject } from 'vue'
+const theme = inject(ThemeKey)  // Ref<'dark' | 'light'>
+// Com default:
+const theme = inject(ThemeKey, ref('light'))` },
+      { title: "Pinia — estado global moderno", body: "Pinia substituiu Vuex como solução oficial de estado global. defineStore() cria uma store com state, getters (computed) e actions. Totalmente tipado, sem módulos aninhados, DevTools integrado. Suporta tanto Options API quanto Composition API em stores.", code: `// stores/counter.ts
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+export const useCounterStore = defineStore('counter', () => {
+  const count = ref(0)
+  const double = computed(() => count.value * 2)
+
+  function increment() { count.value++ }
+  async function fetchAndReset() {
+    await api.reset()
+    count.value = 0
+  }
+
+  return { count, double, increment, fetchAndReset }
+})
+
+// Componente:
+const store = useCounterStore()
+store.increment()` },
     ],
     gotchas: [
-      "reactive() perde reatividade quando desestruturado diretamente. Use toRefs() para converter para refs individuais reativos.",
-      "v-for sem :key ou com index como key quebra o estado interno de componentes quando a lista é reordenada. Use IDs únicos estáveis.",
-      "watch() é lazy por padrão (não roda no mount). Use watchEffect() para rodar imediatamente, ou { immediate: true } no watch.",
-      "Componentes são case-sensitive em <script setup> mas case-insensitive em template HTML. Use PascalCase em JS e kebab-case no template para componentes.",
-      "ref() que contém um objeto ainda usa Proxy internamente — você pode mutar .value.prop diretamente. Mas reatribuir .value = novoObjeto também funciona.",
+      "reactive() perde reatividade quando desestruturado diretamente. Use toRefs() para converter para refs individuais reativos, ou prefira ref() desde o início.",
+      "v-for sem :key ou com index como key quebra o estado interno de componentes quando a lista é reordenada. Use IDs únicos estáveis — nunca index se a lista pode ser reordenada.",
+      "watch() é lazy por padrão — não roda na montagem. Use watchEffect() para rodar imediatamente, ou { immediate: true } no watch. Confundir os dois causa bugs sutis.",
+      "Classes dinâmicas: :class aceita objeto (true/false) ou array. String direta funciona, mas interpolação não é reactiva: use :class ao invés de class com template string.",
+      "Componentes são case-sensitive em script setup mas templates HTML (não-SFC) são case-insensitive. Use PascalCase em JS e kebab-case no template para compatibilidade máxima.",
+      "v-model em componente customizado usa modelValue como nome de prop por padrão. Se a prop se chamar outra coisa, use v-model:nomeDaProp — e declare o emit correspondente.",
+      "provide/inject não é reativo por padrão se você passar um valor primitivo. Envolva em ref() ou reactive() para que o injetado atualize quando o provedor muda.",
+      "Computed é lazy e cacheado — não deve ter efeitos colaterais. Se você precisa de efeito colateral baseado em estado reativo, use watch ou watchEffect.",
+      "Lifecycle hooks em composables devem ser chamados de forma síncrona dentro do setup() — não dentro de setTimeout ou fetch callbacks. Caso contrário, não serão registrados no componente.",
     ],
     interview: [
       {
         q: "Qual a diferença entre ref() e reactive() no Vue 3?",
-        a: "<p><strong>ref()</strong>: envolve qualquer valor (primitivo ou objeto) em um container reativo. Acesso via .value em JavaScript, auto-unwrap no template. Funciona com primitivos (strings, numbers) — reactive() não funciona com primitivos.</p><p><strong>reactive()</strong>: transforma um objeto em Proxy reativo diretamente. Acesso sem .value. Problema: perde reatividade quando desestruturado.</p><p>Convenção moderna com Composition API: prefira ref() para tudo — é mais consistente e funciona com toRefs() quando necessário.</p>",
+        a: "<p><strong>ref()</strong>: envolve qualquer valor (primitivo ou objeto) em um container reativo. Acesso via .value em JavaScript, auto-unwrap no template. Funciona com primitivos (strings, numbers) — reactive() não funciona com primitivos.</p><p><strong>reactive()</strong>: transforma um objeto em Proxy reativo diretamente. Acesso sem .value. Problema: perde reatividade quando desestruturado — os valores extraídos são primitivos sem ligação ao Proxy.</p><p>Convenção moderna com Composition API: prefira ref() para tudo — é mais consistente e funciona com toRefs() quando necessário. Evita o gotcha de desestruturação.</p>",
         tip: "Citar o problema de desestruturação do reactive() é o ponto que mais pega em entrevista. Quem só leu a docs superficialmente não menciona.",
         level: "pleno",
       },
       {
         q: "Como funciona o sistema de reatividade do Vue 3?",
-        a: "<p>Vue 3 usa JavaScript Proxy para interceptar acesso (get) e mutação (set) de propriedades. Quando um computed ou watchEffect roda, qualquer acesso a propriedade reativa registra uma dependência. Quando essa propriedade muda, Vue re-executa os efeitos que dependem dela.</p><p>É diferente do React: Vue rastreia dependências automaticamente por acesso, sem array de deps manual. A granularidade é por propriedade — só o que realmente mudou dispara re-render.</p>",
-        tip: "Comparar com o React (sem array de deps, rastreamento automático) mostra que você entende o modelo mental, não só a API.",
+        a: "<p>Vue 3 usa JavaScript Proxy para interceptar acesso (get) e mutação (set) de propriedades. Quando um computed ou watchEffect roda, qualquer acesso a propriedade reativa registra uma dependência. Quando essa propriedade muda, Vue re-executa os efeitos que dependem dela.</p><p>É diferente do React: Vue rastreia dependências automaticamente por acesso, sem array de deps manual. A granularidade é por propriedade — só o que realmente mudou dispara re-render. Vue 2 usava Object.defineProperty (com limitações: não detectava adição de propriedades ou mudanças em array por índice). Vue 3 com Proxy não tem essas limitações.</p>",
+        tip: "Comparar com o React (sem array de deps, rastreamento automático) e mencionar a limitação do Vue 2 mostra que você entende a evolução do framework, não só a API atual.",
         level: "senior",
       },
       {
         q: "Qual a diferença entre v-if e v-show?",
-        a: "<p><strong>v-if</strong>: remove o elemento do DOM completamente quando false. Componentes dentro são destruídos (lifecycle hooks chamados). Custo alto na alternância, mas zero custo quando falso.</p><p><strong>v-show</strong>: aplica display:none — elemento permanece no DOM. Componente mantém estado. Custo baixo na alternância.</p><p>Use v-if para elementos que raramente mudam ou que têm custo de inicialização alto. Use v-show para toggle frequente (menu, drawer, tooltip).</p>",
+        a: "<p><strong>v-if</strong>: remove o elemento do DOM completamente quando false. Componentes dentro são destruídos (lifecycle hooks chamados). Custo alto na alternância, mas zero custo quando false — nada está no DOM.</p><p><strong>v-show</strong>: aplica display:none — elemento permanece no DOM. Componente mantém estado. Custo baixo na alternância, mas custo inicial sempre presente.</p><p>Use v-if para elementos que raramente mudam ou que têm custo alto de inicialização (vídeo, mapa, componente complexo). Use v-show para toggle frequente (menu, drawer, tooltip) onde quer preservar estado e animação suave.</p>",
         level: "pleno",
       },
       {
         q: "Como você compartilha estado global em Vue 3?",
-        a: "<p><strong>Pinia</strong> é a solução oficial (substituiu Vuex). Define stores com defineStore(). Stores são reativas, têm state, getters (computed) e actions. Fácil de usar com Composition API — useStore() direto no setup.</p><p><strong>Composables</strong> com ref/reactive no módulo: para estado simples compartilhado, um composable com refs no escopo do módulo funciona bem sem Pinia.</p><p>Evite Vuex em projetos novos Vue 3 — Pinia tem melhor DX, TypeScript support e DevTools integration.</p>",
-        tip: "Mencionar que Pinia é a substituição oficial do Vuex e que o próprio time Vue recomenda mostra que você está atualizado.",
+        a: "<p><strong>Pinia</strong> é a solução oficial (substituiu Vuex). Define stores com defineStore(). Stores são reativas, têm state, getters (computed) e actions. Fácil de usar com Composition API — useStore() direto no setup. Totalmente tipado, sem módulos aninhados, DevTools integrado.</p><p><strong>Composables</strong> com ref/reactive no escopo do módulo: para estado simples compartilhado entre poucos componentes, um composable com refs exportados funciona bem sem Pinia — o estado é singleton por módulo.</p><p>Evite Vuex em projetos novos Vue 3 — Pinia tem melhor DX, TypeScript support e API muito mais simples.</p>",
+        tip: "Mencionar que Pinia é a substituição oficial do Vuex e que o próprio time Vue recomenda mostra que você está atualizado. Diferenciar de composables-singleton para estado simples mostra maturidade.",
+        level: "pleno",
+      },
+      {
+        q: "Qual a diferença entre watch e watchEffect no Vue 3?",
+        a: "<p><strong>watch()</strong>: observa fontes explícitas (ref, reactive, computed, ou array deles). Recebe valor anterior e novo. Lazy por padrão (não roda na montagem — use immediate: true). Mais controle.</p><p><strong>watchEffect()</strong>: rastreia automaticamente todas as dependências acessadas dentro da função. Roda imediatamente no mount. Sem acesso ao valor anterior.</p><p>Use watch quando precisa do oldValue, quando quer ser explícito sobre o que observa, ou quando quer lazy execution. Use watchEffect para efeitos que simplesmente sincronizam estado com algo externo (título da página, local storage, chamadas de API simples).</p>",
+        tip: "A confusão entre os dois é a origem de muitos bugs em Vue — quem sabe a diferença precisa e pratica Composition API de verdade.",
         level: "pleno",
       },
       {
         q: "Como Vue se compara ao React em termos de modelo mental?",
-        a: "<p><strong>Reatividade</strong>: Vue rastreia dependências automaticamente (Proxy) — sem array de deps. React requer deps explícitas em hooks.</p><p><strong>Templates vs JSX</strong>: Vue usa templates HTML com diretivas (mais familiar). React usa JSX (mais expressivo, JavaScript puro).</p><p><strong>Mutabilidade</strong>: Vue permite mutar estado diretamente (reactive.prop = valor). React exige imutabilidade (criar novo objeto/array).</p><p><strong>Dois-way binding</strong>: Vue tem v-model. React é unidirecional por padrão.</p><p>Vue tende a ter menos boilerplate para casos simples. React é mais previsível e escala melhor em equipes grandes com disciplina de imutabilidade.</p>",
-        tip: "Em entrevista, evite dizer que um é melhor que o outro. Foque nos tradeoffs — é o que sênior faz.",
+        a: "<p><strong>Reatividade</strong>: Vue rastreia dependências automaticamente (Proxy) — sem array de deps. React requer deps explícitas em hooks e imutabilidade.</p><p><strong>Templates vs JSX</strong>: Vue usa templates HTML com diretivas (mais familiar para devs HTML). React usa JSX (mais expressivo, JavaScript puro, sem aprender diretivas).</p><p><strong>Mutabilidade</strong>: Vue permite mutar estado diretamente (reactive.prop = valor). React exige criar novo objeto/array.</p><p><strong>Dois-way binding</strong>: Vue tem v-model. React é unidirecional por padrão.</p><p>Vue tem menos boilerplate para casos simples. React é mais previsível e escala melhor em equipes grandes — imutabilidade torna o fluxo de dados explícito. Vue 3 com TypeScript encurtou a distância, mas a filosofia de mutabilidade controlada vs imutabilidade permanece a diferença central.</p>",
+        tip: "Em entrevista, evite dizer que um é melhor. Foque nos tradeoffs reais — é o que sênior faz.",
         level: "senior",
       },
       {
         q: "O que são composables no Vue 3?",
-        a: "<p>Composables são funções que encapsulam lógica stateful reutilizável usando Composition API — equivalente aos React custom hooks. Convenção: nome começa com 'use'.</p><pre><code>function useCounter(initial = 0) {\n  const count = ref(initial)\n  function increment() { count.value++ }\n  return { count, increment }\n}</code></pre><p>Vantagens sobre mixins (Vue 2): sem colisão de nomes, origem clara de cada propriedade, composição explícita.</p>",
-        tip: "Mencionar a comparação com mixins do Vue 2 e por que composables são superiores é um diferencial — mostra conhecimento de evolução do ecossistema.",
+        a: "<p>Composables são funções que encapsulam lógica stateful reutilizável usando Composition API — equivalente exato dos React custom hooks. Convenção: nome começa com 'use'.</p><pre><code>// useCounter.ts\nexport function useCounter(initial = 0) {\n  const count = ref(initial)\n  const double = computed(() => count.value * 2)\n  function increment() { count.value++ }\n  function decrement() { count.value-- }\n  return { count, double, increment, decrement }\n}</code></pre><p>Vantagens sobre mixins (Vue 2): sem colisão de nomes (cada composable retorna um objeto nomeado), origem clara de cada propriedade, composição explícita, fácil de testar isoladamente.</p>",
+        tip: "Mencionar a comparação com mixins do Vue 2 e por que composables são superiores é diferencial — mostra conhecimento da evolução do ecossistema.",
+        level: "pleno",
+      },
+      {
+        q: "Como funciona provide/inject no Vue 3 e quando usar?",
+        a: "<p>provide/inject é o mecanismo de injeção de dependência do Vue — equivalente ao React Context. O ancestral fornece com provide(key, value); descendentes consomem com inject(key). Não precisa passar por props intermediárias (evita prop drilling).</p><p>Para type safety: use InjectionKey (Symbol tipado) — evita erros de chave e dá autocomplete no inject. Passe refs, não valores primitivos, se quiser que o injetado seja reativo.</p><p>Use para: temas, locale, instâncias de serviço compartilhadas, configurações de componentes que precisam chegar a componentes profundamente aninhados. Não abuse — Pinia é melhor para estado global complexo.</p>",
+        level: "senior",
+      },
+      {
+        q: "O que são Options API e Composition API e quando usar cada uma?",
+        a: "<p><strong>Options API</strong> (Vue 2 e Vue 3): organiza código por tipo de opção — data(), methods, computed, watch, lifecycle hooks. Familiar e estruturado. Dificuldade: lógica relacionada fica espalhada em múltiplas seções.</p><p><strong>Composition API</strong> (Vue 3): organiza por funcionalidade — toda a lógica de 'contador' fica junta, independente de ser data/método/computed. Melhor reutilização via composables. TypeScript-first. script setup é a forma moderna.</p><p>Recomendação: use Composition API com script setup em todos os projetos novos. Migre gradualmente codebases existentes. Options API ainda é totalmente suportada e válida em Vue 3 — não é deprecated.</p>",
+        tip: "Dizer que Options API ainda é válida em Vue 3 (não deprecated) mostra que você não demoniza o legado — e que entende que migração deve ser gradual.",
+        level: "pleno",
+      },
+      {
+        q: "Como você tiparia props e emits com TypeScript em script setup?",
+        a: "<p>Com a syntax genérica de defineProps e defineEmits:</p><pre><code>// Props com default via withDefaults:\nconst props = withDefaults(\n  defineProps&lt;{\n    title: string\n    count?: number\n    variant?: 'primary' | 'ghost'\n  }&gt;(),\n  { count: 0, variant: 'primary' }\n)\n\n// Emits tipados:\nconst emit = defineEmits&lt;{\n  update: [value: number]\n  close: []\n  'item:select': [id: string, item: Item]\n}&gt;()</code></pre><p>Essa sintaxe é exclusiva de script setup — usa genéricos de TypeScript diretamente, sem passar um objeto runtime. Vue compila para os validators corretos automaticamente.</p>",
+        tip: "A sintaxe genérica (defineProps<{...}>()) é o padrão TypeScript moderno. Quem usa a sintaxe de objeto (defineProps({ title: String })) está no modo runtime sem type safety — mostre que sabe a diferença.",
+        level: "senior",
+      },
+      {
+        q: "Como funciona o lifecycle de componentes Vue 3 com Composition API?",
+        a: "<p>Lifecycle hooks em Composition API são funções registradas dentro do setup(): onBeforeMount, onMounted, onBeforeUpdate, onUpdated, onBeforeUnmount, onUnmounted. Equivalentes ao created/mounted/destroyed do Options API.</p><p>Não existe equivalente de created em Composition API — o próprio setup() corre antes da montagem, como se fosse o created.</p><p>Ordem de execução: setup() → onBeforeMount → DOM montado → onMounted → [atualizações] → onBeforeUpdate → onUpdated → [remoção] → onBeforeUnmount → onUnmounted.</p><p>onServerPrefetch existe para SSR (Nuxt) — roda apenas no servidor e aguarda Promises antes de renderizar o HTML.</p>",
+        level: "pleno",
+      },
+      {
+        q: "O que são slots no Vue e qual a diferença de slot nomeado e scoped slot?",
+        a: "<p><strong>Slot padrão</strong>: o filho recebe conteúdo do pai via &lt;slot&gt;. Equivalente a children no React.</p><p><strong>Named slots</strong>: múltiplos slots nomeados — &lt;slot name='header'&gt; — o pai distribui conteúdo via v-slot:header.</p><p><strong>Scoped slots</strong>: o componente filho expõe dados para o conteúdo do slot — o pai pode usar esses dados ao passar o conteúdo. Permite o padrão 'renderless component' onde o filho gerencia lógica e o pai controla o visual.</p><pre><code>&lt;!-- Filho expõe item --&gt;\n&lt;slot :item='item' :index='index'&gt;&lt;/slot&gt;\n\n&lt;!-- Pai consume --&gt;\n&lt;MyList v-slot='{ item, index }'&gt;\n  &lt;strong&gt;{{ index }}: {{ item.name }}&lt;/strong&gt;\n&lt;/MyList&gt;</code></pre>",
+        tip: "Scoped slots são o equivalente Vue do render props do React. Quem sabe isso e consegue dar exemplo de renderless component está claramente no nível sênior.",
+        level: "senior",
+      },
+      {
+        q: "Como você gerenciaria uma lista longa com performance no Vue?",
+        a: "<p>Técnicas em ordem de impacto: (1) <strong>v-memo</strong>: memoiza um subárvore de template — só re-renderiza quando as dependências especificadas mudam, similar ao React.memo. (2) <strong>KeepAlive</strong>: preserva o estado de componentes filhos ao trocar entre eles (tabs, rotas) — sem destruir e recriar. (3) <strong>Virtualização</strong>: vue-virtual-scroller ou @tanstack/vue-virtual para listas com milhares de itens — só renderiza o que está no viewport. (4) <strong>computed para derivações</strong>: nunca compute em template diretamente se a operação for cara.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como você autenticaria rotas com Vue Router?",
+        a: "<p>Navigation guards do Vue Router: router.beforeEach() global, ou meta + beforeEnter por rota, ou in-component guards (onBeforeRouteLeave para confirmação de saída).</p><pre><code>router.beforeEach(async (to, from) => {\n  const auth = useAuthStore()\n  if (to.meta.requiresAuth && !auth.isLoggedIn) {\n    return { name: 'login', query: { redirect: to.fullPath } }\n  }\n})</code></pre><p>Defina meta.requiresAuth nas rotas protegidas. Combine com Pinia para ler o estado de autenticação no guard. Retornar um objeto de rota redireciona, retornar true ou void deixa passar.</p>",
         level: "pleno",
       },
     ],
+    mnemonics: [
+      {
+        trick: "RCWP",
+        label: "As primitivas de reatividade do Vue 3",
+        explanation: "R = Ref (ref() — qualquer valor, acessa com .value). C = Computed (computed() — derivado, memorizado). W = Watch/watchEffect (observar efeitos colaterais). P = Proxy (como reactive() funciona internamente). Lembre como 'Reatividade Com Watch e Proxy'. Cada letra é uma primitive da Composition API que você usará todos os dias.",
+      },
+      {
+        trick: "MIOCBU",
+        label: "Lifecycle hooks Vue 3 em ordem",
+        explanation: "M = onMounted (DOM disponível). I = onUpdated (após re-render). O = onUnmounted (limpeza). C = onBeforeMount (antes do DOM). B = onBeforeUpdate (antes do re-render). U = onBeforeUnmount (antes de destruir). Leia como 'Montei, Ia Ocupar, Comecei Bem, Usarei depois' — cada letra é um hook em ordem aproximada de uso mais frequente.",
+      },
+      {
+        trick: "SSDIE",
+        label: "Diretivas Vue essenciais",
+        explanation: "S = v-show (display:none, mantém DOM). S = v-if/v-else (remove do DOM). D = v-for com :key (listas). I = v-if condição booleana. E = emit + defineEmits (comunicação filho→pai). Leia como 'Show, Show, Display, If, Emit' — as 5 diretivas/patterns que aparecem em todo componente Vue.",
+      },
+    ],
+    cheatsheet: {
+      title: "Vue 3 — Referência Rápida: Composition API, Diretivas e Lifecycle",
+      html: `<style>
+.vue-cs{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.vue-cs-sec{margin-bottom:18px}
+.vue-cs-title{font-size:9px;color:#41b883;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #1e293b}
+.vue-cs-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.vue-cs-table th{color:#475569;font-weight:500;text-align:left;padding:4px 8px;border-bottom:1px solid #1e293b}
+.vue-cs-table td{padding:5px 8px;border-bottom:1px solid #0f172a;vertical-align:top}
+.vue-cs-table tr:hover td{background:#1e293b}
+.vue-cs-name{color:#41b883}
+.vue-cs-code{color:#94a3b8;font-size:10px}
+.vue-cs-note{color:#475569;font-size:10px}
+</style>
+<div class="vue-cs">
+  <p style="color:#41b883;font-size:12px;font-weight:700;margin:0 0 18px">Vue 3 — Referência Rápida</p>
+  <div class="vue-cs-sec">
+    <div class="vue-cs-title">Primitivas de reatividade</div>
+    <table class="vue-cs-table">
+      <tr><th>API</th><th>O que faz</th><th>Quando usar</th></tr>
+      <tr><td class="vue-cs-name">ref(value)</td><td class="vue-cs-code">Reativo com .value</td><td class="vue-cs-note">Primitivos e qualquer valor — preferido</td></tr>
+      <tr><td class="vue-cs-name">reactive(obj)</td><td class="vue-cs-code">Proxy reativo (sem .value)</td><td class="vue-cs-note">Objetos complexos — cuidado ao desestruturar</td></tr>
+      <tr><td class="vue-cs-name">computed(() => expr)</td><td class="vue-cs-code">Valor derivado, cacheado</td><td class="vue-cs-note">Valores derivados de estado reativo</td></tr>
+      <tr><td class="vue-cs-name">watch(src, cb)</td><td class="vue-cs-code">Observa fonte explícita</td><td class="vue-cs-note">Quando precisa de oldVal ou lazy</td></tr>
+      <tr><td class="vue-cs-name">watchEffect(fn)</td><td class="vue-cs-code">Rastreia automaticamente</td><td class="vue-cs-note">Efeitos que reagem a deps automáticas</td></tr>
+      <tr><td class="vue-cs-name">toRefs(reactive)</td><td class="vue-cs-code">Converte reactive em refs</td><td class="vue-cs-note">Para desestruturar reactive com segurança</td></tr>
+      <tr><td class="vue-cs-name">readonly(ref)</td><td class="vue-cs-code">Versão somente-leitura</td><td class="vue-cs-note">Expor estado sem permitir mutação externa</td></tr>
+    </table>
+  </div>
+  <div class="vue-cs-sec">
+    <div class="vue-cs-title">Diretivas de template</div>
+    <table class="vue-cs-table">
+      <tr><th>Diretiva</th><th>Uso</th></tr>
+      <tr><td class="vue-cs-name">v-if / v-else-if / v-else</td><td class="vue-cs-code">Renderização condicional — remove do DOM</td></tr>
+      <tr><td class="vue-cs-name">v-show</td><td class="vue-cs-code">display:none — mantém no DOM</td></tr>
+      <tr><td class="vue-cs-name">v-for="item in items" :key</td><td class="vue-cs-code">Lista — :key com ID estável obrigatório</td></tr>
+      <tr><td class="vue-cs-name">v-model</td><td class="vue-cs-code">Two-way binding em input/componente</td></tr>
+      <tr><td class="vue-cs-name">:attr ou v-bind:attr</td><td class="vue-cs-code">Binding de atributo dinâmico</td></tr>
+      <tr><td class="vue-cs-name">@event ou v-on:event</td><td class="vue-cs-code">Event listener</td></tr>
+      <tr><td class="vue-cs-name">@click.prevent / .stop / .once</td><td class="vue-cs-code">Modificadores de evento</td></tr>
+      <tr><td class="vue-cs-name">v-memo="[dep1, dep2]"</td><td class="vue-cs-code">Memoiza subárvore — performance</td></tr>
+    </table>
+  </div>
+  <div class="vue-cs-sec">
+    <div class="vue-cs-title">Lifecycle hooks (Composition API)</div>
+    <table class="vue-cs-table">
+      <tr><th>Hook</th><th>Quando roda</th></tr>
+      <tr><td class="vue-cs-name">setup()</td><td class="vue-cs-code">Antes de tudo — equivale ao created</td></tr>
+      <tr><td class="vue-cs-name">onBeforeMount</td><td class="vue-cs-code">Antes do DOM ser inserido</td></tr>
+      <tr><td class="vue-cs-name">onMounted</td><td class="vue-cs-code">DOM disponível — fetch, refs de DOM</td></tr>
+      <tr><td class="vue-cs-name">onBeforeUpdate</td><td class="vue-cs-code">Antes de re-render por mudança reativa</td></tr>
+      <tr><td class="vue-cs-name">onUpdated</td><td class="vue-cs-code">Após re-render — DOM atualizado</td></tr>
+      <tr><td class="vue-cs-name">onBeforeUnmount</td><td class="vue-cs-code">Antes de destruir — cancel subscriptions</td></tr>
+      <tr><td class="vue-cs-name">onUnmounted</td><td class="vue-cs-code">Componente destruído — cleanup</td></tr>
+    </table>
+  </div>
+  <div class="vue-cs-sec">
+    <div class="vue-cs-title">script setup — macros de compilador</div>
+    <table class="vue-cs-table">
+      <tr><th>Macro</th><th>O que faz</th></tr>
+      <tr><td class="vue-cs-name">defineProps&lt;{ ... }&gt;()</td><td class="vue-cs-code">Declara props com TypeScript</td></tr>
+      <tr><td class="vue-cs-name">withDefaults(defineProps(), {})</td><td class="vue-cs-code">Props com valores padrão</td></tr>
+      <tr><td class="vue-cs-name">defineEmits&lt;{ ev: [arg] }&gt;()</td><td class="vue-cs-code">Declara eventos emitidos</td></tr>
+      <tr><td class="vue-cs-name">defineExpose({ method })</td><td class="vue-cs-code">Expõe para refs de template pai</td></tr>
+      <tr><td class="vue-cs-name">defineOptions({ name })</td><td class="vue-cs-code">Define opções do componente</td></tr>
+    </table>
+  </div>
+</div>`,
+    },
+    mindmap: {
+      title: "Vue 3 — Mapa mental da Composition API",
+      html: `<style>
+.vue-mm{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:24px;color:#e2e8f0}
+.vue-mm-center{background:#1a3a2a;border:2px solid #41b883;border-radius:10px;padding:10px 18px;text-align:center;font-weight:700;font-size:13px;color:#41b883;display:inline-block}
+.vue-mm-node{background:#1e293b;border:1.5px solid #334155;border-radius:7px;padding:6px 12px;font-size:11px;color:#94a3b8;cursor:default;margin-bottom:5px}
+.vue-mm-node:hover{border-color:#41b883;color:#e2e8f0}
+.vue-mm-label{font-size:9px;color:#41b883;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.vue-mm-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start}
+.vue-mm-col{display:flex;flex-direction:column;gap:12px}
+</style>
+<div class="vue-mm">
+  <p style="color:#41b883;font-size:12px;font-weight:700;margin:0 0 20px">Vue 3 — Mapa de Conceitos</p>
+  <div class="vue-mm-grid">
+    <div class="vue-mm-col">
+      <div>
+        <div class="vue-mm-label">Reatividade</div>
+        <div class="vue-mm-node">ref() — primitivos e objetos</div>
+        <div class="vue-mm-node">reactive() — objetos Proxy</div>
+        <div class="vue-mm-node">computed() — derivado, cacheado</div>
+        <div class="vue-mm-node">watch / watchEffect</div>
+        <div class="vue-mm-node">toRefs() — desestruturar seguro</div>
+      </div>
+      <div>
+        <div class="vue-mm-label">Diretivas de template</div>
+        <div class="vue-mm-node">v-if/v-show — condicional</div>
+        <div class="vue-mm-node">v-for + :key — listas</div>
+        <div class="vue-mm-node">v-model — two-way</div>
+        <div class="vue-mm-node">:bind / @on — atributos e eventos</div>
+        <div class="vue-mm-node">v-memo — performance</div>
+      </div>
+      <div>
+        <div class="vue-mm-label">Composição de componentes</div>
+        <div class="vue-mm-node">defineProps / defineEmits</div>
+        <div class="vue-mm-node">slots / scoped slots</div>
+        <div class="vue-mm-node">Teleport — portais</div>
+        <div class="vue-mm-node">KeepAlive — preservar estado</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center">
+      <div class="vue-mm-center">Vue 3<br><span style="font-size:10px;opacity:.7">Composition API</span></div>
+    </div>
+    <div class="vue-mm-col">
+      <div>
+        <div class="vue-mm-label">Compartilhar estado</div>
+        <div class="vue-mm-node">Pinia — estado global (Vuex moderno)</div>
+        <div class="vue-mm-node">provide / inject — sem prop drilling</div>
+        <div class="vue-mm-node">Composables — lógica reutilizável</div>
+      </div>
+      <div>
+        <div class="vue-mm-label">Lifecycle (Composition API)</div>
+        <div class="vue-mm-node">onMounted — DOM disponível</div>
+        <div class="vue-mm-node">onUpdated — após re-render</div>
+        <div class="vue-mm-node">onUnmounted — cleanup</div>
+        <div class="vue-mm-node">onServerPrefetch — SSR (Nuxt)</div>
+      </div>
+      <div>
+        <div class="vue-mm-label">Ecossistema</div>
+        <div class="vue-mm-node">Vue Router — roteamento SPA</div>
+        <div class="vue-mm-node">Nuxt 3 — meta-framework SSR</div>
+        <div class="vue-mm-node">Vite — build tool padrão</div>
+        <div class="vue-mm-node">Vitest — testes unitários</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Visão geral do Vue 3 — da reatividade (ref/reactive/computed) ao ecossistema (Pinia, Vue Router, Nuxt).",
+    },
+    exercises: [
+      {
+        level: "iniciante",
+        title: "Todo list com Composition API",
+        description: "Crie um componente de lista de tarefas com Vue 3 script setup. Use ref() para o array de tarefas e o input de texto. Implemente adicionar tarefa (Enter ou botão), marcar como concluída (toggle), e remover. Use v-for com :key estável (ID), v-model no input, e computed para contar tarefas pendentes.",
+        concepts: ["ref", "computed", "v-for", "v-model", "script setup", "defineProps"],
+        hint: "Use um contador incremental para gerar IDs estáveis. computed(() => tasks.value.filter(t => !t.done).length) conta as pendentes.",
+      },
+      {
+        level: "intermediario",
+        title: "Composable useLocalStorage reativo",
+        description: "Crie um composable useLocalStorage<T>(key, defaultValue) que sincroniza um ref com o localStorage automaticamente. O valor deve ser reativo — qualquer mudança no ref deve salvar no storage, e ao inicializar deve ler o valor salvo. Teste com um componente de preferências do usuário (tema, idioma).",
+        concepts: ["composables", "ref", "watch", "localStorage", "TypeScript generics"],
+        hint: "Use watch(valor, novoValor => localStorage.setItem(key, JSON.stringify(novoValor)), { deep: true }) para persistir. Inicialize com JSON.parse(localStorage.getItem(key)) ?? defaultValue.",
+      },
+      {
+        level: "senior",
+        title: "Store Pinia com otimistic updates e rollback",
+        description: "Implemente uma store Pinia para gerenciar posts com: state reativo, action para criar post com optimistic update (adiciona ao array antes da resposta do servidor), rollback automático em caso de erro da API, e loading/error state granular por operação. Crie um componente que usa a store e exibe estado de cada post individualmente.",
+        concepts: ["Pinia", "optimistic updates", "error handling", "computed", "async actions"],
+        hint: "Adicione o post com id temporário (UUID no cliente) e uma flag 'pending: true'. Em caso de erro, use store.$patch para remover o post adicionado. onError no catch do try/catch.",
+      },
+    ],
+    videos: [
+      { title: "Vue 3 Crash Course", channel: "Traversy Media", url: "https://www.youtube.com/watch?v=VeNfHj6MhgA", topic: "Vue 3 com Composition API do zero" },
+      { title: "Vue 3 Tutorial for Beginners", channel: "The Net Ninja", url: "https://www.youtube.com/playlist?list=PL4cUxeGkcC9hYYGbV60Vq3IXYNfDk8At1", topic: "Série completa Vue 3 passo a passo" },
+      { title: "Pinia Crash Course", channel: "Vue Mastery", url: "https://www.youtube.com/watch?v=JGC7aAC-3y8", topic: "Estado global com Pinia em Vue 3" },
+      { title: "Vue 3 Composition API — Advanced Patterns", channel: "VueConf", url: "", topic: "Composables avançados, provide/inject, renderless components" },
+      { title: "Nuxt 3 Crash Course", channel: "Traversy Media", url: "", topic: "Nuxt 3 com App Router e SSR" },
+    ],
+    codeExamples: [
+      {
+        title: "Composable useFetch — data fetching reativo",
+        description: "Padrão de composable para data fetching com loading, error e dados — equivalente ao useSWR/useQuery do React.",
+        code: `// composables/useFetch.ts
+import { ref, watchEffect, toValue, type MaybeRefOrGetter } from 'vue'
+
+export function useFetch<T>(url: MaybeRefOrGetter<string>) {
+  const data = ref<T | null>(null)
+  const error = ref<string | null>(null)
+  const loading = ref(false)
+
+  watchEffect(async () => {
+    // toValue desembrulha ref, getter ou valor diretamente
+    const resolvedUrl = toValue(url)
+    if (!resolvedUrl) return
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const res = await fetch(resolvedUrl)
+      if (!res.ok) throw new Error(\`HTTP \${res.status}\`)
+      data.value = await res.json()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Erro desconhecido'
+    } finally {
+      loading.value = false
+    }
+  })
+
+  return { data, error, loading }
+}
+
+// Uso em componente:
+// const userId = ref('1')
+// const { data: user, loading } = useFetch(() => \`/api/users/\${userId.value}\`)
+// Quando userId muda, o fetch é re-executado automaticamente`,
+        language: "typescript",
+      },
+      {
+        title: "Componente com defineProps e defineEmits tipados",
+        description: "Componente de formulário completo com TypeScript, props validadas e emits tipados.",
+        code: `<!-- SearchInput.vue -->
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+
+// Props com TypeScript — sem import necessário
+const props = withDefaults(
+  defineProps<{
+    modelValue: string
+    placeholder?: string
+    minLength?: number
+    disabled?: boolean
+  }>(),
+  { placeholder: 'Buscar...', minLength: 0, disabled: false }
+)
+
+// Emits tipados
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  search: [query: string]
+  clear: []
+}>()
+
+const inputRef = ref<HTMLInputElement | null>(null)
+
+const isEmpty = computed(() => props.modelValue.trim().length === 0)
+const isValid = computed(() => props.modelValue.trim().length >= props.minLength)
+
+function handleInput(event: Event) {
+  const value = (event.target as HTMLInputElement).value
+  emit('update:modelValue', value)
+}
+
+function handleSearch() {
+  if (isValid.value) {
+    emit('search', props.modelValue.trim())
+  }
+}
+
+function clear() {
+  emit('update:modelValue', '')
+  emit('clear')
+  inputRef.value?.focus()
+}
+
+// Expõe focus() para o componente pai
+defineExpose({ focus: () => inputRef.value?.focus() })
+</script>
+
+<template>
+  <div :class="['search-wrapper', { disabled }]">
+    <input
+      ref="inputRef"
+      :value="modelValue"
+      :placeholder="placeholder"
+      :disabled="disabled"
+      @input="handleInput"
+      @keyup.enter="handleSearch"
+    />
+    <button v-if="!isEmpty" @click="clear" aria-label="Limpar">×</button>
+    <button @click="handleSearch" :disabled="!isValid">Buscar</button>
+  </div>
+</template>`,
+        language: "vue",
+      },
+      {
+        title: "Pinia store com async actions e error handling",
+        description: "Store completa de posts com CRUD, loading granular e optimistic updates.",
+        code: `// stores/posts.ts
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+interface Post {
+  id: string
+  title: string
+  content: string
+  pending?: boolean
+}
+
+export const usePostsStore = defineStore('posts', () => {
+  const posts = ref<Post[]>([])
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  const publishedPosts = computed(() =>
+    posts.value.filter(p => !p.pending)
+  )
+
+  async function fetchPosts() {
+    loading.value = true
+    error.value = null
+    try {
+      const res = await fetch('/api/posts')
+      posts.value = await res.json()
+    } catch (err) {
+      error.value = 'Falha ao carregar posts'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createPost(data: Omit<Post, 'id'>) {
+    // Optimistic update
+    const tempId = crypto.randomUUID()
+    const optimistic: Post = { ...data, id: tempId, pending: true }
+    posts.value.push(optimistic)
+
+    try {
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const created: Post = await res.json()
+      // Substitui o otimista pelo real
+      const idx = posts.value.findIndex(p => p.id === tempId)
+      if (idx !== -1) posts.value[idx] = created
+    } catch {
+      // Rollback
+      posts.value = posts.value.filter(p => p.id !== tempId)
+      error.value = 'Falha ao criar post'
+    }
+  }
+
+  return { posts, publishedPosts, loading, error, fetchPosts, createPost }
+})`,
+        language: "typescript",
+      },
+    ],
     resources: [
-      { title: "Vue 3 docs", url: "https://vuejs.org/guide/introduction.html", kind: "docs" },
-      { title: "Vue School — Vue 3 Fundamentals", url: "https://vueschool.io/courses/vue-js-3-fundamentals", kind: "curso" },
+      { title: "Vue 3 docs — guia oficial", url: "https://vuejs.org/guide/introduction.html", kind: "docs" },
+      { title: "Vue 3 Tutorial interativo", url: "https://vuejs.org/tutorial/", kind: "pratica" },
       { title: "Pinia docs", url: "https://pinia.vuejs.org/", kind: "docs" },
+      { title: "Vue Router docs", url: "https://router.vuejs.org/", kind: "docs" },
+      { title: "Nuxt 3 docs", url: "https://nuxt.com/docs", kind: "docs" },
+      { title: "Vue Use — composables prontos", url: "https://vueuse.org/", kind: "pratica" },
+      { title: "Vue Mastery — cursos oficiais", url: "https://www.vuemastery.com/", kind: "curso" },
     ],
   },
 
   "tailwind-css": {
     tagline: "Framework CSS utility-first que gera apenas as classes usadas — sem CSS morto.",
     why: "Tailwind domina projetos modernos React/Vue. Saber configurar, usar variantes, criar componentes com cva/cn e entender o tradeoff de legibilidade e produtividade é esperado em entrevista sênior.",
-    summary: "Tailwind CSS é um framework utility-first: ao invés de escrever CSS, você aplica classes atômicas diretamente no HTML/JSX (flex, p-4, text-blue-500). O build final inclui apenas as classes usadas (purge/JIT). Ecossistema: shadcn/ui, tailwind-merge, cva pra variantes de componente.",
+    prerequisite: "CSS básico (flexbox, grid, posicionamento, box model). HTML. Ajuda ter visto outros frameworks CSS (Bootstrap, Bulma) para entender o contraste do utility-first.",
+    summary: "Tailwind CSS é um framework utility-first: ao invés de escrever CSS, você aplica classes atômicas diretamente no HTML/JSX (flex, p-4, text-blue-500). O build final inclui apenas as classes usadas (JIT/purge). O sistema de cores, espaçamento e tipografia é baseado em escala consistente — p-4 = 1rem, text-lg = 1.125rem. Variantes (hover:, dark:, md:) geram seletores automaticamente sem media queries manuais. Ecossistema: shadcn/ui (componentes), tailwind-merge, cva para variantes type-safe, Tailwind Plugins para extensões.",
+    howToStudy: "<strong>Modelo mental central:</strong> utility-first = cada classe faz <em>uma coisa</em>. Composição acontece no HTML/JSX, não no CSS. Isso inverte o fluxo: em vez de nomear elementos e estilizá-los no CSS, você compõe diretamente na marcação.<br><br><strong>Sequência recomendada:</strong><ol><li>Aprenda a escala de espaçamento (p-1 = 0.25rem, p-4 = 1rem, p-8 = 2rem) e breakpoints (sm, md, lg, xl, 2xl) de memória.</li><li>Aprenda Flexbox e Grid via classes Tailwind — é a melhor forma de entender ambos.</li><li>Instale a extensão Tailwind CSS IntelliSense no VS Code — autocomplete é essencial.</li><li>Implemente um card e um formulário do zero com Tailwind — sem usar shadcn ainda.</li><li>Depois: dark mode, cva para variantes, tailwind.config para tokens customizados.</li></ol><br><strong>Em 30 minutos:</strong> Tutorial oficial (tailwindcss.com/docs) — instalar e fazer um card responsivo.<br><strong>Em um fim de semana:</strong> Refazer uma página de landing que você já fez em CSS tradicional.<br><strong>Em uma semana:</strong> shadcn/ui, cva, tema customizado com CSS variables, Tailwind v4 (engine Oxide).",
     keypoints: [
-      { title: "JIT (Just-in-Time)", body: "Modo JIT gera estilos sob demanda enquanto você salva. Classes arbitrárias (w-[327px], text-[#1a2b3c]) são geradas em tempo real. Zero CSS não usado no build final." },
-      { title: "Variantes", body: "Prefixos de estado: hover:, focus:, active:, dark:, md:, lg:. Permite estilo responsivo e interativo sem CSS personalizado." },
-      { title: "cn() e tailwind-merge", body: "tailwind-merge resolve conflitos de classes Tailwind (duas classes bg- simultâneas). clsx combina classes condicionalmente. cn() = clsx + twMerge — padrão em projetos profissionais.", code: `import { clsx } from 'clsx'
+      { title: "JIT (Just-in-Time) — zero CSS morto", body: "Modo JIT gera estilos sob demanda a cada save. Classes arbitrárias (w-[327px], text-[#1a2b3c], grid-cols-[1fr_2fr]) são geradas em tempo real. O CSS final contém apenas as classes usadas — independente de quantas existem no framework. Sem lista de safelist manual para o modo de desenvolvimento.", code: `<!-- Classes arbitrárias com [valor]: -->
+<div class="w-[327px] bg-[#06B6D4] text-[clamp(1rem,2vw,2rem)]">
+
+<!-- grid com colunas personalizadas: -->
+<div class="grid grid-cols-[1fr_2fr_1fr] gap-4">
+
+<!-- calc() arbitrário: -->
+<div class="h-[calc(100vh-4rem)]">` },
+      { title: "Sistema de espaçamento e breakpoints", body: "Tailwind usa escala de 4px (0.25rem): p-1=4px, p-2=8px, p-4=16px, p-8=32px. Breakpoints mobile-first: sm=640px, md=768px, lg=1024px, xl=1280px, 2xl=1536px. Prefixos de breakpoint aplicam a partir daquele tamanho.", code: `<!-- Mobile-first: full width, md e acima = 1/2, lg = 1/3: -->
+<div class="w-full md:w-1/2 lg:w-1/3">
+
+<!-- Padding diferente por breakpoint: -->
+<div class="p-4 md:p-6 lg:p-8">
+
+<!-- Ocultar em mobile, mostrar em md: -->
+<nav class="hidden md:flex">` },
+      { title: "Variantes — estados e responsive", body: "Prefixos de estado: hover:, focus:, active:, disabled:, focus-within:, focus-visible:. Prefixos de grupo: group (pai) + group-hover: (filho). Prefixos peer (input irmão) + peer-checked: (label). Dark mode: dark:. Permite interatividade complexa sem JavaScript.", code: `<!-- hover/focus/disabled: -->
+<button class="bg-cyan-600 hover:bg-cyan-700 focus:ring-2 disabled:opacity-50">
+
+<!-- group: filho reage ao hover do pai: -->
+<div class="group">
+  <p class="hidden group-hover:block">aparece no hover</p>
+</div>
+
+<!-- peer: label reage ao estado do input irmão: -->
+<input type="checkbox" class="peer" id="cb" />
+<label for="cb" class="peer-checked:text-cyan-500">Ativo</label>` },
+      { title: "cn() e tailwind-merge — combinar classes sem conflito", body: "tailwind-merge resolve conflitos de classes Tailwind (duas classes que afetam a mesma propriedade CSS). clsx combina classes condicionalmente. cn() = clsx + twMerge — padrão em projetos profissionais. Essencial em componentes que aceitam className como prop.", code: `import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Uso — bg-blue-500 vence bg-red-500 (sem conflito silencioso):
-cn('bg-red-500', condition && 'bg-blue-500')` },
-      { title: "cva (class-variance-authority)", body: "Cria componentes com variantes type-safe: variant, size, state. Gera a string de classes baseado nos props. Padrão em design systems com Tailwind.", code: `const button = cva('rounded font-medium', {
-  variants: {
-    variant: { solid: 'bg-blue-600 text-white', ghost: 'bg-transparent border' },
-    size:    { sm: 'px-3 py-1 text-sm', md: 'px-4 py-2' },
-  },
-  defaultVariants: { variant: 'solid', size: 'md' },
-})` },
-      { title: "Design tokens via tailwind.config", body: "Customize via tailwind.config.ts: cores semânticas, spacing, fonts, breakpoints. Estende ou substitui o tema default. Cores com CSS variables permitem dark mode automático.", code: `// tailwind.config.ts
-theme: {
-  extend: {
-    colors: {
-      primary: 'hsl(var(--color-primary) / <alpha-value>)',
+// bg-blue-500 substitui bg-red-500 (sem ambiguidade):
+cn('bg-red-500 text-white', condition && 'bg-blue-500')
+// → 'text-white bg-blue-500'
+
+// Em componente — className externo sobrescreve interno:
+function Button({ className, ...props }) {
+  return <button className={cn('bg-cyan-600 rounded px-4 py-2', className)} {...props} />
+}` },
+      { title: "cva (class-variance-authority) — variantes type-safe", body: "Cria componentes com variantes tipadas: variant, size, intent. cva retorna uma função que gera a string de classes baseada nos props. Completamente integrado com TypeScript — autocomplete e type safety nas variantes. Padrão em design systems.", code: `import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
+
+const buttonVariants = cva(
+  'inline-flex items-center rounded font-medium transition-colors',
+  {
+    variants: {
+      variant: {
+        default: 'bg-cyan-600 text-white hover:bg-cyan-700',
+        ghost:   'bg-transparent hover:bg-cyan-50 text-cyan-700',
+        danger:  'bg-red-600 text-white hover:bg-red-700',
+      },
+      size: {
+        sm: 'h-8 px-3 text-sm',
+        md: 'h-10 px-4',
+        lg: 'h-12 px-6 text-lg',
+      },
+    },
+    defaultVariants: { variant: 'default', size: 'md' },
+  }
+)
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>
+  & VariantProps<typeof buttonVariants>
+
+function Button({ variant, size, className, ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants({ variant, size }), className)} {...props} />
+}` },
+      { title: "Design tokens via tailwind.config", body: "Customize via tailwind.config.ts: cores semânticas, spacing, fonts, breakpoints. Extend adiciona sem substituir o default. Cores com CSS variables permitem dark mode dinâmico e multi-theme sem rebuild.", code: `// tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+export default {
+  content: ['./src/**/*.{ts,tsx}'],
+  darkMode: 'class',           // toggle via classe .dark no <html>
+  theme: {
+    extend: {
+      colors: {
+        // CSS variable com suporte a opacity automático:
+        primary: 'hsl(var(--color-primary) / <alpha-value>)',
+        surface: 'hsl(var(--color-surface) / <alpha-value>)',
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)', 'sans-serif'],
+        mono: ['var(--font-jetbrains)', 'monospace'],
+      },
+      borderRadius: { xl: '1rem', '2xl': '1.5rem' },
     },
   },
-}` },
-      { title: "@apply e extração de classes", body: "@apply extrai classes repetidas para CSS semântico. Útil para elementos que aparecem em muitos lugares sem componente React/Vue. Evite overuse — perde a vantagem de utility-first.", code: `/* globals.css */
+} satisfies Config` },
+      { title: "@apply — quando e quando não usar", body: "@apply extrai classes para CSS semântico. Útil para HTML gerado por terceiros (markdown, CMS) onde você não controla a marcação. Evite em projetos baseados em componentes — você perde a vantagem de utility-first e cria duplicação desnecessária.", code: `/* globals.css — VÁLIDO: prose do markdown não tem componente React */
+.prose h1 { @apply text-3xl font-bold text-slate-900 dark:text-white mb-4 }
+.prose p  { @apply text-slate-700 dark:text-slate-300 leading-relaxed mb-4 }
+.prose a  { @apply text-cyan-600 hover:text-cyan-700 underline }
+
+/* ✗ RUIM: botão deveria ser componente, não @apply */
 .btn-primary {
-  @apply rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700;
+  @apply rounded bg-cyan-600 px-4 py-2 text-white;  /* evite isso */
+}` },
+      { title: "Tailwind v4 — engine Oxide e CSS-first config", body: "Tailwind v4 reescreve o engine em Rust (Oxide) com até 10x mais velocidade. A configuração migra de tailwind.config.ts para CSS puro com @theme. Zero arquivo de config JS necessário para projetos simples. Import automático de conteúdo — sem array content manual.", code: `/* tailwind v4 — @import e @theme em CSS puro: */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: oklch(0.6 0.15 200);
+  --font-sans: 'Inter', sans-serif;
+  --breakpoint-xs: 480px;
+}
+
+/* Plugins como utilidades CSS: */
+@utility container-query {
+  container-type: inline-size;
 }` },
     ],
     interview: [
       {
         q: "O que é utility-first CSS e qual o tradeoff em relação ao CSS tradicional?",
-        a: "<p><strong>Utility-first</strong>: classes atômicas de propósito único (flex, p-4, text-blue-500) aplicadas diretamente no HTML/JSX. Sem alternar entre arquivo HTML e CSS.</p><p><strong>Vantagens</strong>: sem naming de classes (adeus BEM), sem CSS morto (JIT gera só o que usa), hover/responsive sem media queries separadas, consistência de design tokens automática.</p><p><strong>Tradeoffs</strong>: JSX/HTML fica verboso, legibilidade inicial mais baixa para quem não conhece as classes, difícil de reutilizar sem abstrair em componentes ou cva.</p>",
-        tip: "Citar o JIT como eliminador de CSS morto mostra que você sabe como Tailwind funciona — não só que sabe usar.",
+        a: "<p><strong>Utility-first</strong>: classes atômicas de propósito único (flex, p-4, text-blue-500) aplicadas diretamente no HTML/JSX. Sem alternar entre arquivo HTML e CSS — o estilo vive junto com a marcação.</p><p><strong>Vantagens</strong>: sem naming de classes (adeus BEM e OOCSS), sem CSS morto (JIT gera só o que usa), hover/responsive/dark mode sem media queries manuais, consistência de design tokens automática, escala linear sem especificidade crescente.</p><p><strong>Tradeoffs</strong>: JSX/HTML fica verboso com muitas classes, legibilidade inicial mais baixa para quem não conhece as classes, semântica de 'o que este elemento faz' se perde no CSS. Resolvidos por: cn(), cva, componentes bem nomeados.</p>",
+        tip: "Citar JIT como eliminador de CSS morto e mencionar os tradeoffs honestamente mostra maturidade — entrevistadores valorizam quem não evangeliza frameworks cegamente.",
         level: "pleno",
       },
       {
         q: "Por que usar tailwind-merge em vez de apenas concatenar strings de classes?",
-        a: "<p>Quando duas classes Tailwind afetam a mesma propriedade CSS (ex: bg-red-500 e bg-blue-500), a que vencer no CSS depende da ordem no stylesheet gerado — não da ordem no JSX. Concatenar strings pode produzir comportamento imprevisível.</p><p>tailwind-merge resolve isso: dado bg-red-500 bg-blue-500, ele retorna apenas bg-blue-500 (a última vence intencionalmente). Isso é essencial em componentes que aceitam className como prop.</p>",
-        tip: "Demonstrar que você conhece o problema de especificidade em Tailwind é diferencial real — a maioria só usa cn() sem saber por quê.",
+        a: "<p>Quando duas classes Tailwind afetam a mesma propriedade CSS (ex: bg-red-500 e bg-blue-500), qual delas vence depende da ordem no CSS gerado pelo Tailwind — não da ordem no JSX. Isso é contraintuitivo e pode causar bugs visuais difíceis de depurar.</p><p>tailwind-merge resolve: dado 'bg-red-500 bg-blue-500', ele mantém apenas bg-blue-500 (a mais específica/última). Isso é essencial em componentes que aceitam className como prop e precisam combinar classes internas com externas de forma previsível.</p>",
+        tip: "Demonstrar que você entende o problema de especificidade implícita no CSS gerado — não só a solução cn() — é diferencial real.",
         level: "pleno",
       },
       {
         q: "Como você cria componentes com variantes type-safe usando Tailwind?",
-        a: "<p>Com cva (class-variance-authority): define variants (variant, size, intent) como objeto, e cva retorna uma função que recebe os props e gera a string de classes correta. Totalmente integrado com TypeScript — as variantes têm autocomplete e type safety.</p><p>Padrão em design systems: Button, Badge, Input todos usam cva + cn() para combinar classes externas com as internas sem conflitos.</p>",
-        tip: "Mostrar o padrão cva + cn() é o que diferencia quem usa Tailwind profissionalmente de quem só conhece classes básicas.",
+        a: "<p>Com cva (class-variance-authority): define variants (variant, size, intent) como objeto, e cva retorna uma função que recebe os props e gera a string de classes correta. Completamente integrado com TypeScript — autocomplete e type safety nas variantes.</p><p>Padrão profissional: Button, Badge, Input todos usam cva + cn(). cva gera as classes base+variante, cn() combina com className externo sem conflitos. VariantProps<typeof buttonVariants> extrai automaticamente os tipos das variantes para os props do componente.</p>",
+        tip: "Mostrar o padrão cva + cn() + VariantProps é o que diferencia quem usa Tailwind profissionalmente de quem só conhece classes básicas.",
         level: "pleno",
       },
       {
         q: "Como Tailwind lida com dark mode?",
-        a: "<p>Tailwind suporta dark mode via classe (estratégia padrão recomendada) ou media query. Com classe: adicione dark: prefix em classes e toggle a classe 'dark' no elemento html. Com CSS variables: defina cores como variáveis (--color-primary) e redefina-as no .dark — Tailwind usa <alpha-value> para suporte a opacidade automática.</p><p>shadcn/ui usa essa abordagem: cores em CSS variables redefinidas em .dark, referenciadas com bg-primary, text-foreground etc.</p>",
+        a: "<p>Duas estratégias: <strong>class</strong> (padrão recomendado) e <strong>media</strong>. Com 'class': adicione dark: prefix nas classes e toggle a classe 'dark' no &lt;html&gt; via JavaScript. Com 'media': usa prefers-color-scheme automaticamente — sem controle manual do usuário.</p><p>Abordagem profissional com CSS variables: defina cores como variáveis (:root para light, .dark para dark), referencie com bg-primary, text-foreground. shadcn/ui usa essa abordagem — você troca temas trocando as CSS variables, sem precisar de dark: prefix em cada elemento.</p>",
         level: "pleno",
       },
       {
         q: "Por que classes dinâmicas como `bg-${color}-500` não funcionam com Tailwind?",
-        a: "<p>Tailwind analisa o código em build time via regex/AST para encontrar classes completas. Classes construídas por interpolação ('bg-' + color + '-500') não aparecem como string completa — o scanner não as detecta e elas não são incluídas no CSS gerado.</p><p>Solução: mapa de classes completas: const colorMap = { red: 'bg-red-500', blue: 'bg-blue-500' } e use colorMap[color]. Ou safelist no tailwind.config para classes que devem sempre estar presentes.</p>",
-        tip: "Esse é o gotcha mais comum de Tailwind em produção. Mostrar a solução com mapa de classes é o que o entrevistador quer ouvir.",
+        a: "<p>Tailwind analisa o código em build time via regex para encontrar classes completas como strings. Classes construídas por interpolação ('bg-' + color + '-500') não aparecem como string completa — o scanner não as detecta e elas não são incluídas no CSS gerado.</p><p>Soluções: (1) mapa de classes completas: <code>const colorMap = { red: 'bg-red-500', blue: 'bg-blue-500' }</code> e use colorMap[color]. (2) safelist no tailwind.config para padrões que devem sempre estar presentes: <code>safelist: [{ pattern: /bg-(red|blue|green)-500/ }]</code>. (3) CSS inline como fallback para valores verdadeiramente dinâmicos.</p>",
+        tip: "Esse é o gotcha mais comum de Tailwind em produção. Mostrar a solução com mapa de classes completas e citar safelist como alternativa é o que o entrevistador quer ouvir.",
         level: "pleno",
       },
       {
         q: "Quando usar @apply vs componentes React/Vue para reutilizar estilos Tailwind?",
-        a: "<p><strong>@apply</strong>: elementos HTML simples sem lógica (links no prose, headings em markdown renderizado, reset de estilos globais). Útil quando você não tem controle do HTML gerado.</p><p><strong>Componentes</strong>: qualquer elemento que aparece mais de 2-3 vezes e tem variações de props. É a abordagem preferida em ecossistemas baseados em componentes — mantém o HTML legível e reutilizável.</p><p>Regra prática: se você está copiando classes em múltiplos lugares, crie um componente. Se o HTML vem de markdown ou CMS, use @apply.</p>",
+        a: "<p><strong>@apply</strong>: HTML gerado por terceiros sem controle da marcação — prosa de markdown, conteúdo de CMS, bibliotecas que geram HTML puro. Também para resets globais de elementos (a, h1, h2) no prose plugin.</p><p><strong>Componentes</strong>: qualquer elemento que aparece mais de 2-3 vezes e tem variações de props. É a abordagem preferida — mantém o estilo junto com a lógica, é tree-shakeable, não escapa do JIT.</p><p>Regra prática: se você está copiando classes em múltiplos lugares → componente. Se o HTML vem de CMS ou markdown → @apply. Nunca use @apply para substituir naming de componente por preguiça.</p>",
         level: "senior",
       },
+      {
+        q: "Como você configuraria Tailwind para um design system com múltiplas marcas?",
+        a: "<p>Abordagem com CSS variables em camadas: (1) tokens primitivos — valores brutos que não mudam de marca. (2) tokens semânticos via CSS variables (--color-primary, --color-surface) definidos no :root. (3) por marca: redefina as variáveis em um data-theme='marca-a' ou em um arquivo CSS por marca.</p><p>Tailwind fica genérico: usa apenas os nomes semânticos (bg-primary, text-foreground). Trocar tema = trocar as CSS variables. Zero rebuild necessário para troca de tema em runtime.</p>",
+        tip: "A distinção primitivo vs semântico nos tokens de design é o que diferencia quem já construiu um design system de quem só consumiu.",
+        level: "senior",
+      },
+      {
+        q: "O que são valores arbitrários no Tailwind e quando usá-los?",
+        a: "<p>Valores arbitrários com colchetes permitem usar qualquer valor CSS como classe Tailwind: w-[327px], text-[#1a2b3c], grid-cols-[1fr_2fr], h-[calc(100vh-4rem)]. JIT gera o CSS correspondente em tempo real.</p><p>Quando usar: valores que não estão na escala padrão e que são únicos no projeto (não se repetem). Quando evitar: se o valor se repete em mais de 2-3 lugares, adicione ao theme.extend no tailwind.config — cria um token reutilizável e dá semântica ao valor.</p><p>Sintaxe especial: underscores dentro de [] viram espaços: grid-cols-[1fr_2fr] → grid-template-columns: 1fr 2fr.</p>",
+        level: "pleno",
+      },
+      {
+        q: "Como funciona o content detection do Tailwind e quais arquivos incluir?",
+        a: "<p>O campo content no tailwind.config define quais arquivos o scanner analisa. Deve incluir todos os arquivos que contêm classes Tailwind: .tsx, .jsx, .ts, .js, .vue, .html, .mdx. Também arquivos de libs de componentes que você usa com Tailwind.</p><p>Gotcha: se um arquivo com classes não está no content, as classes nunca são geradas — elas aparecem em dev (porque o JIT varre mais agressivamente) mas somem em produção. Sempre teste npm run build e inspecione o CSS gerado.</p><p>Tailwind v4 elimina esse problema: detecta automaticamente arquivos relevantes via análise do projeto sem config manual.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como Tailwind se integra com shadcn/ui?",
+        a: "<p>shadcn/ui usa Tailwind + Radix UI + cva. Componentes shadcn têm classes Tailwind diretamente no JSX, com cva para variantes. Os tokens são CSS variables no globals.css (--background, --foreground, --primary, --muted etc.) redefinidos em .dark para dark mode.</p><p>Customização: edite as CSS variables no globals.css para mudar as cores do tema inteiro. Edite o componente diretamente (shadcn é 'copy-paste', não dependência de npm) para mudanças estruturais. Use cn() ao chamar componentes shadcn para adicionar classes extras sem conflitos.</p>",
+        level: "pleno",
+      },
+      {
+        q: "Quais são os breakpoints padrão do Tailwind e como funcionam?",
+        a: "<p>Breakpoints mobile-first no Tailwind: <strong>sm</strong>=640px, <strong>md</strong>=768px, <strong>lg</strong>=1024px, <strong>xl</strong>=1280px, <strong>2xl</strong>=1536px. Prefixo sem breakpoint = mobile (todos os tamanhos). Prefixo com breakpoint = aplica a partir daquele tamanho para cima.</p><p>Exemplo: text-sm md:text-base lg:text-lg — pequeno em mobile, base em tablet, grande em desktop. Para desktops primeiro, use max-: max-lg:hidden oculta até lg.</p><p>Adicionar breakpoints customizados: theme.extend.screens no tailwind.config. Usar container-queries com @: @lg:flex para queries no container pai, não na viewport.</p>",
+        level: "pleno",
+      },
+    ],
+    mnemonics: [
+      {
+        trick: "FLIPS",
+        label: "Classes Tailwind mais usadas por categoria",
+        explanation: "F = Flex (flex, flex-col, items-center, justify-between, gap-4). L = Layout (w-full, h-screen, container, grid, grid-cols-N, col-span-N). I = Interactive (hover:, focus:, active:, disabled:, group/group-hover:). P = Padding/Margin (p-4, px-6, py-2, mt-4, mb-8, mx-auto). S = Style (rounded, shadow, border, text-lg, font-bold, text-slate-700). Lembre 'FLIPS' como as 5 categorias que cobrem 90% do uso diário.",
+      },
+      {
+        trick: "SM-MD-LG-XL-2XL",
+        label: "Breakpoints Tailwind em pixels",
+        explanation: "SM=640px (smartphone landscape). MD=768px (tablet). LG=1024px (laptop). XL=1280px (desktop). 2XL=1536px (wide screen). Dica de memorização: SM/MD/LG/XL/2XL = 640/768/1024/1280/1536. Diferença entre SM e MD = 128px. MD e LG = 256px. Sempre mobile-first: sem prefixo = todos os tamanhos, prefixo = a partir de.",
+      },
+      {
+        trick: "PRCAS",
+        label: "Quando NÃO usar Tailwind puro — abstraia quando:",
+        explanation: "P = Padrão que se repete 3+ vezes sem componente. R = Reutilizar em projetos diferentes. C = Conflito de classes ao receber className externo (use cn()). A = Arbitrário repetido ([327px] aparece 5x → vira token no config). S = Semântica perdida (ninguém entende o que o elemento faz só pelo nome). Lembre 'PRCAS' — esses são os sinais de que você precisa criar um componente, token ou usar @apply.",
+      },
+    ],
+    cheatsheet: {
+      title: "Tailwind CSS — Classes por categoria e sistema de design",
+      html: `<style>
+.tw-cs{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.tw-cs-sec{margin-bottom:18px}
+.tw-cs-title{font-size:9px;color:#06B6D4;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #1e293b}
+.tw-cs-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.tw-cs-table th{color:#475569;font-weight:500;text-align:left;padding:4px 8px;border-bottom:1px solid #1e293b}
+.tw-cs-table td{padding:5px 8px;border-bottom:1px solid #0f172a;vertical-align:top}
+.tw-cs-table tr:hover td{background:#1e293b}
+.tw-cs-name{color:#06B6D4}
+.tw-cs-val{color:#94a3b8;font-size:10px}
+.tw-cs-note{color:#475569;font-size:10px}
+</style>
+<div class="tw-cs">
+  <p style="color:#06B6D4;font-size:12px;font-weight:700;margin:0 0 18px">Tailwind CSS — Referência Rápida</p>
+  <div class="tw-cs-sec">
+    <div class="tw-cs-title">Layout e Flexbox</div>
+    <table class="tw-cs-table">
+      <tr><th>Classe</th><th>CSS equivalente</th></tr>
+      <tr><td class="tw-cs-name">flex / flex-col</td><td class="tw-cs-val">display:flex / flex-direction:column</td></tr>
+      <tr><td class="tw-cs-name">items-center / items-start</td><td class="tw-cs-val">align-items: center / flex-start</td></tr>
+      <tr><td class="tw-cs-name">justify-between / justify-center</td><td class="tw-cs-val">justify-content: space-between / center</td></tr>
+      <tr><td class="tw-cs-name">gap-4 / gap-x-4 / gap-y-2</td><td class="tw-cs-val">gap: 1rem / column-gap / row-gap</td></tr>
+      <tr><td class="tw-cs-name">grid grid-cols-3</td><td class="tw-cs-val">display:grid; grid-template-columns: repeat(3, 1fr)</td></tr>
+      <tr><td class="tw-cs-name">col-span-2</td><td class="tw-cs-val">grid-column: span 2</td></tr>
+      <tr><td class="tw-cs-name">w-full / w-1/2 / w-[327px]</td><td class="tw-cs-val">width: 100% / 50% / 327px</td></tr>
+    </table>
+  </div>
+  <div class="tw-cs-sec">
+    <div class="tw-cs-title">Espaçamento (escala × 0.25rem)</div>
+    <table class="tw-cs-table">
+      <tr><th>Número</th><th>Valor</th><th>Classes</th></tr>
+      <tr><td class="tw-cs-name">1</td><td class="tw-cs-val">0.25rem (4px)</td><td class="tw-cs-note">p-1, m-1, gap-1</td></tr>
+      <tr><td class="tw-cs-name">2</td><td class="tw-cs-val">0.5rem (8px)</td><td class="tw-cs-note">p-2, mx-2, mb-2</td></tr>
+      <tr><td class="tw-cs-name">4</td><td class="tw-cs-val">1rem (16px)</td><td class="tw-cs-note">p-4, gap-4, mt-4</td></tr>
+      <tr><td class="tw-cs-name">6</td><td class="tw-cs-val">1.5rem (24px)</td><td class="tw-cs-note">px-6, py-6</td></tr>
+      <tr><td class="tw-cs-name">8</td><td class="tw-cs-val">2rem (32px)</td><td class="tw-cs-note">p-8, mb-8</td></tr>
+      <tr><td class="tw-cs-name">12 / 16</td><td class="tw-cs-val">3rem / 4rem</td><td class="tw-cs-note">mt-12, h-16</td></tr>
+    </table>
+  </div>
+  <div class="tw-cs-sec">
+    <div class="tw-cs-title">Tipografia</div>
+    <table class="tw-cs-table">
+      <tr><th>Classe</th><th>Valor</th></tr>
+      <tr><td class="tw-cs-name">text-xs / sm / base / lg / xl / 2xl</td><td class="tw-cs-val">0.75 / 0.875 / 1 / 1.125 / 1.25 / 1.5rem</td></tr>
+      <tr><td class="tw-cs-name">font-normal / medium / semibold / bold</td><td class="tw-cs-val">400 / 500 / 600 / 700</td></tr>
+      <tr><td class="tw-cs-name">leading-none / tight / normal / relaxed</td><td class="tw-cs-val">1 / 1.25 / 1.5 / 1.625</td></tr>
+      <tr><td class="tw-cs-name">tracking-tight / normal / wide</td><td class="tw-cs-val">letter-spacing negativo / 0 / positivo</td></tr>
+      <tr><td class="tw-cs-name">truncate / line-clamp-2</td><td class="tw-cs-val">overflow ellipsis / WebkitLineClamp</td></tr>
+    </table>
+  </div>
+  <div class="tw-cs-sec">
+    <div class="tw-cs-title">Variantes de estado</div>
+    <table class="tw-cs-table">
+      <tr><th>Prefixo</th><th>Quando aplica</th></tr>
+      <tr><td class="tw-cs-name">hover: / focus: / active:</td><td class="tw-cs-val">Interação do mouse/teclado</td></tr>
+      <tr><td class="tw-cs-name">disabled:</td><td class="tw-cs-val">Elemento com atributo disabled</td></tr>
+      <tr><td class="tw-cs-name">dark:</td><td class="tw-cs-val">Modo escuro (via classe .dark no html)</td></tr>
+      <tr><td class="tw-cs-name">group / group-hover:</td><td class="tw-cs-val">Filho reage ao hover do ancestral .group</td></tr>
+      <tr><td class="tw-cs-name">peer / peer-checked:</td><td class="tw-cs-val">Elemento reage ao estado do irmão .peer</td></tr>
+      <tr><td class="tw-cs-name">sm: / md: / lg: / xl:</td><td class="tw-cs-val">Breakpoints 640/768/1024/1280px+</td></tr>
+    </table>
+  </div>
+</div>`,
+    },
+    mindmap: {
+      title: "Tailwind CSS — Mapa mental utility-first",
+      html: `<style>
+.tw-mm{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:24px;color:#e2e8f0}
+.tw-mm-center{background:#082f49;border:2px solid #06B6D4;border-radius:10px;padding:10px 18px;text-align:center;font-weight:700;font-size:13px;color:#06B6D4;display:inline-block}
+.tw-mm-node{background:#1e293b;border:1.5px solid #334155;border-radius:7px;padding:6px 12px;font-size:11px;color:#94a3b8;cursor:default;margin-bottom:5px}
+.tw-mm-node:hover{border-color:#06B6D4;color:#e2e8f0}
+.tw-mm-label{font-size:9px;color:#06B6D4;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.tw-mm-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start}
+.tw-mm-col{display:flex;flex-direction:column;gap:12px}
+</style>
+<div class="tw-mm">
+  <p style="color:#06B6D4;font-size:12px;font-weight:700;margin:0 0 20px">Tailwind CSS — Mapa de Conceitos</p>
+  <div class="tw-mm-grid">
+    <div class="tw-mm-col">
+      <div>
+        <div class="tw-mm-label">Classes por categoria</div>
+        <div class="tw-mm-node">Layout: flex, grid, container</div>
+        <div class="tw-mm-node">Spacing: p-*, m-*, gap-*</div>
+        <div class="tw-mm-node">Typography: text-*, font-*, leading-*</div>
+        <div class="tw-mm-node">Colors: bg-*, text-*, border-*</div>
+        <div class="tw-mm-node">Effects: shadow-*, rounded-*, opacity-*</div>
+      </div>
+      <div>
+        <div class="tw-mm-label">Variantes</div>
+        <div class="tw-mm-node">hover: / focus: / active:</div>
+        <div class="tw-mm-node">sm: / md: / lg: / xl: — responsive</div>
+        <div class="tw-mm-node">dark: — dark mode</div>
+        <div class="tw-mm-node">group-hover: / peer-checked:</div>
+        <div class="tw-mm-node">disabled: / focus-within:</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center">
+      <div class="tw-mm-center">Tailwind<br><span style="font-size:10px;opacity:.7">utility-first</span></div>
+    </div>
+    <div class="tw-mm-col">
+      <div>
+        <div class="tw-mm-label">Composição e componentes</div>
+        <div class="tw-mm-node">cn() = clsx + tailwind-merge</div>
+        <div class="tw-mm-node">cva — variantes type-safe</div>
+        <div class="tw-mm-node">@apply — HTML sem controle</div>
+        <div class="tw-mm-node">shadcn/ui — componentes prontos</div>
+      </div>
+      <div>
+        <div class="tw-mm-label">Configuração</div>
+        <div class="tw-mm-node">tailwind.config.ts — tokens e temas</div>
+        <div class="tw-mm-node">CSS variables — dark mode dinâmico</div>
+        <div class="tw-mm-node">content[] — quais arquivos escanear</div>
+        <div class="tw-mm-node">safelist — classes dinâmicas garantidas</div>
+      </div>
+      <div>
+        <div class="tw-mm-label">Ecossistema</div>
+        <div class="tw-mm-node">Tailwind v4 — engine Oxide (Rust)</div>
+        <div class="tw-mm-node">Headless UI / Radix — comportamento</div>
+        <div class="tw-mm-node">Prettier plugin — ordena classes</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Visão geral do Tailwind CSS — das classes atômicas ao ecossistema de componentes (shadcn, cva, tailwind-merge).",
+    },
+    exercises: [
+      {
+        level: "iniciante",
+        title: "Card de perfil responsivo",
+        description: "Construa um card de perfil de usuário usando apenas classes Tailwind: avatar circular, nome, cargo, badges de skills, botão de contato. O card deve ser responsivo: empilhado em mobile (flex-col), lado a lado em md (flex-row). Use hover:shadow-lg no card e variantes de cor no botão.",
+        concepts: ["flexbox", "grid", "responsive design", "hover:", "dark mode"],
+        hint: "Use overflow-hidden rounded-full para avatar circular. md:flex-row no container principal para o layout responsivo. aspect-square para manter proporção do avatar.",
+      },
+      {
+        level: "intermediario",
+        title: "Componente Button com cva e variantes",
+        description: "Implemente um componente Button TypeScript usando cva com: 3 variantes (default, ghost, danger), 3 tamanhos (sm, md, lg), estado disabled com opacity-50 e cursor-not-allowed, estado loading com spinner animado. Use cn() para combinar classes internas com className externo. Exporte o tipo ButtonProps usando VariantProps.",
+        concepts: ["cva", "cn()", "VariantProps", "TypeScript", "variantes Tailwind"],
+        hint: "VariantProps<typeof buttonVariants> extrai os tipos das variantes automaticamente. Use pointer-events-none no wrapper quando loading para evitar cliques.",
+      },
+      {
+        level: "senior",
+        title: "Sistema de temas com CSS variables e Tailwind",
+        description: "Implemente suporte a múltiplos temas (light, dark, brand-a, brand-b) em um app Next.js: defina tokens semânticos como CSS variables em globals.css, configure o tailwind.config para usar as variáveis, implemente um ThemeProvider que salva o tema no localStorage e aplica a classe correta no html, e crie um ThemeToggle que alterna entre os temas. Os componentes devem usar apenas classes semânticas (bg-primary, text-foreground).",
+        concepts: ["CSS variables", "dark mode", "tailwind.config", "localStorage", "design tokens"],
+        hint: "Defina os tokens em :root (light), .dark (dark) e [data-theme='brand-a']. No tailwind.config, mapeie bg-primary para var(--color-primary). O ThemeProvider lê o localStorage no mount e aplica o atributo ao documentElement.",
+      },
+    ],
+    videos: [
+      { title: "Tailwind CSS Full Course for Beginners", channel: "Dave Gray", url: "https://www.youtube.com/watch?v=lCxcTsOHrjo", topic: "Tailwind do zero com projetos práticos" },
+      { title: "Tailwind CSS Crash Course", channel: "Traversy Media", url: "https://www.youtube.com/watch?v=UBOj6rqRUME", topic: "Visão geral rápida e prática de Tailwind" },
+      { title: "Tailwind CSS Tips, Tricks & Best Practices", channel: "Fireship", url: "", topic: "Patterns avançados e armadilhas comuns" },
+      { title: "cva + shadcn Design System", channel: "Theo - t3.gg", url: "", topic: "Design system com cva, cn() e shadcn/ui" },
+      { title: "Tailwind v4 — What Changed", channel: "Kevin Powell", url: "", topic: "Engine Oxide e CSS-first config no Tailwind v4" },
+    ],
+    codeExamples: [
+      {
+        title: "cn() + cva — Button component completo",
+        description: "Componente Button production-ready com variantes type-safe, estado loading e integração com shadcn.",
+        code: `import { cva, type VariantProps } from 'class-variance-authority'
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+import { Loader2 } from 'lucide-react'
+
+// Utilitário cn() — combina e resolve conflitos:
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+const buttonVariants = cva(
+  // base — sempre presente:
+  'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  {
+    variants: {
+      variant: {
+        default: 'bg-cyan-600 text-white hover:bg-cyan-700 focus-visible:ring-cyan-600',
+        ghost:   'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300',
+        danger:  'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600',
+        outline: 'border border-slate-300 bg-transparent hover:bg-slate-50 dark:border-slate-600',
+      },
+      size: {
+        sm: 'h-8 px-3 text-xs',
+        md: 'h-10 px-4 py-2 text-sm',
+        lg: 'h-12 px-6 text-base',
+        icon: 'h-10 w-10',
+      },
+    },
+    defaultVariants: { variant: 'default', size: 'md' },
+  }
+)
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>
+  & VariantProps<typeof buttonVariants>
+  & { loading?: boolean; leftIcon?: React.ReactNode }
+
+function Button({ variant, size, loading, leftIcon, className, children, ...props }: ButtonProps) {
+  return (
+    <button
+      className={cn(buttonVariants({ variant, size }), className)}
+      disabled={loading || props.disabled}
+      {...props}
+    >
+      {loading
+        ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        : leftIcon && <span className="mr-2">{leftIcon}</span>
+      }
+      {children}
+    </button>
+  )
+}
+
+// Uso:
+// <Button variant="danger" size="lg">Excluir</Button>
+// <Button loading>Salvando...</Button>
+// <Button variant="ghost" className="w-full">Cancelar</Button>  ← className externo sem conflito`,
+        language: "tsx",
+      },
+      {
+        title: "Dark mode com CSS variables e Tailwind",
+        description: "Sistema de temas com CSS variables — tokens semânticos que funcionam em qualquer componente Tailwind.",
+        code: `/* globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tokens semânticos light: */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --primary: 187 100% 42%;        /* cyan-500 */
+    --primary-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Tokens redefinidos para dark: */
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --primary: 187 100% 42%;
+    --primary-foreground: 222 47% 7%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --border: 217 33% 17%;
+  }
+}
+
+/* tailwind.config.ts — mapeia os tokens: */
+/*
+theme: {
+  extend: {
+    colors: {
+      background:         'hsl(var(--background))',
+      foreground:         'hsl(var(--foreground))',
+      primary:            { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+      muted:              { DEFAULT: 'hsl(var(--muted))',   foreground: 'hsl(var(--muted-foreground))' },
+      border:             'hsl(var(--border))',
+    },
+  },
+}
+
+// Componentes usam só tokens semânticos — funcionam em qualquer tema:
+// <div className="bg-background text-foreground border border-border rounded-[var(--radius)]">
+// <button className="bg-primary text-primary-foreground hover:bg-primary/90">
+*/`,
+        language: "css",
+      },
+      {
+        title: "Layouts responsivos com Tailwind Grid",
+        description: "Padrões de layout responsivo real — sidebar, card grid, hero section.",
+        code: `// Layout com sidebar responsiva:
+function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Sidebar: oculta em mobile, visível em lg */}
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r border-border bg-muted/40">
+        <nav className="flex-1 p-4 space-y-1">
+          {/* nav items */}
+        </nav>
+      </aside>
+
+      {/* Main — margem para a sidebar em lg */}
+      <main className="flex-1 lg:ml-64">
+        <div className="container mx-auto px-4 py-8">
+          {children}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// Card grid responsivo — 1 col mobile, 2 md, 3 lg, 4 xl:
+function CardGrid({ items }: { items: Item[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {items.map(item => (
+        <div
+          key={item.id}
+          className="group rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md"
+        >
+          <img className="aspect-video w-full rounded-lg object-cover" src={item.image} alt={item.title} />
+          <h3 className="mt-3 font-semibold text-foreground line-clamp-2">{item.title}</h3>
+          <p className="mt-1 text-sm text-muted-foreground line-clamp-3">{item.description}</p>
+          {/* Botão aparece no hover via group */}
+          <button className="mt-3 w-full opacity-0 group-hover:opacity-100 transition-opacity
+            rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium">
+            Ver mais
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}`,
+        language: "tsx",
+      },
+    ],
+    gotchas: [
+      "Classes dinâmicas (bg-${color}-500) não funcionam — Tailwind não encontra classes parciais no scanner. Use mapa de classes completas: const colorMap = { red: 'bg-red-500' } ou safelist no config.",
+      "Muitas classes no JSX prejudicam legibilidade. Extraia para cn() com quebras de linha, cva para variantes, ou componente React/Vue.",
+      "Conflitos de classe (duas classes que afetam mesma propriedade CSS): a ordem no JSX não determina quem vence — a ordem no CSS gerado pelo Tailwind determina. Use tailwind-merge para resolver deterministicamente.",
+      "Arquivo não listado em content[] = classes não geradas em produção. Classes aparecem em dev (JIT mais permissivo) e somem no build. Sempre teste npm run build.",
+      "@apply em classe que não existe ainda gera erro silencioso em alguns setups. Certifique-se de que as classes @apply estão no CSS gerado antes de usá-las.",
+      "dark: prefix não funciona sem configurar darkMode no tailwind.config. Padrão é 'media' (prefers-color-scheme) — para controle manual, configure como 'class'.",
+      "cn() sem tailwind-merge: clsx puro não resolve conflitos de especificidade. Sempre combine clsx + twMerge na função cn().",
+      "Pseudo-elementos (before:, after:) requerem content-[''] explícito para aparecer — Tailwind não adiciona content automaticamente.",
+    ],
+    resources: [
+      { title: "Tailwind CSS docs", url: "https://tailwindcss.com/docs", kind: "docs" },
+      { title: "Tailwind CSS — Utility Classes Reference", url: "https://tailwindcss.com/docs/utility-first", kind: "docs" },
+      { title: "shadcn/ui", url: "https://ui.shadcn.com/", kind: "docs" },
+      { title: "cva docs", url: "https://cva.style/docs", kind: "docs" },
+      { title: "Tailwind CSS Cheat Sheet", url: "https://nerdcave.com/tailwind-cheat-sheet", kind: "pratica" },
+      { title: "Tailwind v4 blog post", url: "https://tailwindcss.com/blog/tailwindcss-v4", kind: "artigo" },
+      { title: "Heroicons — ícones gratuitos para Tailwind", url: "https://heroicons.com/", kind: "pratica" },
     ],
     diagrams: [
       {
@@ -2225,24 +3728,24 @@ theme: {
         html: `<style>
 .tw-diag{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
 .tw-box{background:#1e293b;border:1.5px solid #334155;border-radius:8px;padding:12px 16px;font-size:11px}
-.tw-arr{color:#38bdf8;font-size:18px;text-align:center;line-height:1}
-.tw-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(56,189,248,.4);display:inline}
-.tw-tip:hover .tw-tb{display:block}
-.tw-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:210px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.7)}
-.tw-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
+.tw-arr{color:#06B6D4;font-size:18px;text-align:center;line-height:1}
+.tw1-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(6,182,212,.4);display:inline}
+.tw1-tip:hover .tw1-tb{display:block}
+.tw1-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:210px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.7)}
+.tw1-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
 </style>
 <div class="tw-diag">
-  <p style="color:#e2e8f0;font-size:12px;font-weight:700;margin:0 0 16px">Tailwind JIT — só o que você usa vai pro CSS final</p>
+  <p style="color:#06B6D4;font-size:12px;font-weight:700;margin:0 0 16px">Tailwind JIT — só o que você usa vai pro CSS final</p>
   <div style="display:flex;gap:8px;align-items:center">
     <div class="tw-box" style="flex:1">
-      <div style="font-size:9px;color:#38bdf8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seu JSX / HTML</div>
+      <div style="font-size:9px;color:#06B6D4;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seu JSX / HTML</div>
       <div style="color:#94a3b8;line-height:2.1">
-        &lt;div class="<span class="tw-tip">flex<span class="tw-tb">display: flex — utilitário atômico. JIT só gera o CSS desta classe se ela aparecer em algum arquivo do seu projeto.</span></span> <span class="tw-tip">p-4<span class="tw-tb">padding: 1rem (4 × 0.25rem). O número segue a escala de spacing do tema.</span></span> <span class="tw-tip">bg-blue-600<span class="tw-tb">background-color: #2563eb. Classes com cor+número — JIT gera só as que você usa.</span></span> <span class="tw-tip">hover:bg-blue-700<span class="tw-tb">Aplica bg-blue-700 no :hover. Variantes como hover:, dark:, md: geram seletores CSS completos automaticamente.</span></span>"&gt;
+        &lt;div class="<span class="tw1-tip">flex<span class="tw1-tb">display: flex — utilitário atômico. JIT só gera o CSS desta classe se ela aparecer em algum arquivo do seu projeto.</span></span> <span class="tw1-tip">p-4<span class="tw1-tb">padding: 1rem (4 × 0.25rem). O número segue a escala de spacing do tema.</span></span> <span class="tw1-tip">bg-cyan-600<span class="tw1-tb">background-color: #0891b2. Classes com cor+número — JIT gera só as que você usa.</span></span> <span class="tw1-tip">hover:bg-cyan-700<span class="tw1-tb">Aplica bg-cyan-700 no :hover. Variantes como hover:, dark:, md: geram seletores CSS completos automaticamente.</span></span>"&gt;
       </div>
     </div>
     <div class="tw-arr">→</div>
     <div style="display:flex;flex-direction:column;gap:6px;flex:0.6;text-align:center">
-      <div style="font-size:10px;color:#475569">Scanner varre todos os arquivos</div>
+      <div style="font-size:10px;color:#475569">Scanner varre content[]</div>
       <div style="font-size:10px;color:#475569">Encontra classes completas</div>
       <div style="font-size:10px;color:#475569">Gera apenas o CSS delas</div>
     </div>
@@ -2252,27 +3755,64 @@ theme: {
       <div style="color:#94a3b8;line-height:2.1">
         .flex { display: flex }<br>
         .p-4 { padding: 1rem }<br>
-        .bg-blue-600 { background-color: #2563eb }<br>
-        .hover\\:bg-blue-700:hover { background-color: #1d4ed8 }
+        .bg-cyan-600 { background-color: #0891b2 }<br>
+        .hover\\:bg-cyan-700:hover { background-color: #0e7490 }
       </div>
     </div>
   </div>
-  <div style="background:#1e293b;border:1px solid #0c2a3a;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:11px;color:#475569">
+  <div style="background:#1e293b;border:1px solid #082f49;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:11px;color:#475569">
     <strong style="color:#94a3b8">Sem purge manual:</strong> JIT analisa em tempo real. CSS final tem apenas as classes que existem no código — zero CSS morto independente do número de utilitários Tailwind disponíveis.
   </div>
 </div>`,
-        caption: "JIT = zero CSS morto. O scanner lê seus arquivos, encontra classes completas e gera exatamente o CSS necessário.",
+        caption: "JIT = zero CSS morto. O scanner lê os arquivos em content[], encontra classes completas e gera exatamente o CSS necessário.",
       },
-    ],
-    gotchas: [
-      "Classes dinâmicas (bg-${color}-500) não funcionam — Tailwind não encontra classes parciais em purge. Use mapa de classes completas.",
-      "Muitas classes no JSX prejudicam legibilidade. Use cn(), cva ou @apply para componentes reutilizáveis.",
-      "Conflitos de classe (duas classes que afetam mesma propriedade): última vence no CSS mas não necessariamente no JSX — use tailwind-merge.",
-    ],
-    resources: [
-      { title: "Tailwind CSS docs", url: "https://tailwindcss.com/docs", kind: "docs" },
-      { title: "shadcn/ui", url: "https://ui.shadcn.com/", kind: "docs" },
-      { title: "cva docs", url: "https://cva.style/docs", kind: "docs" },
+      {
+        title: "Variantes Tailwind — responsive, hover, dark, group e peer",
+        html: `<style>
+.tw2-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.tw2-card{background:#1e293b;border:1.5px solid #334155;border-radius:8px;padding:12px 14px;font-size:11px;margin-bottom:8px}
+.tw2-label{font-size:9px;color:#06B6D4;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px}
+.tw2-code{color:#06B6D4;font-family:'JetBrains Mono',monospace}
+.tw2-note{color:#475569;font-size:10px;margin-top:4px;line-height:1.5}
+.tw2-result{color:#4ade80;font-size:10px;font-family:'JetBrains Mono',monospace}
+</style>
+<div class="tw2-wrap">
+  <p style="color:#06B6D4;font-size:12px;font-weight:700;margin:0 0 14px">Variantes Tailwind — como funcionam</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="tw2-card">
+      <div class="tw2-label">Responsive (mobile-first)</div>
+      <div class="tw2-code">text-sm md:text-base lg:text-xl</div>
+      <div class="tw2-note">Sem prefixo = todos os tamanhos. Prefixo = a partir daquele breakpoint. sm=640, md=768, lg=1024px.</div>
+    </div>
+    <div class="tw2-card">
+      <div class="tw2-label">Estado do elemento</div>
+      <div class="tw2-code">hover:bg-cyan-700 focus:ring-2 active:scale-95</div>
+      <div class="tw2-note">Gera seletor CSS com pseudo-classe. focus-visible: só ativa com teclado (melhor acessibilidade que focus:).</div>
+    </div>
+    <div class="tw2-card">
+      <div class="tw2-label">Dark mode</div>
+      <div class="tw2-code">bg-white dark:bg-slate-900<br>text-slate-900 dark:text-white</div>
+      <div class="tw2-note">Aplica quando .dark está no html. Configure darkMode: 'class' no tailwind.config.</div>
+    </div>
+    <div class="tw2-card">
+      <div class="tw2-label">group / group-hover:</div>
+      <div class="tw2-code">&lt;div class="group"&gt;<br>&nbsp;&lt;p class="opacity-0 group-hover:opacity-100"&gt;</div>
+      <div class="tw2-note">Filho reage ao hover do ancestral marcado com 'group'. Sem JS — puro CSS.</div>
+    </div>
+    <div class="tw2-card">
+      <div class="tw2-label">peer / peer-checked:</div>
+      <div class="tw2-code">&lt;input class="peer" /&gt;<br>&lt;label class="peer-checked:text-cyan-500"&gt;</div>
+      <div class="tw2-note">Label reage ao estado do input irmão. Útil para toggles e checkboxes estilizados.</div>
+    </div>
+    <div class="tw2-card">
+      <div class="tw2-label">Valores arbitrários</div>
+      <div class="tw2-code">w-[327px] text-[#06B6D4]<br>grid-cols-[1fr_2fr]</div>
+      <div class="tw2-note">Underline vira espaço dentro de []. JIT gera o CSS na hora — sem safelist manual.</div>
+    </div>
+  </div>
+</div>`,
+        caption: "Variantes Tailwind geram seletores CSS automaticamente — responsive (min-width), hover (:hover), dark (.dark), group e peer são os mais usados.",
+      },
     ],
   },
 
@@ -3091,73 +4631,587 @@ npx shadcn@latest add button dialog select
 
   "react-query": {
     tagline: "Biblioteca para data fetching, caching e sincronização de estado servidor no React.",
-    why: "React Query (TanStack Query) resolve o problema de gerenciar estado assíncrono de servidor. Elimina boilerplate de loading/error/refetch e é padrão em stacks React modernas.",
-    summary: "TanStack Query (React Query) gerencia o ciclo de vida de dados remotos: fetching, caching, background refetching, pagination, optimistic updates. Distingue estado de servidor (query cache) de estado de cliente (useState/zustand). Elimina a necessidade de Redux para estado assíncrono.",
+    why: "React Query (TanStack Query) resolve o problema de gerenciar estado assíncrono de servidor. Elimina boilerplate de loading/error/refetch e é padrão em stacks React modernas. Qualquer dev que trabalha com API em React precisa saber usar — é a diferença entre useEffect com loading manual e um sistema de cache robusto com background refetch.",
+    prerequisite: "React básico (hooks — useState, useEffect, useContext). Async/await e fetch. Noção de HTTP (GET, POST, PUT, DELETE). Ajuda ter sentido o problema: estado de loading/error gerenciado manualmente com useEffect.",
+    summary: "TanStack Query (React Query) gerencia o ciclo de vida de dados remotos: fetching, caching, background refetching, pagination, optimistic updates. A distinção fundamental: estado de servidor (dados do backend, podem ficar desatualizados, múltiplos usuários) vs estado de cliente (UI local, modal aberto, input). React Query lida com o servidor; useState/Zustand com o cliente. O sistema de cache usa query keys como identificadores hierárquicos — invalidar uma key pai invalida todos os filhos. staleTime e gcTime controlam quando buscar novamente e quando descartar. Elimina a necessidade de Redux para estado assíncrono.",
+    howToStudy: "<strong>Modelo mental central:</strong> servidor = fonte da verdade; cache local é um snapshot com TTL. <code>staleTime</code> controla quando o snapshot expira (e React Query busca novamente em background). <code>gcTime</code> controla quando o snapshot é descartado da memória.<br><br><strong>Sequência recomendada:</strong><ol><li>Instale e configure o QueryClientProvider. Faça um useQuery simples — veja o estado loading/error/data funcionando.</li><li>Entenda query keys: por que são arrays, como a hierarquia funciona na invalidação.</li><li>Pratique useMutation com invalidação após sucesso — o padrão mais comum.</li><li>Estude staleTime e gcTime com exemplos reais — mude os valores e observe o comportamento.</li><li>Depois: optimistic updates, useInfiniteQuery, SSR com Next.js (dehydrate/hydrate).</li></ol><br><strong>Em 30 minutos:</strong> Tutorial quickstart da documentação — montar um useQuery que busca posts.<br><strong>Em um fim de semana:</strong> CRUD completo com useMutation, invalidação e optimistic update.<br><strong>Em uma semana:</strong> Infinite scroll, SSR com Next.js App Router, query factories pattern.",
     keypoints: [
-      { title: "Query keys", body: "Todo dado é identificado por uma query key (array). Mesma key = mesmo cache. ['todos', userId] faz cache separado por usuário. Estruture como fatos sobre o dado — não como URLs.", code: `// Bom: hierárquico e específico
-useQuery({ queryKey: ['posts', { userId, status: 'published' }], ... })
-// Invalida tudo de posts de um usuário:
-queryClient.invalidateQueries({ queryKey: ['posts', { userId }] })` },
-      { title: "staleTime vs gcTime", body: "staleTime: tempo que o dado é considerado fresco (sem refetch em background). gcTime (antigo cacheTime): tempo que dado inativo fica no cache antes de ser removido. Padrão: staleTime=0 (sempre stale), gcTime=5min.", code: `useQuery({
+      { title: "useQuery — o hook fundamental", body: "useQuery busca, cacheia e gerencia o estado de um dado remoto. Retorna { data, isLoading, isError, error, isFetching, refetch }. A diferença entre isLoading (nunca teve dado) e isFetching (está buscando, pode ter dado antigo) é sutil mas importante para UX.", code: `import { useQuery } from '@tanstack/react-query'
+
+function Posts() {
+  const {
+    data: posts,
+    isLoading,    // true apenas na primeira busca (sem dado no cache)
+    isFetching,   // true sempre que está buscando (inclusive background refetch)
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['posts'],
+    queryFn: () => fetch('/api/posts').then(r => r.json()),
+    staleTime: 5 * 60 * 1000,  // fresco por 5 minutos
+  })
+
+  if (isLoading) return <Skeleton />
+  if (isError) return <Error message={error.message} />
+  return <PostList posts={posts} />
+}` },
+      { title: "Query keys — identidade hierárquica do cache", body: "Query keys são a identidade de um dado no cache. Mesmo key = mesma entrada. Array hierárquico permite invalidação granular: invalidar ['posts'] invalida ['posts', userId] e ['posts', id, 'comments']. Use query factories para consistência — centraliza todas as keys do domínio em um objeto.", code: `// Query factory — evita keys duplicadas/inconsistentes:
+const postQueries = {
+  all:     () => ['posts'] as const,
+  lists:   () => [...postQueries.all(), 'list'] as const,
+  list:    (filters: PostFilters) => [...postQueries.lists(), filters] as const,
+  details: () => [...postQueries.all(), 'detail'] as const,
+  detail:  (id: string) => [...postQueries.details(), id] as const,
+  comments:(id: string) => [...postQueries.detail(id), 'comments'] as const,
+}
+
+// Uso:
+useQuery({ queryKey: postQueries.list({ status: 'published' }), queryFn: ... })
+
+// Invalida tudo relacionado a posts:
+queryClient.invalidateQueries({ queryKey: postQueries.all() })` },
+      { title: "staleTime vs gcTime — duas dimensões do cache", body: "staleTime: por quanto tempo o dado é 'fresco' (sem background refetch). gcTime: por quanto tempo dado inativo (sem observers) fica na memória antes de ser descartado. Padrão: staleTime=0 (sempre stale), gcTime=5min. Dado stale ainda é exibido enquanto refetch acontece (stale-while-revalidate).", code: `// Config global (QueryClientProvider):
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,  // 1min — dado fresco por padrão
+      gcTime:    5 * 60 * 1000,  // 5min — mantém em memória
+      retry: 2,              // tenta 2x antes de marcar como erro
+      refetchOnWindowFocus: false,  // desativa refetch ao voltar para a aba
+    },
+  },
+})
+
+// Por query — sobrescreve o padrão:
+useQuery({
   queryKey: ['config'],
   queryFn: fetchConfig,
-  staleTime: 10 * 60 * 1000, // 10min — não refetch em background
-  gcTime:    30 * 60 * 1000, // 30min — mantém no cache mesmo inativo
+  staleTime: Infinity,  // nunca refetch automático (dado estático)
+  gcTime: Infinity,     // nunca descarta da memória
 })` },
-      { title: "Mutations e invalidação", body: "useMutation para operações que alteram dados. onSuccess invalida queries relacionadas para forçar refetch com dados atualizados. Callbacks: onMutate (antes), onSuccess, onError, onSettled.", code: `const mutation = useMutation({
-  mutationFn: (data) => api.createPost(data),
-  onSuccess: () => {
+      { title: "useMutation e invalidação", body: "useMutation para operações que alteram dados (POST, PUT, PATCH, DELETE). Callbacks: onMutate (antes, para optimistic updates), onSuccess (após sucesso — invalide queries), onError, onSettled (sempre, para refetch final). Invalide queries relacionadas em onSuccess para sincronizar o cache.", code: `const createPost = useMutation({
+  mutationFn: (data: CreatePostInput) =>
+    fetch('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    }).then(r => r.json()),
+
+  onSuccess: (newPost) => {
+    // Invalida a lista — forçará refetch:
+    queryClient.invalidateQueries({ queryKey: ['posts', 'list'] })
+    // Ou adiciona diretamente ao cache sem refetch:
+    queryClient.setQueryData(['posts', 'detail', newPost.id], newPost)
+  },
+  onError: (error) => {
+    toast.error('Erro ao criar post: ' + error.message)
+  },
+})
+
+// Uso:
+createPost.mutate({ title: 'Novo post', content: '...' })
+// Ou com callback específico:
+createPost.mutateAsync(data).then(() => router.push('/posts'))` },
+      { title: "Optimistic updates — UX instantânea com rollback", body: "Atualiza o cache antes da resposta do servidor — o usuário vê o resultado imediatamente. Em onMutate: cancel queries em flight + salva estado anterior + aplica atualização otimista. Em onError: rollback. Em onSettled: refetch para garantir consistência.", code: `const toggleLike = useMutation({
+  mutationFn: (postId: string) => api.toggleLike(postId),
+
+  onMutate: async (postId) => {
+    // Cancela queries em flight para não sobrescrever o otimismo:
+    await queryClient.cancelQueries({ queryKey: ['posts'] })
+    // Salva estado anterior para rollback:
+    const prev = queryClient.getQueryData<Post[]>(['posts'])
+    // Aplica update otimista:
+    queryClient.setQueryData<Post[]>(['posts'], old =>
+      old?.map(p => p.id === postId ? { ...p, liked: !p.liked } : p) ?? []
+    )
+    return { prev }  // retornado como ctx nos outros callbacks
+  },
+
+  onError: (_err, _vars, ctx) => {
+    // Rollback:
+    if (ctx?.prev) queryClient.setQueryData(['posts'], ctx.prev)
+  },
+
+  onSettled: () => {
+    // Refetch para garantir consistência com o servidor:
     queryClient.invalidateQueries({ queryKey: ['posts'] })
   },
 })` },
-      { title: "Optimistic updates", body: "Atualiza o cache antes da resposta do servidor para UX instantânea. Em onMutate: salva o estado anterior e atualiza o cache. Em onError: rollback para o estado salvo. Em onSettled: refetch para garantir consistência.", code: `onMutate: async (newPost) => {
-  await queryClient.cancelQueries({ queryKey: ['posts'] })
-  const previous = queryClient.getQueryData(['posts'])
-  queryClient.setQueryData(['posts'], old => [...old, newPost])
-  return { previous }
-},
-onError: (err, vars, ctx) => {
-  queryClient.setQueryData(['posts'], ctx.previous)
-},` },
-      { title: "Infinite queries e prefetch", body: "useInfiniteQuery para listas com carregamento progressivo (infinite scroll). prefetchQuery antecipa dados antes da navegação — útil em hover de link. dehydrate/hydrate para SSR com Next.js.", code: `// Prefetch em hover:
-queryClient.prefetchQuery({
-  queryKey: ['post', id],
-  queryFn: () => fetchPost(id),
+      { title: "Queries dependentes e enabled", body: "Queries que dependem de outras: use enabled para controlar quando a query roda. enabled={!!userId} só executa quando userId existe. Útil para: queries que precisam de auth, queries que dependem de resultado de outra query, queries condicionais.", code: `// Busca o usuário primeiro:
+const { data: user } = useQuery({
+  queryKey: ['user'],
+  queryFn: fetchCurrentUser,
+})
+
+// Só busca posts quando o usuário está disponível:
+const { data: posts } = useQuery({
+  queryKey: ['posts', { userId: user?.id }],
+  queryFn: () => fetchUserPosts(user!.id),
+  enabled: !!user?.id,  // false = query pausada, não executa nem aparece em loading
+})
+
+// select — transforma o dado sem novo fetch:
+const { data: postTitles } = useQuery({
+  queryKey: ['posts'],
+  queryFn: fetchPosts,
+  select: (posts) => posts.map(p => p.title),  // só re-renderiza se os títulos mudarem
 })` },
+      { title: "useInfiniteQuery — scroll infinito", body: "useInfiniteQuery para listas paginadas com carregamento progressivo. Retorna pages (array de páginas) e fetchNextPage(). getNextPageParam extrai o cursor/page da última página para buscar a próxima.", code: `const {
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+} = useInfiniteQuery({
+  queryKey: ['posts', 'infinite'],
+  queryFn: ({ pageParam }) =>
+    fetch(\`/api/posts?cursor=\${pageParam}&limit=20\`).then(r => r.json()),
+  initialPageParam: null,
+  getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+})
+
+// data.pages é array de páginas — flatten para renderizar:
+const allPosts = data?.pages.flatMap(page => page.items) ?? []
+
+// Scroll detection (simplificado):
+const ref = useRef<HTMLDivElement>(null)
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    ([entry]) => { if (entry.isIntersecting && hasNextPage) fetchNextPage() }
+  )
+  if (ref.current) observer.observe(ref.current)
+  return () => observer.disconnect()
+}, [hasNextPage, fetchNextPage])` },
+      { title: "SSR com Next.js — dehydrate e HydrationBoundary", body: "Para SSR com Next.js App Router: prefetch no Server Component + hydrate no Client. Usuário recebe HTML já com dados e cache do React Query populado — sem loading state inicial.", code: `// app/posts/page.tsx — Server Component
+import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
+import { PostList } from './_components/PostList'
+
+export default async function PostsPage() {
+  const queryClient = new QueryClient()
+
+  // Prefetch no servidor:
+  await queryClient.prefetchQuery({
+    queryKey: ['posts'],
+    queryFn: () => fetchPostsFromDB(),
+  })
+
+  return (
+    // Serializa o cache e passa para o cliente:
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <PostList />  {/* Client Component — recebe cache já populado */}
+    </HydrationBoundary>
+  )
+}
+
+// app/posts/_components/PostList.tsx — Client Component
+'use client'
+export function PostList() {
+  // Cache já existe — sem loading state inicial:
+  const { data: posts } = useQuery({
+    queryKey: ['posts'],
+    queryFn: fetchPosts,  // só roda se o cache expirar no cliente
+  })
+  return <ul>{posts?.map(p => <li key={p.id}>{p.title}</li>)}</ul>
+}` },
     ],
     interview: [
       {
         q: "O que é o conceito de 'estado de servidor' e por que React Query existe?",
-        a: "<p>Estado de servidor são dados que vivem no backend e precisam ser sincronizados com o cliente. Têm características únicas: podem ficar desatualizados, podem ser modificados por outros usuários, precisam de loading/error states, podem ser cacheados.</p><p>useState + useEffect para gerenciar isso vira boilerplate: loading flag, error state, refetch manual, cache manual. React Query abstrai tudo isso — você declara o que quer buscar e como cachear, ele cuida do resto.</p><p>Distinção importante: estado de servidor (React Query) ≠ estado de UI (useState/Zustand).</p>",
-        tip: "A distinção clara entre estado de servidor e estado de cliente é o que o entrevistador quer ouvir primeiro. Isso mostra que você entende o problema que a lib resolve.",
+        a: "<p>Estado de servidor são dados que vivem no backend e precisam ser sincronizados com o cliente. Têm características únicas: podem ficar desatualizados (outro usuário criou um post), são assíncronos por natureza, precisam de loading/error states, podem ser cacheados.</p><p>useState + useEffect para gerenciar isso vira boilerplate: loading flag, error state, refetch manual ao mudar filtros, invalidação após mutation, deduplicação de requests. React Query abstrai tudo isso — você declara o que quer buscar e como cachear, ele cuida do ciclo de vida.</p><p>Distinção fundamental: estado de servidor (React Query) ≠ estado de UI (useState/Zustand). Misturar os dois é o erro que React Query resolve.</p>",
+        tip: "A distinção clara entre estado de servidor e estado de cliente é o que o entrevistador quer ouvir primeiro. Demonstra que você entende o problema, não só a solução.",
         level: "pleno",
       },
       {
         q: "Como funcionam as query keys e por que são importantes?",
-        a: "<p>Query keys são a identidade de um dado no cache. Mesma key = mesma entrada no cache. Array estruturado permite invalidação granular: invalidar ['posts'] invalida também ['posts', { userId }] e ['posts', postId, 'comments'].</p><p>Boas práticas: estruture como fatos sobre o dado (não URLs), use objetos para parâmetros opcionais (mais flexível que posição), seja consistente com a estrutura para que invalidação funcione corretamente.</p>",
-        tip: "Mostrar que você sabe fazer invalidação hierárquica (invalidar pai invalida filhos) é diferencial claro — a maioria só sabe invalidar a key exata.",
+        a: "<p>Query keys são a identidade de um dado no cache — array com hierarquia de especificidade. Mesma key = mesma entrada no cache. Array hierárquico permite invalidação granular: invalidar ['posts'] invalida também ['posts', 'list', { status }] e ['posts', id, 'comments'] — todos os filhos da key.</p><p>Boas práticas: use query factories — objeto que centraliza todas as keys do domínio e evita chaves inconsistentes espalhadas pelo código. Estruture como fatos sobre o dado ('quais posts?', 'de qual usuário?'), não como URLs.</p>",
+        tip: "Mostrar query factories e invalidação hierárquica é diferencial claro — a maioria só sabe passar arrays simples e invalidar keys exatas.",
         level: "pleno",
       },
       {
         q: "Qual a diferença entre staleTime e gcTime (cacheTime)?",
-        a: "<p><strong>staleTime</strong>: por quanto tempo o dado é considerado fresco. Com staleTime=0 (padrão), o dado é imediatamente stale — React Query refetch em background sempre que o componente monta ou a janela recebe foco. Com staleTime=5min, nenhum refetch em background por 5 minutos.</p><p><strong>gcTime</strong>: por quanto tempo um dado inativo (sem observers) permanece no cache antes de ser removido. Dados removidos do cache precisam ser buscados do zero na próxima vez.</p><p>Dado stale ainda é exibido enquanto o refetch acontece em background (stale-while-revalidate).</p>",
+        a: "<p><strong>staleTime</strong>: por quanto tempo o dado é 'fresco'. Com staleTime=0 (padrão), o dado fica stale imediatamente após o fetch — React Query refetch em background no próximo mount ou window focus. Com staleTime=5min, nenhum background refetch por 5 minutos.</p><p><strong>gcTime</strong>: por quanto tempo um dado inativo (sem nenhum componente observando) permanece na memória antes de ser descartado. Após gcTime, o próximo acesso recomeça do zero — sem dado antigo para mostrar enquanto busca.</p><p>Dado stale ainda é exibido enquanto o refetch acontece (stale-while-revalidate) — é isso que torna o React Query tão bom para UX.</p>",
+        tip: "A confusão entre staleTime e gcTime é muito comum. Explicar que dado stale ainda aparece (não desaparece da tela) é o ponto que a maioria não sabe.",
         level: "senior",
       },
       {
         q: "Como implementar optimistic updates com React Query?",
-        a: "<p>Em onMutate: (1) cancele queries em flight para evitar sobreposição; (2) salve o valor anterior do cache; (3) atualize o cache com o valor otimista. Em onError: restaure o valor salvo (rollback). Em onSettled: refetch para garantir que o cache reflete o servidor.</p><p>É mais código que uma mutation simples, mas entrega UX instantânea — o usuário vê o resultado imediatamente, e em caso de erro a UI reverte automaticamente.</p>",
-        tip: "Citar os 3 passos (onMutate: cancel+save+update, onError: rollback, onSettled: refetch) mostra que você fez isso de verdade, não só leu a doc.",
+        a: "<p>Três callbacks do useMutation trabalham juntos: (1) <strong>onMutate</strong>: cancele queries em flight (evitar sobreposição), salve o valor anterior do cache, aplique o update otimista no cache, retorne o contexto com o valor anterior. (2) <strong>onError</strong>: use o contexto retornado pelo onMutate para fazer rollback. (3) <strong>onSettled</strong>: invalide para refetch e garantir consistência com o servidor independente do resultado.</p><p>Resultado: UX instantânea com segurança — o usuário vê o resultado imediatamente e em caso de erro a UI reverte automaticamente.</p>",
+        tip: "Citar os 3 callbacks com o papel de cada um (onMutate=otimismo, onError=rollback, onSettled=consistência) mostra que você implementou de verdade.",
         level: "senior",
       },
       {
         q: "Como usar React Query com Next.js App Router (Server Components)?",
-        a: "<p>Padrão recomendado: prefetch no Server Component + hydrate no cliente. No Server Component: use QueryClient e prefetchQuery para buscar dados. Serialize com dehydrate. No Client Component: use HydrationBoundary para restaurar o cache. O usuário recebe HTML com dados já presentes e o cache do React Query já populado — sem loading state visível.</p><p>Alternativa mais simples: passar dados como props do Server para o Client Component e usar initialData no useQuery.</p>",
+        a: "<p>Padrão recomendado: prefetch no Server Component + HydrationBoundary no cliente. No Server Component: crie um QueryClient, chame prefetchQuery com a queryFn que busca do banco, serialize com dehydrate. Passe o estado serializado para HydrationBoundary. No Client Component: useQuery com a mesma queryKey — o cache já estará populado, sem loading state inicial.</p><p>Alternativa mais simples para casos simples: passe os dados como props do Server Component e use initialData no useQuery. Desvantagem: React Query não trata esse dado como cache — não refetch em background.</p>",
         level: "senior",
       },
       {
-        q: "Quando usar React Query vs SWR vs fetch puro?",
-        a: "<p><strong>React Query</strong>: casos complexos — mutations com invalidação, optimistic updates, infinite scroll, prefetch, devtools, SSR. API mais rica. Bundle ~13KB.</p><p><strong>SWR</strong>: data fetching simples de leitura. API mínima, bundle menor (~4KB). Bom para projetos Vercel/Next.js simples sem mutations complexas.</p><p><strong>fetch puro em Server Component</strong>: dados que só existem no servidor (Next.js App Router). Sem estado de cliente, sem cache de cliente. Mais simples quando o dado não é interativo.</p>",
+        q: "Quando usar React Query vs SWR vs fetch puro em Server Component?",
+        a: "<p><strong>React Query</strong>: mutations com invalidação, optimistic updates, infinite scroll, prefetch com hover, SSR com hidratação, devtools. API mais completa. Bundle ~13KB. Escolha quando a complexidade de dados justifica.</p><p><strong>SWR</strong>: fetching de leitura simples. Bundle menor (~4KB). Menos features que React Query mas suficiente para dashboards sem mutations complexas.</p><p><strong>fetch em Server Component</strong>: dados que só existem no servidor — sem interatividade, sem cache de cliente. É a opção mais simples no App Router quando o dado não precisa ser manipulado no cliente.</p>",
         level: "pleno",
+      },
+      {
+        q: "Como você organizaria queries de múltiplos domínios em um projeto grande?",
+        a: "<p>Query factories: para cada domínio (posts, users, comments), crie um objeto que centraliza todas as query keys e queryFns. Isso garante consistência e permite invalidação granular sem magic strings espalhadas.</p><pre><code>// hooks/queries/postQueries.ts\nexport const postQueries = {\n  all:    () => ['posts'] as const,\n  lists:  () => [...postQueries.all(), 'list'] as const,\n  list:   (f: Filters) => [...postQueries.lists(), f] as const,\n  detail: (id: string) => [...postQueries.all(), 'detail', id] as const,\n}</code></pre><p>Combine com hooks customizados por domínio: usePost(id), usePosts(filters), useCreatePost(). Os componentes nunca veem query keys diretamente — só importam os hooks.</p>",
+        tip: "Query factories é o padrão recomendado pelo próprio Dominik (maintainer) no blog tkdodo.eu. Citar isso mostra que você vai além da documentação oficial.",
+        level: "senior",
+      },
+      {
+        q: "O que é o prop 'enabled' e como usar em queries dependentes?",
+        a: "<p>enabled controla se a query deve executar. enabled={false} pausa a query — não busca, não aparece em loading. Essencial para queries que dependem de outra: buscar posts de um usuário que ainda não foi carregado.</p><p>Padrão: useQuery(..., { enabled: !!userId }) — só executa quando userId existe (não é null/undefined/'').</p><p>Também útil para: queries de busca (enabled={query.length > 2}), queries detrás de feature flags, queries que precisam de autenticação verificada primeiro.</p>",
+        level: "pleno",
+      },
+      {
+        q: "Como funciona o useInfiniteQuery para scroll infinito?",
+        a: "<p>useInfiniteQuery busca dados em páginas. getNextPageParam recebe a última página e retorna o parâmetro para a próxima (cursor, page number). fetchNextPage() busca a próxima página. hasNextPage é true enquanto getNextPageParam retorna algo diferente de undefined.</p><p>data.pages é um array de respostas — faça flatMap para obter todos os itens em um array único. Para detectar o scroll: IntersectionObserver no último elemento da lista, chame fetchNextPage quando entrar no viewport.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como funciona o select nas queries e quando usar?",
+        a: "<p>O prop select transforma o dado retornado pelo queryFn antes de entregá-lo ao componente. React Query memoriza o resultado — o componente só re-renderiza se o dado transformado mudar, mesmo que o dado bruto no cache seja diferente.</p><p>Casos de uso: extrair apenas um campo de um objeto grande (evitar re-renders desnecessários), transformar formato (API retorna snake_case, componente quer camelCase), filtrar uma lista no cliente sem novo fetch.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como configurar React Query globalmente e quais são as opções mais importantes?",
+        a: "<p>QueryClient é configurado com defaultOptions no QueryClientProvider. Opções mais importantes: <strong>staleTime</strong> (padrão: 0 — considere 60s globalmente), <strong>gcTime</strong> (padrão: 5min), <strong>retry</strong> (padrão: 3 — considere 1 ou 2 em produção), <strong>refetchOnWindowFocus</strong> (padrão: true — desative se causar requests desnecessários), <strong>refetchOnReconnect</strong> (padrão: true — mantenha).</p><p>Para erros: use queryCache.subscribe para observar e logar erros globalmente. Para DevTools: instale @tanstack/react-query-devtools e adicione no QueryClientProvider — essencial em desenvolvimento para inspecionar o cache.</p>",
+        level: "pleno",
+      },
+      {
+        q: "Qual a diferença entre invalidateQueries e refetchQueries?",
+        a: "<p><strong>invalidateQueries</strong>: marca as queries como stale. Refetch acontece apenas se houver observers ativos (componentes montados). Se não houver, o refetch ocorre na próxima vez que um componente montar com aquela key.</p><p><strong>refetchQueries</strong>: força refetch imediato independente de observers. Útil quando você quer garantir que o cache está atualizado mesmo sem componente montado.</p><p>Na prática: use invalidateQueries 95% do tempo — é mais eficiente. Use refetchQueries quando precisa de garantia de refetch imediato (ex: após logout para limpar dados sensíveis).</p>",
+        tip: "A distinção entre 'marca como stale' e 'força refetch imediato' é o que separa quem usa bem de quem usa no piloto automático.",
+        level: "senior",
+      },
+    ],
+    mnemonics: [
+      {
+        trick: "SGA",
+        label: "Ciclo de vida de uma query React Query",
+        explanation: "S = Stale (staleTime expirou — dado pode estar desatualizado). G = Garbage collected (gcTime expirou — dado removido da memória quando sem observers). A = Active (algum componente está usando — não será garbage collected). Lembre: um dado vai de Fresh → Stale → Inactive → Garbage. SGA é o caminho de saída de uma query do cache.",
+      },
+      {
+        trick: "CASE",
+        label: "Callbacks do useMutation na ordem correta",
+        explanation: "C = onMutate: Cancel queries + salvar contexto anterior. A = onSuccess: Atualizar cache (invalidate ou setQueryData). S = onSettled: Sincronizar (refetch final independente do resultado). E = onError: Estado de erro + rollback com o contexto salvo. Lembre 'CASE' como 'Cover All Side Effects'. onMutate e onError lidam com o otimismo e o rollback; onSuccess e onSettled com a atualização do cache.",
+      },
+      {
+        trick: "DEIS",
+        label: "Quando usar enabled={false} em queries",
+        explanation: "D = Dependente de outra query (dados do userId ainda não disponíveis). E = Esperar input mínimo (busca só com 3+ caracteres). I = Inativada por feature flag ou permissão. S = Suspensa até autenticação confirmada. Lembre 'DEIS' como 'DEsabilita Intelligently, Sênior'. enabled={!!valor} é o padrão — undefined e null são falsy, string vazia também.",
+      },
+    ],
+    cheatsheet: {
+      title: "React Query (TanStack Query) — Referência Rápida",
+      html: `<style>
+.rqc-wrap{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.rqc-sec{margin-bottom:18px}
+.rqc-title{font-size:9px;color:#FF4154;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #1e293b}
+.rqc-table{width:100%;border-collapse:collapse;font-size:10.5px}
+.rqc-table th{color:#475569;font-weight:500;text-align:left;padding:4px 8px;border-bottom:1px solid #1e293b}
+.rqc-table td{padding:5px 8px;border-bottom:1px solid #0f172a;vertical-align:top}
+.rqc-table tr:hover td{background:#1e293b}
+.rqc-name{color:#FF4154}
+.rqc-code{color:#94a3b8;font-size:10px}
+.rqc-note{color:#475569;font-size:10px}
+</style>
+<div class="rqc-wrap">
+  <p style="color:#FF4154;font-size:12px;font-weight:700;margin:0 0 18px">TanStack Query — Referência Rápida</p>
+  <div class="rqc-sec">
+    <div class="rqc-title">Hooks principais</div>
+    <table class="rqc-table">
+      <tr><th>Hook</th><th>Retorna</th><th>Quando usar</th></tr>
+      <tr><td class="rqc-name">useQuery</td><td class="rqc-code">data, isLoading, isFetching, isError</td><td class="rqc-note">Buscar e cachear dados</td></tr>
+      <tr><td class="rqc-name">useMutation</td><td class="rqc-code">mutate, mutateAsync, isPending</td><td class="rqc-note">Criar, atualizar, deletar</td></tr>
+      <tr><td class="rqc-name">useInfiniteQuery</td><td class="rqc-code">data.pages, fetchNextPage, hasNextPage</td><td class="rqc-note">Scroll infinito / paginação</td></tr>
+      <tr><td class="rqc-name">useQueryClient</td><td class="rqc-code">queryClient instance</td><td class="rqc-note">Invalidar, setar, prefetch</td></tr>
+      <tr><td class="rqc-name">useSuspenseQuery</td><td class="rqc-code">data (sem undefined)</td><td class="rqc-note">Com React Suspense boundary</td></tr>
+    </table>
+  </div>
+  <div class="rqc-sec">
+    <div class="rqc-title">Opções de useQuery essenciais</div>
+    <table class="rqc-table">
+      <tr><th>Opção</th><th>Padrão</th><th>O que faz</th></tr>
+      <tr><td class="rqc-name">staleTime</td><td class="rqc-code">0</td><td class="rqc-note">ms que o dado é fresco (sem background refetch)</td></tr>
+      <tr><td class="rqc-name">gcTime</td><td class="rqc-code">5min</td><td class="rqc-note">ms que dado inativo fica na memória</td></tr>
+      <tr><td class="rqc-name">enabled</td><td class="rqc-code">true</td><td class="rqc-note">false = pausa a query</td></tr>
+      <tr><td class="rqc-name">select</td><td class="rqc-code">—</td><td class="rqc-note">Transforma o dado antes de retornar</td></tr>
+      <tr><td class="rqc-name">placeholderData</td><td class="rqc-code">—</td><td class="rqc-note">Dado temporário enquanto busca (ex: keepPreviousData)</td></tr>
+      <tr><td class="rqc-name">initialData</td><td class="rqc-code">—</td><td class="rqc-note">Dado inicial (SSR props) — conta como cache</td></tr>
+      <tr><td class="rqc-name">retry</td><td class="rqc-code">3</td><td class="rqc-note">Tentativas em caso de erro</td></tr>
+    </table>
+  </div>
+  <div class="rqc-sec">
+    <div class="rqc-title">QueryClient — métodos importantes</div>
+    <table class="rqc-table">
+      <tr><th>Método</th><th>O que faz</th></tr>
+      <tr><td class="rqc-name">invalidateQueries({ queryKey })</td><td class="rqc-code">Marca como stale — refetch se houver observers</td></tr>
+      <tr><td class="rqc-name">refetchQueries({ queryKey })</td><td class="rqc-code">Força refetch imediato</td></tr>
+      <tr><td class="rqc-name">setQueryData(key, updater)</td><td class="rqc-code">Atualiza cache manualmente (sem fetch)</td></tr>
+      <tr><td class="rqc-name">getQueryData(key)</td><td class="rqc-code">Lê dado do cache</td></tr>
+      <tr><td class="rqc-name">prefetchQuery({ queryKey, queryFn })</td><td class="rqc-code">Busca antecipadamente (SSR, hover)</td></tr>
+      <tr><td class="rqc-name">cancelQueries({ queryKey })</td><td class="rqc-code">Cancela requests em andamento</td></tr>
+      <tr><td class="rqc-name">removeQueries({ queryKey })</td><td class="rqc-code">Remove do cache imediatamente</td></tr>
+    </table>
+  </div>
+  <div class="rqc-sec">
+    <div class="rqc-title">Callbacks de useMutation</div>
+    <table class="rqc-table">
+      <tr><th>Callback</th><th>Parâmetros</th><th>Quando usar</th></tr>
+      <tr><td class="rqc-name">onMutate</td><td class="rqc-code">(variables)</td><td class="rqc-note">Optimistic update + salvar contexto</td></tr>
+      <tr><td class="rqc-name">onSuccess</td><td class="rqc-code">(data, variables, context)</td><td class="rqc-note">Invalidar queries, redirecionar, toast</td></tr>
+      <tr><td class="rqc-name">onError</td><td class="rqc-code">(error, variables, context)</td><td class="rqc-note">Rollback optimistic, mostrar erro</td></tr>
+      <tr><td class="rqc-name">onSettled</td><td class="rqc-code">(data, error, variables, ctx)</td><td class="rqc-note">Sempre — refetch final de consistência</td></tr>
+    </table>
+  </div>
+</div>`,
+    },
+    mindmap: {
+      title: "React Query — Mapa mental do ciclo de dados",
+      html: `<style>
+.rqm-wrap{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:24px;color:#e2e8f0}
+.rqm-center{background:#2a0a0f;border:2px solid #FF4154;border-radius:10px;padding:10px 18px;text-align:center;font-weight:700;font-size:13px;color:#FF4154;display:inline-block}
+.rqm-node{background:#1e293b;border:1.5px solid #334155;border-radius:7px;padding:6px 12px;font-size:11px;color:#94a3b8;cursor:default;margin-bottom:5px}
+.rqm-node:hover{border-color:#FF4154;color:#e2e8f0}
+.rqm-label{font-size:9px;color:#FF4154;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.rqm-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start}
+.rqm-col{display:flex;flex-direction:column;gap:12px}
+</style>
+<div class="rqm-wrap">
+  <p style="color:#FF4154;font-size:12px;font-weight:700;margin:0 0 20px">TanStack Query — Mapa de Conceitos</p>
+  <div class="rqm-grid">
+    <div class="rqm-col">
+      <div>
+        <div class="rqm-label">Cache e ciclo de vida</div>
+        <div class="rqm-node">fresh → stale → inactive → gc</div>
+        <div class="rqm-node">staleTime — quando refetch</div>
+        <div class="rqm-node">gcTime — quando descartar</div>
+        <div class="rqm-node">Background refetch automático</div>
+        <div class="rqm-node">Stale-while-revalidate</div>
+      </div>
+      <div>
+        <div class="rqm-label">Query keys</div>
+        <div class="rqm-node">['posts'] — escopo de domínio</div>
+        <div class="rqm-node">['posts', id] — item específico</div>
+        <div class="rqm-node">Hierarquia — invalidar pai invalida filhos</div>
+        <div class="rqm-node">Query factories — centralizar keys</div>
+      </div>
+      <div>
+        <div class="rqm-label">Controle de execução</div>
+        <div class="rqm-node">enabled — pausar query</div>
+        <div class="rqm-node">select — transformar dado</div>
+        <div class="rqm-node">placeholderData — dado temporário</div>
+        <div class="rqm-node">refetch() — disparar manualmente</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center">
+      <div class="rqm-center">React Query<br><span style="font-size:10px;opacity:.7">TanStack Query v5</span></div>
+    </div>
+    <div class="rqm-col">
+      <div>
+        <div class="rqm-label">Mutations</div>
+        <div class="rqm-node">useMutation — criar/editar/deletar</div>
+        <div class="rqm-node">onSuccess → invalidateQueries</div>
+        <div class="rqm-node">onMutate → optimistic update</div>
+        <div class="rqm-node">onError → rollback</div>
+        <div class="rqm-node">onSettled → refetch final</div>
+      </div>
+      <div>
+        <div class="rqm-label">Recursos avançados</div>
+        <div class="rqm-node">useInfiniteQuery — scroll infinito</div>
+        <div class="rqm-node">prefetchQuery — antecipar dados</div>
+        <div class="rqm-node">dehydrate/hydrate — SSR Next.js</div>
+        <div class="rqm-node">useSuspenseQuery — Suspense</div>
+      </div>
+      <div>
+        <div class="rqm-label">Ferramentas</div>
+        <div class="rqm-node">DevTools — inspecionar cache</div>
+        <div class="rqm-node">queryClient.getQueryData</div>
+        <div class="rqm-node">queryClient.setQueryData</div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Visão geral do TanStack Query — do ciclo de vida do cache (fresh→stale→gc) às mutations com optimistic updates e SSR.",
+    },
+    exercises: [
+      {
+        level: "iniciante",
+        title: "Busca de dados com loading e error states",
+        description: "Configure o QueryClientProvider numa aplicação React. Crie um hook usePosts() que usa useQuery para buscar posts de uma API pública (jsonplaceholder.typicode.com/posts). No componente, exiba um skeleton enquanto isLoading, mensagem de erro em isError e a lista de posts em data. Adicione um botão de refetch manual.",
+        concepts: ["useQuery", "QueryClient", "isLoading vs isFetching", "error handling", "refetch"],
+        hint: "isLoading é true apenas na primeira busca. isFetching é true também durante background refetch. Use isFetching para exibir um indicador sutil de atualização sem esconder os dados.",
+      },
+      {
+        level: "intermediario",
+        title: "CRUD com useMutation e invalidação de cache",
+        description: "Implemente um gerenciador de tarefas com React Query: useQuery para listar, useMutation para criar, useMutation para marcar como concluída (toggle), useMutation para deletar. Cada mutation deve invalidar a lista após sucesso. Implemente um sistema de toast de sucesso/erro. Use query keys hierárquicas com query factory.",
+        concepts: ["useMutation", "invalidateQueries", "query keys", "onSuccess", "onError"],
+        hint: "Crie um taskQueries factory com all(), lists(), detail(id). invalidateQueries({ queryKey: taskQueries.all() }) invalida tudo relacionado a tasks.",
+      },
+      {
+        level: "senior",
+        title: "Optimistic update com rollback automático e SSR",
+        description: "Implemente um sistema de 'curtir posts' com optimistic update completo: (1) UI atualiza imediatamente ao clicar, (2) rollback automático se o servidor retornar erro, (3) toast diferenciado para erro de rede vs erro de negócio. Adicione SSR com Next.js App Router: prefetch no Server Component e HydrationBoundary no cliente para que a lista de posts já apareça no HTML sem loading state.",
+        concepts: ["optimistic updates", "onMutate", "onError rollback", "onSettled", "dehydrate", "HydrationBoundary"],
+        hint: "onMutate deve: cancelar queries em flight, salvar estado anterior, aplicar update otimista, retornar { previousPosts }. onError usa context?.previousPosts para rollback. onSettled invalida sempre para consistência.",
+      },
+    ],
+    videos: [
+      { title: "React Query in 100 Seconds", channel: "Fireship", url: "https://www.youtube.com/watch?v=novnyCaa7To", topic: "Visão geral rápida do que React Query resolve" },
+      { title: "React Query Tutorial for Beginners", channel: "Codevolution", url: "https://www.youtube.com/playlist?list=PLC3y8-rFHvwjTELCrPrcZlo6blLBUspd2", topic: "Série completa React Query do zero" },
+      { title: "React Query — Curso Completo", channel: "Rocketseat", url: "", topic: "React Query com TypeScript e boas práticas" },
+      { title: "Dominik Dorfmeister — React Query patterns", channel: "ReactConf", url: "", topic: "Query factories, optimistic updates, SSR avançado" },
+      { title: "React Query v5 — What Changed", channel: "TkDodo", url: "", topic: "Breaking changes e novos recursos do v5" },
+    ],
+    codeExamples: [
+      {
+        title: "Query factory + hooks customizados por domínio",
+        description: "Padrão production-ready: centraliza keys e queryFns em um objeto, expõe hooks semânticos para os componentes.",
+        code: `// lib/queries/posts.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Post, CreatePostInput, PostFilters } from '@/types'
+
+// Query factory — centraliza todas as keys:
+export const postKeys = {
+  all:     ()           => ['posts'] as const,
+  lists:   ()           => [...postKeys.all(), 'list'] as const,
+  list:    (f: PostFilters) => [...postKeys.lists(), f] as const,
+  details: ()           => [...postKeys.all(), 'detail'] as const,
+  detail:  (id: string) => [...postKeys.details(), id] as const,
+}
+
+// Hooks customizados — componentes não veem keys diretamente:
+export function usePosts(filters: PostFilters = {}) {
+  return useQuery({
+    queryKey: postKeys.list(filters),
+    queryFn: () => api.posts.list(filters),
+    staleTime: 60 * 1000,
+    select: (data) => data.items,  // memorizado — re-render só se items mudar
+  })
+}
+
+export function usePost(id: string) {
+  return useQuery({
+    queryKey: postKeys.detail(id),
+    queryFn: () => api.posts.get(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreatePost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreatePostInput) => api.posts.create(data),
+    onSuccess: (newPost) => {
+      // Adiciona ao cache sem refetch:
+      qc.setQueryData(postKeys.detail(newPost.id), newPost)
+      // Invalida listas — serão refetchadas quando acessadas:
+      qc.invalidateQueries({ queryKey: postKeys.lists() })
+    },
+  })
+}`,
+        language: "typescript",
+      },
+      {
+        title: "Optimistic update completo — like com rollback",
+        description: "Implementação production-ready de optimistic update com rollback e consistência final.",
+        code: `// hooks/useToggleLike.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { postKeys } from '@/lib/queries/posts'
+import type { Post } from '@/types'
+
+export function useToggleLike() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ postId, liked }: { postId: string; liked: boolean }) =>
+      api.posts.toggleLike(postId, liked),
+
+    onMutate: async ({ postId, liked }) => {
+      // 1. Cancela requests em andamento para não sobrescrever:
+      await qc.cancelQueries({ queryKey: postKeys.lists() })
+
+      // 2. Salva estado anterior para rollback:
+      const prevLists = qc.getQueryData<Post[]>(postKeys.list({}))
+
+      // 3. Aplica otimismo no cache:
+      qc.setQueryData<Post[]>(postKeys.list({}), (old) =>
+        old?.map((p) =>
+          p.id === postId
+            ? { ...p, liked, likesCount: liked ? p.likesCount + 1 : p.likesCount - 1 }
+            : p
+        ) ?? []
+      )
+
+      return { prevLists }  // retornado como ctx nos callbacks seguintes
+    },
+
+    onError: (_err, _vars, ctx) => {
+      // Rollback — restaura estado anterior:
+      if (ctx?.prevLists) {
+        qc.setQueryData(postKeys.list({}), ctx.prevLists)
+      }
+      toast.error('Não foi possível atualizar. Tente novamente.')
+    },
+
+    onSettled: () => {
+      // Sempre ao final — garante consistência com o servidor:
+      qc.invalidateQueries({ queryKey: postKeys.lists() })
+    },
+  })
+}`,
+        language: "typescript",
+      },
+      {
+        title: "useInfiniteQuery — scroll infinito com cursor",
+        description: "Scroll infinito production-ready com IntersectionObserver e loading states granulares.",
+        code: `// components/InfinitePostList.tsx
+'use client'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { useRef, useEffect } from 'react'
+
+function useInfinitePosts() {
+  return useInfiniteQuery({
+    queryKey: ['posts', 'infinite'],
+    queryFn: ({ pageParam }) =>
+      fetch(\`/api/posts?cursor=\${pageParam ?? ''}&limit=20\`)
+        .then<{ items: Post[]; nextCursor: string | null }>(r => r.json()),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  })
+}
+
+export function InfinitePostList() {
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useInfinitePosts()
+
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // IntersectionObserver — busca mais quando o sentinel entra no viewport:
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage) fetchNextPage() },
+      { threshold: 0.1 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasNextPage, fetchNextPage])
+
+  if (isLoading) return <PostSkeleton count={5} />
+
+  const posts = data?.pages.flatMap((p) => p.items) ?? []
+
+  return (
+    <div>
+      {posts.map((post) => <PostCard key={post.id} post={post} />)}
+      {/* Sentinel — observado pelo IntersectionObserver */}
+      <div ref={sentinelRef} className="h-4" />
+      {isFetchingNextPage && <Spinner />}
+      {!hasNextPage && <p>Todos os posts carregados.</p>}
+    </div>
+  )
+}`,
+        language: "tsx",
       },
     ],
     diagrams: [
@@ -3166,57 +5220,66 @@ queryClient.prefetchQuery({
         html: `<style>
 .rq-diag{font-family:'Space Grotesk',sans-serif;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
 .rq-state{border-radius:8px;padding:8px 12px;font-size:11px;text-align:center;border:1.5px solid;flex:1}
-.rq-arr{color:#ff4154;font-size:16px;text-align:center;flex-shrink:0}
-.rq-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(255,65,84,.4);display:inline}
-.rq-tip:hover .rq-tb{display:block}
-.rq-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:210px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.7)}
-.rq-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
+.rq-arr{color:#FF4154;font-size:16px;text-align:center;flex-shrink:0}
+.rq1-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(255,65,84,.4);display:inline}
+.rq1-tip:hover .rq1-tb{display:block}
+.rq1-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:210px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.7)}
+.rq1-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
 </style>
 <div class="rq-diag">
-  <p style="color:#e2e8f0;font-size:12px;font-weight:700;margin:0 0 16px">React Query — ciclo de vida de uma query</p>
+  <p style="color:#FF4154;font-size:12px;font-weight:700;margin:0 0 16px">React Query — ciclo de vida de uma query</p>
   <div style="display:flex;gap:6px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
     <div class="rq-state" style="background:#1a2a3a;border-color:#38bdf8;color:#38bdf8">
-      <span class="rq-tip">fresh<span class="rq-tb">staleTime ainda não expirou. Nenhum refetch em background. Dado considerado atual.</span></span>
+      <span class="rq1-tip">fresh<span class="rq1-tb">staleTime ainda não expirou. Nenhum refetch em background. Dado considerado atual — React Query não vai buscar novamente.</span></span>
       <div style="font-size:9px;color:#475569;margin-top:4px">staleTime não expirou</div>
     </div>
     <div class="rq-arr">→</div>
     <div class="rq-state" style="background:#2a1a0a;border-color:#fb923c;color:#fb923c">
-      <span class="rq-tip">stale<span class="rq-tb">staleTime expirou (default: imediatamente). React Query vai refetch em background na próxima oportunidade: mount, focus, reconnect.</span></span>
+      <span class="rq1-tip">stale<span class="rq1-tb">staleTime expirou (default: imediatamente). React Query vai refetch em background na próxima oportunidade: mount, focus de janela, reconexão.</span></span>
       <div style="font-size:9px;color:#475569;margin-top:4px">staleTime expirou</div>
     </div>
     <div class="rq-arr">→</div>
     <div class="rq-state" style="background:#2a1a1a;border-color:#ef4444;color:#ef4444">
-      <span class="rq-tip">fetching<span class="rq-tb">Refetch em background. O dado antigo (stale) ainda é exibido — sem loading state. Quando o fetch termina, o cache é atualizado.</span></span>
+      <span class="rq1-tip">fetching<span class="rq1-tb">Refetch em background. O dado antigo (stale) ainda é exibido — sem tela de loading. isFetching=true. Quando termina, cache atualizado.</span></span>
       <div style="font-size:9px;color:#475569;margin-top:4px">refetch em background</div>
     </div>
     <div class="rq-arr">→</div>
     <div class="rq-state" style="background:#1a2a1a;border-color:#4ade80;color:#4ade80">
-      <span class="rq-tip">fresh<span class="rq-tb">Fetch completou. Dado atualizado. staleTime começa a contar novamente.</span></span>
+      <span class="rq1-tip">fresh<span class="rq1-tb">Fetch completou. Dado atualizado no cache. staleTime começa a contar novamente.</span></span>
       <div style="font-size:9px;color:#475569;margin-top:4px">dado atualizado</div>
     </div>
   </div>
   <div style="display:flex;gap:10px">
     <div style="flex:1;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px">
-      <div style="font-size:9px;color:#ff4154;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">staleTime = 0 (padrão)</div>
-      <div style="color:#94a3b8;line-height:1.6">Dado é imediatamente stale após fetch. Refetch em background em qualquer mount ou window focus. Sempre atualizado — mais requests.</div>
+      <div style="font-size:9px;color:#FF4154;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">staleTime = 0 (padrão)</div>
+      <div style="color:#94a3b8;line-height:1.6">Dado é imediatamente stale após fetch. Refetch em background em qualquer mount ou window focus. Sempre atualizado — mais requests de rede.</div>
     </div>
     <div style="flex:1;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px">
       <div style="font-size:9px;color:#4ade80;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">staleTime = 5min</div>
-      <div style="color:#94a3b8;line-height:1.6">Dado é fresco por 5 min após o último fetch. Zero refetch em background nesse período. Menos requests — bom para dados que mudam raramente.</div>
+      <div style="color:#94a3b8;line-height:1.6">Dado é fresco por 5 min após o último fetch. Zero refetch em background nesse período. Menos requests — bom para dados estáveis como configurações.</div>
     </div>
   </div>
 </div>`,
-        caption: "staleTime controla quando o dado vira stale (dispara refetch). gcTime controla quando o dado inativo é removido do cache. Stale ≠ removido — dado stale ainda aparece enquanto refetch acontece.",
+        caption: "staleTime controla quando o dado vira stale (dispara refetch). gcTime controla quando o dado inativo é removido da memória. Stale ≠ removido — dado stale ainda aparece enquanto refetch acontece em background.",
       },
     ],
     gotchas: [
-      "Query key muito genérica (ex: ['users']) cacheia todos os users juntos — use keys específicas com parâmetros para cache granular.",
-      "Refetch automático em window focus pode surpreender. Configure refetchOnWindowFocus: false globalmente ou por query se não for desejado.",
-      "Estado de servidor e estado de cliente são diferentes. Não use React Query para estado de UI local (modal aberto, form input) — use useState ou Zustand.",
+      "Query key muito genérica (ex: ['users']) cacheia todos os usuários juntos — use keys específicas com parâmetros: ['users', { page, filter }]. Invalidar ['users'] invalida todas as variações.",
+      "Refetch automático em window focus pode surpreender — o usuário alterna a aba e a tela 'pisca' com novos dados. Configure refetchOnWindowFocus: false globalmente se não for desejado.",
+      "Estado de servidor e estado de cliente são conceitos distintos. Não use React Query para UI local (modal aberto, input de formulário) — use useState ou Zustand.",
+      "isLoading vs isFetching: isLoading=true apenas na primeira busca (sem dado no cache). isFetching=true em qualquer refetch incluindo background. Misturar os dois esconde dados antigos desnecessariamente.",
+      "Optimistic update sem cancelQueries em onMutate pode sobrescrever o update otimista com uma resposta antiga. Sempre cancele queries em flight antes de aplicar o otimismo.",
+      "QueryClient deve ser criado fora do componente (ou com useMemo/useRef) para não ser recriado em cada render — isso limparia o cache inteiro.",
+      "gcTime menor que staleTime não faz sentido: dados poderiam ser descartados da memória antes de ficarem stale. gcTime deve ser sempre maior ou igual a staleTime.",
+      "select memoiza por igualdade referencial. Se o select retornar um novo objeto/array a cada chamada, o componente vai re-renderizar mesmo sem mudança real — use valores primitivos ou memoize com useMemo.",
     ],
     resources: [
       { title: "TanStack Query docs", url: "https://tanstack.com/query/latest", kind: "docs" },
-      { title: "Dominik Dorfmeister — blog", url: "https://tkdodo.eu/blog/", kind: "artigo" },
+      { title: "Dominik Dorfmeister — blog Practical React Query", url: "https://tkdodo.eu/blog/practical-react-query", kind: "artigo" },
+      { title: "TanStack Query DevTools", url: "https://tanstack.com/query/latest/docs/framework/react/devtools", kind: "pratica" },
+      { title: "Query Key Factory pattern", url: "https://tkdodo.eu/blog/effective-react-query-keys", kind: "artigo" },
+      { title: "TanStack Query GitHub", url: "https://github.com/TanStack/query", kind: "pratica" },
+      { title: "TanStack Query — SSR com Next.js", url: "https://tanstack.com/query/latest/docs/framework/react/guides/ssr", kind: "docs" },
     ],
   },
 
