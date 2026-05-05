@@ -1,5 +1,5 @@
 import type { SkillContentMap } from '@/types'
-import react from './react'
+import react from './react/react'
 import typescript from './typescript'
 import nextJs from './next-js'
 import vue from './vue'

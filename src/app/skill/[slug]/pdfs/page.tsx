@@ -1,9 +1,14 @@
 'use client'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Nav from '@/components/Nav'
 import { SKILL_BY_SLUG } from '@/data/skills'
 import { getTechIdentity } from '@/data/tech-identity'
+
+const PDF_COMPONENTS: Record<string, React.ComponentType> = {
+  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs'), { ssr: false }),
+}
 
 export default function PdfsPage() {
   const params = useParams()
@@ -22,6 +27,8 @@ export default function PdfsPage() {
     )
   }
 
+  const PdfComp = PDF_COMPONENTS[slug] ?? null
+
   return (
     <>
       <Nav />
@@ -35,17 +42,20 @@ export default function PdfsPage() {
           </p>
         </div>
 
-        {/* conteúdo a ser implementado */}
-        <div style={{
-          padding: 40,
-          borderRadius: 12,
-          border: '1px dashed var(--line)',
-          textAlign: 'center',
-          color: 'var(--fg-mute)',
-        }}>
-          <p style={{ fontSize: 18, marginBottom: 8 }}>Em construção</p>
-          <p style={{ fontSize: 14 }}>Os guias de bolso para {skill.name} estarão disponíveis em breve.</p>
-        </div>
+        {PdfComp ? (
+          <PdfComp />
+        ) : (
+          <div style={{
+            padding: 40,
+            borderRadius: 12,
+            border: '1px dashed var(--line)',
+            textAlign: 'center',
+            color: 'var(--fg-mute)',
+          }}>
+            <p style={{ fontSize: 18, marginBottom: 8 }}>Em construção</p>
+            <p style={{ fontSize: 14 }}>Os guias de bolso para {skill.name} estarão disponíveis em breve.</p>
+          </div>
+        )}
       </div>
     </>
   )

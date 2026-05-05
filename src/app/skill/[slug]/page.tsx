@@ -7,7 +7,7 @@ import QuizMode from '@/components/QuizMode'
 import { SKILL_BY_SLUG, DEPENDENCIES, ALL_SKILLS, iconUrl } from '@/data/skills'
 import { useProgress, STATE_COLORS, STATE_FULL, STATE_ORDER } from '@/hooks/useProgress'
 import { getSkillContent } from '@/data/content/index'
-import type { ProgressState, Resource, InterviewQA } from '@/types'
+import type { Resource, InterviewQA } from '@/types'
 
 const KIND_STYLES: Record<Resource['kind'], { bg: string; color: string }> = {
   docs:    { bg: 'rgba(59,130,246,.15)',  color: 'var(--blue)' },
@@ -174,31 +174,42 @@ export default function SkillPage() {
     <aside style={{ position: 'sticky', top: 80, alignSelf: 'start', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18 }}>
         <h4 style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--scarlet)',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#475569',
           letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 12,
         }}>Progresso</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {STATE_ORDER.map(st => {
             const isActive = currentState === st
             const color = STATE_COLORS[st]
+            const [primary, secondary] = STATE_FULL[st].split(' — ')
             return (
               <button
                 key={st}
                 onClick={() => mounted && setState(slug, st)}
                 style={{
-                  padding: '10px 14px', borderRadius: 8,
-                  border: `1px solid ${isActive ? color : 'var(--line)'}`,
-                  background: isActive ? `${color}10` : 'var(--bg-card-2)',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-                  color: isActive ? color : 'inherit',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s',
+                  padding: '9px 12px', borderRadius: 6,
+                  borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                  borderLeft: `2px solid ${isActive ? color : 'transparent'}`,
+                  background: isActive ? `${color}0d` : 'transparent',
+                  fontFamily: "'Space Grotesk', sans-serif", fontSize: 12, fontWeight: 500,
+                  color: isActive ? 'var(--fg)' : 'var(--fg-mute)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                  transition: 'all .15s', textAlign: 'left',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-card-2)'
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
                 }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                {STATE_FULL[st].split(' — ')[0]}
-                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.6 }}>
-                  {STATE_FULL[st].split(' — ')[1] ?? ''}
-                </span>
+                <span style={{ flex: 1 }}>{primary}</span>
+                {secondary && (
+                  <span style={{
+                    fontSize: 10, color: '#475569',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>{secondary}</span>
+                )}
               </button>
             )
           })}
@@ -207,7 +218,7 @@ export default function SkillPage() {
 
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18 }}>
         <h4 style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--scarlet)',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#475569',
           letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 12,
         }}>Notas pessoais</h4>
         <textarea
@@ -228,29 +239,41 @@ export default function SkillPage() {
       {deps.length > 0 && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18 }}>
           <h4 style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--scarlet)',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#475569',
             letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 12,
           }}>Pré-requisitos</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {deps.map(d => {
               const depSkill = SKILL_BY_SLUG[d]
               const depState = mounted ? getState(d) : 'pendente'
+              const mastered = depState === 'domino'
               return (
                 <Link key={d} href={`/skill/${d}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 10px', borderRadius: 6,
-                  background: 'var(--bg-card-2)', border: '1px solid var(--line)',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                  color: 'inherit', transition: 'border-color .15s',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', borderRadius: 6,
+                  background: 'transparent',
+                  borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                  borderLeft: `2px solid ${mastered ? 'rgba(34,197,94,.5)' : 'transparent'}`,
+                  fontFamily: "'Space Grotesk', sans-serif", fontSize: 12,
+                  color: 'var(--fg-mute)', textDecoration: 'none',
+                  transition: 'all .15s',
                 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(239,68,68,.15)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--line)' }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = 'var(--bg-card-2)'
+                    if (!mastered) el.style.borderLeftColor = 'rgba(239,68,68,.3)'
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = 'transparent'
+                    if (!mastered) el.style.borderLeftColor = 'transparent'
+                  }}
                 >
+                  <span style={{ flex: 1 }}>{depSkill.name}</span>
                   <span style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: STATE_COLORS[depState as ProgressState], flexShrink: 0,
-                  }} />
-                  {depSkill.name}
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                    color: mastered ? '#22c55e' : '#475569', flexShrink: 0,
+                  }}>{mastered ? '✓' : '→'}</span>
                 </Link>
               )
             })}
@@ -261,29 +284,41 @@ export default function SkillPage() {
       {dependents.length > 0 && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 18 }}>
           <h4 style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: 'var(--scarlet)',
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#475569',
             letterSpacing: '.18em', textTransform: 'uppercase', marginBottom: 12,
           }}>Habilita estudar</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {dependents.slice(0, 8).map(d => {
               const depSkill = SKILL_BY_SLUG[d]
               const depState = mounted ? getState(d) : 'pendente'
+              const mastered = depState === 'domino'
               return (
                 <Link key={d} href={`/skill/${d}`} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 10px', borderRadius: 6,
-                  background: 'var(--bg-card-2)', border: '1px solid var(--line)',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                  color: 'inherit', transition: 'border-color .15s',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', borderRadius: 6,
+                  background: 'transparent',
+                  borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                  borderLeft: `2px solid ${mastered ? 'rgba(34,197,94,.5)' : 'transparent'}`,
+                  fontFamily: "'Space Grotesk', sans-serif", fontSize: 12,
+                  color: 'var(--fg-mute)', textDecoration: 'none',
+                  transition: 'all .15s',
                 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(239,68,68,.15)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--line)' }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = 'var(--bg-card-2)'
+                    if (!mastered) el.style.borderLeftColor = 'rgba(239,68,68,.3)'
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = 'transparent'
+                    if (!mastered) el.style.borderLeftColor = 'transparent'
+                  }}
                 >
+                  <span style={{ flex: 1 }}>{depSkill.name}</span>
                   <span style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: STATE_COLORS[depState as ProgressState], flexShrink: 0,
-                  }} />
-                  {depSkill.name}
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                    color: mastered ? '#22c55e' : '#475569', flexShrink: 0,
+                  }}>{mastered ? '✓' : '→'}</span>
                 </Link>
               )
             })}
@@ -422,7 +457,7 @@ export default function SkillPage() {
               fontSize: 12.5, color: '#61DAFB',
               fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.6,
             }}>
-              <span style={{ opacity: .55, marginRight: 6 }}>💡 framing:</span>{qa.tip}
+              <span style={{ opacity: .55, marginRight: 6 }}>framing:</span>{qa.tip}
             </div>
           )}
         </div>
@@ -790,11 +825,14 @@ export default function SkillPage() {
               {content.prerequisite && (
                 <section id="sec-prereq">
                   <div style={{
-                    background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.2)',
+                    background: 'rgba(59,130,246,.06)',
+                    borderTop: '1px solid rgba(59,130,246,.2)',
+                    borderRight: '1px solid rgba(59,130,246,.2)',
+                    borderBottom: '1px solid rgba(59,130,246,.2)',
+                    borderLeft: '2px solid #3b82f6',
                     borderRadius: 10, padding: '14px 18px',
                     display: 'flex', gap: 12, alignItems: 'flex-start',
                   }}>
-                    <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>📋</span>
                     <div style={{ flex: 1 }}>
                       <p style={{
                         fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
