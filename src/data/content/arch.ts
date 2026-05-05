@@ -1466,6 +1466,54 @@ export class UsersModule {}`,
         a: '<p>Top 3 que vejo em PRs:</p><ol><li><strong>Interface por classe</strong> (cargo cult DIP). <code>IEmailSender</code>, <code>ISmsSender</code>, <code>IPushSender</code> — cada um com 1 implementação. Boilerplate sem ganho. <strong>Fix:</strong> só extrai interface quando há ≥2 implementações reais ou variação prevista concreta (não "talvez um dia").</li><li><strong>SRP excessivo</strong> — classe de 5 linhas, 50 classes pra fazer o que cabia em 200 linhas coesas. <strong>Fix:</strong> SRP é "um motivo pra mudar", não "uma função". Coesão alta importa tanto quanto separação.</li><li><strong>OCP especulativo</strong> — Strategy/Factory/Abstract Factory em CRUD simples sem variação. <strong>Fix:</strong> espera o segundo caso aparecer. Refatorar de switch pra Strategy é fácil; desfazer Strategy é caro.</li></ol><p>Princípio meta: <strong>evidência antes de abstração</strong>. Não invente variação que não existe.</p>',
         tip: 'Mostra autocrítica e pragmatismo. Sênior que admite que aplicou SOLID errado já passou da fase superficial.',
       },
+      {
+        q: 'Como o ISP ajuda na testabilidade do código?',
+        level: 'pleno',
+        a: '<p>Interfaces gordas forçam mocks grandes: ao criar um fake para teste, você implementa 12 métodos quando o código sob teste usa apenas 2. Isso gera <strong>ruído, fragilidade e acopla o teste à interface completa</strong> — qualquer novo método na interface quebra todos os mocks existentes.</p><p>Com ISP, cada interface tem apenas os métodos que o cliente de fato usa:</p><ul><li><code>IReadOnlyProductRepo</code> com só <code>findById()</code> e <code>findAll()</code></li><li><code>IWritableProductRepo</code> com <code>save()</code> e <code>delete()</code></li></ul><p>O mock pra testes de leitura implementa só <code>IReadOnlyProductRepo</code> — 2 métodos, sem ruído. O use case de escrita mocka <code>IWritableProductRepo</code> — testado isoladamente sem carregar todo o contrato de leitura.</p><p>Regra prática: <strong>se seu mock tem métodos que retornam <code>undefined</code> ou lançam "not implemented", a interface é gorda demais</strong>. Segrega.</p>',
+        tip: 'Conecte ISP diretamente a facilidade de teste — isso é argumento concreto que entrevistador sênior quer ouvir, não a definição textbook.',
+      },
+      {
+        q: 'Qual princípio SOLID é mais difícil de aplicar corretamente e por quê?',
+        level: 'senior',
+        a: '<p>Na prática de time, o <strong>OCP</strong> é o mais mal-aplicado — porque exige antecipar pontos de variação sem especular. O instinto humano é: "vou abstrair agora para não ter que refatorar depois". O resultado é Strategy pattern em código com 1 caso de uso, ou Abstract Factory em CRUD sem variação prevista.</p><p>O <strong>DIP</strong> é o segundo: a confusão entre DIP (princípio) e DI (técnica de injeção) faz times acharem que ter um container de DI já satisfaz DIP — mas você pode ter <code>@Injectable() OrderService</code> injetando <code>PrismaOrderRepository</code> concreto (não interface), o que viola DIP por completo.</p><p>Regra de ouro para OCP: <strong>não abstraia antes de ver dois casos</strong>. Refatorar quando o segundo caso aparece é sempre mais barato que desfazer abstração prematura. Para DIP: interface deve ser definida e nomeada pelo cliente que a usa, no pacote do cliente — não pelo implementador.</p>',
+        tip: 'Ter opinião formada sobre qual é mais difícil e por quê mostra maturidade de quem aplicou e não só decorou. Argumente com experiência, não com teoria.',
+      },
+      {
+        q: 'Como você garante que novos devs não violem SOLID no código?',
+        level: 'senior',
+        a: '<p>Garantia por ferramenta, não por disciplina individual. Três camadas:</p><ol><li><strong>Lint estático:</strong> <code>eslint</code> com regras de complexidade (<code>max-lines-per-function</code>, <code>max-params</code>, <code>complexity</code>). Classes com 15+ métodos ou funções com 50+ linhas são sintomas de SRP violado — ferramenta detecta automaticamente no CI.</li><li><strong>Arquitetura enforced:</strong> <code>eslint-plugin-boundaries</code> ou <code>dependency-cruiser</code> configura quais módulos podem importar quem. Domain não importa infrastructure — regra no CI.</li><li><strong>Code review com template:</strong> checklist de PR inclui "dependency rule", "interface necessária ou especulativa?", "cada classe tem um único motivo pra mudar?". Não deixa pra memória do reviewer.</li></ol><p>A cultura vem depois: quando o CI rejeita automaticamente, o dev aprende mais rápido do que em code review punitivo 2 dias depois do commit. Ferramenta é mentor 24/7.</p>',
+        tip: 'Citar ferramentas concretas (eslint-plugin-boundaries, dependency-cruiser, complexidade via lint) é o que separa quem aplica de quem leu.',
+      },
+      {
+        q: 'Como SRP se diferencia do princípio de coesão?',
+        level: 'senior',
+        a: '<p>SRP e coesão são primos — mas têm perspectivas diferentes. <strong>Coesão</strong> é uma propriedade estrutural: o quanto os elementos de um módulo (métodos, campos) estão relacionados entre si. Alta coesão = tudo no módulo colabora pra um propósito único. Baixa coesão = módulo mistura coisas não relacionadas.</p><p><strong>SRP</strong> é perspectiva de ator: "um módulo deve ser responsável por um único ator". O autor (Uncle Bob) é explícito: SRP não é "faça só uma coisa" — é "só um stakeholder pede mudança nessa classe". Uma classe com 10 métodos pode ter SRP se todos servem ao mesmo grupo de usuários.</p><p>Na prática, as duas perspectivas se complementam. Classe com alta coesão geralmente tem SRP; classe com SRP geralmente tem alta coesão. Quando há tensão entre as duas, o critério do <strong>ator</strong> (SRP) desempata: pergunta "quem pede essa mudança?" — se a resposta for dois grupos diferentes, separa, mesmo que os métodos pareçam relacionados estruturalmente.</p>',
+        tip: 'Diferenciar SRP do "faça uma coisa só" mostra que você leu Uncle Bob além das listas de bullet points. É um diferencial sênior.',
+      },
+      {
+        q: 'Em TypeScript, quando usar abstract class vs interface para DIP?',
+        level: 'pleno',
+        a: '<p>A pergunta correta é: <strong>o que o contrato precisa compartilhar?</strong></p><ul><li><strong>Interface:</strong> quando o contrato é puro comportamento sem implementação padrão. Mais flexível — uma classe pode implementar múltiplas interfaces. Sem custo em runtime (apagada no compile). Preferida quando não há lógica compartilhada entre implementações.</li><li><strong>Abstract class:</strong> quando há implementação padrão que todos os filhos herdarem, evitando duplicação. Pode ter estado (campos). Custo: herança única em TypeScript/JS — classe filha não pode estender outra classe.</li></ul><p>Para DIP, <strong>interface quase sempre vence</strong>: você quer que o domínio defina um contrato puro (<code>IOrderRepository</code>), e o adapter de infra implemente. Nenhum código padrão pertence ao contrato de domínio — pertence ao adapter.</p><p>Exceção prática: se você tem um <code>BaseRepository</code> com lógica de paginação e auditoria compartilhada por todos os repos, abstract class pode valer — mas esse comportamento compartilhado é infra, não domínio. Mantenha a interface no domínio e a abstract class na camada de infra.</p>',
+        tip: 'Em entrevista TypeScript/Node, essa é pergunta frequente. Resposta correta não é dogmática — depende do que o contrato precisa expressar.',
+      },
+      {
+        q: 'Qual o impacto de SOLID na velocidade de entrega a longo prazo?',
+        level: 'senior',
+        a: '<p>Curto prazo: SOLID <strong>reduz velocidade</strong>. Mais arquivos, mais interfaces, mais boilerplate. Uma feature que levaria 1h em code acoplado leva 2h com SOLID aplicado. Isso é real — não é argumento contra SOLID, é custo honesto que sênior bom admite.</p><p>Médio/longo prazo (>3 meses de desenvolvimento ativo): SOLID <strong>aumenta velocidade</strong>. Os dados da experiência:</p><ul><li>Feature nova toca módulo isolado, não cascateia mudanças</li><li>Bug em módulo A não impacta módulo B (sem acoplamento)</li><li>Teste roda em ms (não em minutos) — feedback loop rápido</li><li>Onboarding mais fácil: dev novo entende responsabilidade de cada classe em horas, não dias</li><li>Refactor localizado: troca implementação de gateway sem tocar use case</li></ul><p>Métricas concretas que já vi em time: lead time de feature caiu de 2 semanas para 3 dias após 6 meses de SOLID consistente. Bug rate em módulo refatorado caiu 70%. Revisão de PR caiu de 45min para 10min (contexto menor por PR).</p><p>Conclusão: SOLID é investimento com ROI positivo em sistemas vivos com >3 meses de vida. Em protótipo descartável, o custo não compensa.</p>',
+        tip: 'Citar números e timeline mostra maturidade de engenharia. Sênior quantifica trade-offs — não argumenta por intuição.',
+      },
+      {
+        q: 'Como SOLID se aplica a código funcional (funções, pipelines)?',
+        level: 'senior',
+        a: '<p>Em código funcional, os princípios SOLID se traduzem naturalmente:</p><ul><li><strong>SRP → função pequena, uma transformação:</strong> <code>const parseDate = (s: string): Date</code> não valida e não persiste junto.</li><li><strong>OCP → higher-order functions:</strong> função aceita estratégia como parâmetro em vez de ter if/switch interno. <code>processItems(items, handler: (item) => Result)</code>.</li><li><strong>LSP → honra de tipo:</strong> se uma função promete retornar <code>User | null</code>, nunca lança exceção onde o chamador espera null. Contrato de tipo é honrado.</li><li><strong>ISP → tipos pequenos e focados:</strong> função recebe só o que precisa. Em vez de receber <code>User</code> inteiro (com 20 campos), recebe <code>{ id: string; email: string }</code> — structural typing do TypeScript permite isso naturalmente.</li><li><strong>DIP → injeção de função:</strong> em vez de chamar <code>sendEmail()</code> direto, recebe <code>notifier: (msg: string) => void</code> no parâmetro.</li></ul><p>Diferença chave: em FP não há herança, então LSP como "subclasse honra contrato" não se aplica diretamente — mas o <strong>princípio subjacente</strong> (honrar contrato de tipo) aplica-se via TypeScript strict mode e uso correto de union types.</p>',
+        tip: 'Conectar SOLID a código funcional demonstra que você entende os princípios subjacentes, não apenas os patterns OO. Diferencial em entrevistas com times TypeScript modernos.',
+      },
+      {
+        q: 'Como você detecta violações de SOLID em code review de forma eficiente?',
+        level: 'pleno',
+        a: '<p>Code review não deve depender de memória do reviewer. Checklist mental que aplico em menos de 2 minutos por arquivo:</p><ol><li><strong>SRP check:</strong> a classe tem mais de 1 import de domínios distintos (ex: <code>import { PrismaClient }</code> e <code>import { MailerService }</code> no mesmo arquivo de domínio)? Se sim, provavelmente viola SRP — classe toca banco E email.</li><li><strong>OCP check:</strong> há switch/if-else por tipo (<code>if (type === \'pix\')</code>, <code>else if (type === \'boleto\')</code>)? Pergunto: "esse if vai crescer?" Se sim, Strategy/Map pattern está faltando.</li><li><strong>LSP check:</strong> método sobrescrito lança <code>throw new Error(\'not implemented\')</code> ou retorna tipo diferente da assinatura da base? Flag imediata.</li><li><strong>ISP check:</strong> interface tem mais de 5-7 métodos, e o cliente usa só 2? Candidata a segregação.</li><li><strong>DIP check:</strong> construtor da classe instancia dependência concreta (<code>new PrismaClient()</code>, <code>new AxiosClient()</code>) em vez de receber pela interface? Injeção quebrada.</li></ol><p>Ferramentas que automatizam parte disso: eslint <code>max-params</code>, <code>max-lines</code>, <code>complexity</code>. Deixo automático o que ferramenta detecta, e foco o code review no que requer julgamento (escolha de abstração, nomeação, contexto de negócio).</p>',
+        tip: 'Dar um checklist prático de code review demonstra que você aplica SOLID como processo de time, não como conhecimento individual. Diferencial de tech lead.',
+      },
     ],
     exercises: [
       {
@@ -2577,6 +2625,54 @@ export class OrderModule {}`,
         level: 'senior',
         a: '<p>Vale quando:</p><ol><li><strong>Tipo tem regra de validação</strong> que se repete (CPF, email, money). Centraliza no VO em vez de espalhar.</li><li><strong>Tipo tem comportamento</strong> (<code>Money.add()</code>, <code>Money.convert()</code>). Encapsula lógica em vez de criar utility class.</li><li><strong>Igualdade é por valor</strong>, não por referência (Money(100, BRL) === Money(100, BRL) deve ser true).</li><li><strong>Imutabilidade ajuda raciocínio</strong> — operações retornam novo VO em vez de mutar.</li></ol><p>Exemplo concreto: em vez de <code>amount: number, currency: string</code> espalhado, crio <code>Money</code> VO. <code>Money.zero(\'BRL\').add(Money.of(100, \'BRL\'))</code> — comportamento mora no VO, validação de moeda mismatch também.</p><p>Anti-pattern: VO pra qualquer string (UserName, Email, ZipCode) sem comportamento ou regra real. Cria boilerplate sem ganho. Aplica VO quando há valor agregado em encapsular regra/comportamento, não como ritual.</p><p>Em TypeScript, branded types (<code>type CPF = string &amp; { __brand: \'CPF\' }</code>) cobrem caso simples sem classe — mais leve, ainda type-safe.</p>',
       },
+      {
+        q: 'Como você evita mapper explosion em Clean Architecture?',
+        level: 'senior',
+        a: '<p>Mapper explosion é o cheiro mais comum de Clean Arch mal-aplicada: 5 classes de mapper por feature (DomainToDto, DtoToDomain, DomainToPrisma, PrismaToDomain, DtoToHttp...). O código vira 80% tradução sem negócio.</p><p>Estratégias para controlar:</p><ol><li><strong>Mapper apenas nas fronteiras reais.</strong> A fronteira que justifica mapper: domain → persistence (ORM) e domain → API response (DTO). Dentro da camada de aplicação, entities de domínio transitam diretamente sem mapper intermediário.</li><li><strong>DTO simples ≠ mapper obrigatório.</strong> Se o DTO de retorno tem os mesmos campos da entity, use <code>plainToInstance</code> (class-transformer) ou spread direto. Não cria classe mapper pra mapeamento trivial.</li><li><strong>Mappers colados ao adapter.</strong> <code>PrismaOrderRepository</code> tem método privado <code>toDomain()</code> e <code>toPersistence()</code> — não vira classe separada. Só extrai em classe quando é reaproveitado em &gt;2 lugares.</li><li><strong>Questiona a layer.</strong> Se seu use case tem 6 linhas de negócio e 20 linhas de mapeamento, o mapper está no lugar errado ou o DTO é desnecessário.</li></ol><p>Heurística: <strong>1 mapper por fronteira de camada, não por entidade</strong>. E-commerce com 10 entidades não precisa de 10 mappers — precisa de 1 por fronteira onde a representação genuinamente diverge.</p>',
+        tip: 'Falar em "mapper explosion" e dar solução concreta diferencia quem aplicou Clean Arch em sistema real de quem só leu o livro.',
+      },
+      {
+        q: 'Como você lida com validação de input? Ela pertence a qual camada?',
+        level: 'pleno',
+        a: '<p>Existem dois tipos de validação com responsabilidades distintas:</p><ul><li><strong>Validação de formato/contrato de API</strong> (campo obrigatório, tipo correto, tamanho máximo): pertence à camada de <strong>Interface Adapters</strong> — controller/presenter. Usa zod, class-validator, joi. Rejeita antes de chegar no use case. Retorna 400 diretamente.</li><li><strong>Validação de regra de negócio</strong> (email já cadastrado, saldo insuficiente, pedido não pode ser cancelado após envio): pertence ao <strong>domínio ou use case</strong>. Lança domain error específico (<code>EmailAlreadyTakenError</code>, <code>InsufficientFundsError</code>). Controller captura e mapeia pra HTTP (409, 422, etc.).</li></ul><p>Anti-pattern que vejo em PRs: toda validação no controller. Resultado: regra de negócio vazou pra camada de apresentação, difícil de testar unitariamente sem HTTP, duplicada se há outro canal de entrada (worker, CLI).</p><p>Regra: <em>"se a validação diz respeito ao negócio, fica no domínio. Se diz respeito ao protocolo de transporte, fica no adapter."</em></p>',
+        tip: 'Separar as duas categorias de validação é pergunta clássica de nível pleno/sênior. Maioria confunde ou mistura tudo no controller.',
+      },
+      {
+        q: 'Use case deve retornar entity de domínio ou DTO?',
+        level: 'pleno',
+        a: '<p>Use case <strong>não deve retornar entity de domínio</strong> para o controller. A entity é objeto rico do domínio — expô-la ao adapter cria acoplamento indevido: qualquer mudança na entity pode quebrar o controller, e o controller passa a "ver" comportamento de domínio que não deveria conhecer.</p><p>O use case retorna um <strong>Output DTO</strong> (Plain Object, interface TypeScript, ou classe simples sem comportamento). O controller serializa pra resposta HTTP. A conversão acontece no use case (ao final do método exec) ou num mapper do adapter — nunca no domínio.</p><p>Casos práticos:</p><ul><li><code>CreateOrderUseCase.exec(input): CreateOrderOutput</code> — Output tem <code>orderId</code>, <code>total</code>, <code>status</code>. Controller não conhece <code>Order</code>.</li><li><code>GetOrderUseCase.exec(id): OrderDetailOutput</code> — projeção específica pra esse use case, não o aggregate inteiro.</li></ul><p>Exceção aceita em projetos pequenos: retornar a entity e deixar o serializer (ex: class-transformer) fazer a projeção. Aceito quando há disciplina de não usar métodos de domínio no controller. Em sistema grande com múltiplos canais, Output DTO vale.</p>',
+        tip: 'Essa pergunta avalia se você entende acoplamento de camadas em Clean Arch. Resposta "retorna entity" sem qualificação é red flag.',
+      },
+      {
+        q: 'Como você modela erros em Clean Architecture?',
+        level: 'senior',
+        a: '<p>Clean Arch tem 3 categorias de erro com tratamento diferente:</p><ol><li><strong>Domain errors</strong>: violação de invariante ou regra de negócio. <code>OrderAlreadyConfirmedError</code>, <code>InsufficientFundsError</code>. São lançados pelo domínio, <em>esperados pelo use case</em>. Use case pode capturar e converter em Output, ou propagá-los ao controller.</li><li><strong>Application errors</strong>: entidade não encontrada, precondição do use case não atendida. <code>OrderNotFoundError</code>. Lançado pelo use case, capturado pelo controller e mapeado para HTTP 404/422.</li><li><strong>Infrastructure errors</strong>: banco fora, timeout, rede. Não devem vazar ao use case como erros raw. O adapter os captura e relança como erros de domínio genéricos (<code>RepositoryUnavailableError</code>) — use case lida sem saber que é Postgres.</li></ol><p>Padrão que prefiro: <strong>hierarquia de classes de erro</strong> (<code>DomainError extends Error</code>), cada erro com código e dados (<code>code: \'ORDER_ALREADY_CONFIRMED\'</code>). Controller tem mapa de código → HTTP status. Use case nunca lida com status HTTP.</p><p>Alternativa moderna: <code>Result&lt;T, E&gt;</code> (Never Throw pattern) — use case retorna <code>Result.ok(output)</code> ou <code>Result.err(new DomainError())</code>. Controller checa isErr() e decide. Sem try/catch — mais explícito no tipo.</p>',
+        tip: 'Modelar erros em camadas é diferencialmente sênior. Maioria ou lança exceções cegamente ou swallows erros. Ter padrão claro mostra maturidade.',
+      },
+      {
+        q: 'Como você estrutura o composition root em NestJS com Clean Arch?',
+        level: 'senior',
+        a: '<p>Composition root é o único lugar onde você conhece as implementações concretas e as injeta. Em NestJS, <strong>o Module é o composition root da feature</strong>.</p><p>Estrutura canônica:</p><pre><code>// order.module.ts\n@Module({\n  imports: [TypeOrmModule.forFeature([OrderRecord])],\n  providers: [\n    CreateOrderUseCase,\n    GetOrderUseCase,\n    { provide: IOrderRepository, useClass: PrismaOrderRepository },\n    { provide: IPaymentGateway, useClass: StripePaymentGateway },\n  ],\n  controllers: [OrderController],\n})\nexport class OrderModule {}</code></pre><p>Regras de ouro:</p><ul><li><strong>Use cases como providers diretos</strong> — NestJS injeta as interfaces pelo token.</li><li><strong>Interface como token de injeção</strong> (<code>provide: IOrderRepository</code>) — use case nunca conhece a string mágica "PrismaOrderRepository".</li><li><strong>Módulo importa o que precisa, não mais</strong> — <code>TypeOrmModule.forFeature</code> só com entidades do contexto atual.</li><li><strong>Shared kernel em módulo separado</strong> — VOs e errors compartilhados num <code>SharedModule</code> sem lógica de negócio de feature.</li></ul><p>Teste: troque <code>useClass: PrismaOrderRepository</code> por <code>useClass: InMemoryOrderRepository</code> no TestingModule sem mudar nada nos use cases. Se precisar mudar o use case, o composition root está vazando.</p>',
+        tip: 'Mostrar código concreto de Module como composition root valida que você aplicou, não só leu. Detalhe de <code>provide: IOrderRepository</code> vs string literal é separador de sênior.',
+      },
+      {
+        q: 'Qual a diferença entre Presenter e Controller em Clean Arch?',
+        level: 'senior',
+        a: '<p>Uncle Bob distingue os dois explicitamente, mas na prática web moderna, o presenter costuma estar embutido no controller. A distinção original:</p><ul><li><strong>Controller</strong>: recebe a requisição de entrada (HTTP, CLI, evento), extrai input, invoca o use case. Não formata saída.</li><li><strong>Presenter</strong>: recebe o output do use case e formata para o protocolo de saída (JSON, HTML, CSV). Não conhece o use case diretamente — recebe via callback ou interface.</li></ul><p>No padrão original Clean Arch, Controller invoca UseCase passando Presenter como callback (Humble Object Pattern). Use case chama <code>presenter.present(output)</code>. Isso torna o controller mais testável isoladamente.</p><p>Na prática com NestJS/Express: <strong>Controller + Presenter fundidos</strong>. O controller invoca o use case e faz o mapeamento de output → response. Aceito — a separação formal só vale quando há múltiplos presenters (JSON, XML, CSV, gRPC) para o mesmo use case. Se há só HTTP JSON, unificar é pragmático e menos boilerplate.</p><p>Quando separar: use case tem múltiplos canais de saída (REST + GraphQL + CLI). O presenter isolado permite reusar o use case com diferentes formatações sem tocar nele.</p>',
+        tip: 'A maioria não sabe a distinção formal Controller vs Presenter. Saber e saber quando aplicar é diferencial sênior que mostra leitura do livro original.',
+      },
+      {
+        q: 'Como Clean Architecture se comporta com GraphQL?',
+        level: 'senior',
+        a: '<p>GraphQL não muda a Dependency Rule — apenas modifica a camada de Interface Adapters. O resolver GraphQL ocupa o papel do controller HTTP: recebe query/mutation, extrai argumentos, invoca use case, retorna output.</p><p>Estrutura com NestJS + Apollo:</p><ul><li><strong>Resolver</strong> → adapter de apresentação (equivale ao controller)</li><li><strong>Input types</strong> → equivalem ao Request DTO de controller HTTP</li><li><strong>Object types</strong> → equivalem ao Response DTO / Presenter output</li><li><strong>Use case</strong> → completamente agnóstico a GraphQL (não conhece <code>@ObjectType</code>)</li></ul><p>Cuidado principal: em GraphQL com DataLoader, você pode ter N+1 no resolver que vai chamar o use case N vezes (um por item num campo nested). O use case precisa aceitar batch input ou você deve resolver N+1 no DataLoader <em>antes</em> de chegar no use case.</p><p>Vantagem de Clean Arch com GraphQL: você pode expor o mesmo use case via REST (controller) e via GraphQL (resolver) simultaneamente, sem duplicar lógica de negócio — cada adapter formata pra seu protocolo. Esse é o ganho concreto da separação.</p>',
+        tip: 'GraphQL + Clean Arch é pergunta frequente em empresas com NestJS. Mostrar que resolve equivale a controller e falar de DataLoader + N+1 é diferencial real.',
+      },
+      {
+        q: 'Como você mede o ROI de Clean Architecture num projeto real?',
+        level: 'senior',
+        a: '<p>Clean Architecture é investimento com custo upfront alto. Defender essa decisão para gestão ou tech lead requer métricas, não argumentos filosóficos.</p><p>Métricas de ROI que monitoro antes/depois:</p><ul><li><strong>Lead time de feature</strong> (do commit ao merge): diminui porque mudança fica localizada em camada específica — menos arquivos tocados, PR menor, review mais rápido.</li><li><strong>Tempo de execução dos testes</strong>: suíte completa de use case units roda em &lt;10s. Se antes rodava em 3min (porque testava subindo servidor), isso é 18x mais rápido — feedback loop muda o modo de trabalho.</li><li><strong>Taxa de bug em produção por módulo</strong>: módulo refatorado com Clean Arch tem menos bug recorrente — encapsulamento impede surpresa de efeito colateral.</li><li><strong>Tempo de onboarding de novo dev</strong>: novo membro entende responsabilidade de cada camada em horas, não dias — screaming architecture grita o domínio.</li><li><strong>Custo de troca de dependência</strong>: quantas linhas mudaram pra trocar Redis por Memcached? Se a resposta for "só o adapter", Clean Arch funcionou.</li></ul><p>Se nenhuma dessas métricas melhora em 6 meses de Clean Arch aplicada, a arquitetura foi aplicada por estética — vale reavaliar. ROI precisa ser mensurável.</p>',
+        tip: 'Ter métricas concretas de ROI é o que diferencia arquiteto de senior que defende decisão de arquitetura de um que apenas gosta do pattern. Essencial para entrevistas de staff/principal.',
+      },
     ],
     exercises: [
       {
@@ -3575,6 +3671,42 @@ export class CreateOrderApplicationService {
         a: '<p>Event Storming (Alberto Brandolini) é técnica colaborativa para explorar domínio. Sala grande, post-its coloridos, especialistas de negócio e devs juntos.</p><p>Fluxo básico (Big Picture Event Storming):</p><ol><li><strong>Laranja — Domain Events:</strong> "O que acontece no negócio?" — OrderPlaced, PaymentFailed, ShipmentDispatched. Na ordem temporal, sem julgamento.</li><li><strong>Azul — Commands:</strong> "O que causou o evento?" — PlaceOrder causa OrderPlaced. Mostrar quem dispara.</li><li><strong>Amarelo — Aggregates:</strong> "Quem processou o comando?" — Order aggregate.</li><li><strong>Roxo — Policies:</strong> "Quando X acontece, Y deve acontecer." — Automações e reações.</li><li><strong>Rosa — External Systems:</strong> sistemas fora do nosso controle.</li></ol><p>Resultado: você enxerga bounded contexts onde a linguagem muda, onde os eventos se agrupam, onde há pivoting points. Ubiquitous Language emerge naturalmente da sessão — todos usam os mesmos termos.</p><p>Dura 4-8h pra sistema médio. Mais valioso que qualquer documento de requisito porque é gerado pela conversa real com o negócio.</p>',
         tip: 'Citar Event Storming e Alberto Brandolini é sinal de maturidade em DDD. Mostra que você conhece a prática além do livro do Evans.',
       },
+      {
+        q: 'Como você testa lógica de domínio em DDD?',
+        level: 'pleno',
+        a: '<p>O grande ganho de DDD é que a lógica de negócio fica encapsulada em Entities, VOs e Aggregates — objetos que têm <strong>zero dependência de infraestrutura</strong>. Isso torna o teste de domínio trivial e rápido.</p><p>Exemplo concreto:</p><pre><code>// Sem banco, sem framework, sem mock\nconst order = Order.create(\'customer-1\')\norder.addItem(\'sku-123\', 2, Money.of(50, \'BRL\'))\norder.confirm()\nexpect(order.status).toBe(\'confirmed\')\nexpect(order.total.amount).toBe(100)\nexpect(order.domainEvents).toContainEqual(\n  expect.objectContaining({ type: \'OrderConfirmed\' })\n)</code></pre><p>Estrutura de testes:</p><ul><li><strong>Unit domain tests</strong>: instanciam aggregate direto, sem mock. Testam invariantes, transições de estado, eventos emitidos. Rodamem &lt;1ms cada.</li><li><strong>Builder pattern nos testes</strong>: <code>OrderBuilder.create().withItems(3).inConfirmedState().build()</code> — torna fixtures legíveis e reutilizáveis.</li><li><strong>Testes nominativos</strong>: <code>test(\'quando pedido é confirmado sem itens, lança EmptyOrderError\')</code> — lê como especificação de negócio.</li></ul><p>O que <em>não</em> entra no teste de domínio: banco, HTTP, ORM, mensageria. Se precisou de mock de infraestrutura, a regra de negócio vazou de camada.</p>',
+        tip: 'Mostrar código de teste de aggregate sem nenhum mock de infra é a melhor prova de que você entende o benefício central do DDD tático.',
+      },
+      {
+        q: 'O que é um Domain Service e como difere de Application Service?',
+        level: 'pleno',
+        a: '<p>Tanto Domain Service quanto Application Service são classes de serviço, mas com responsabilidades completamente diferentes:</p><ul><li><strong>Domain Service</strong>: contém lógica de negócio que não pertence naturalmente a nenhum aggregate ou VO. Opera apenas com objetos de domínio, sem I/O. Exemplos: <code>PricingService.calculate(customer, cart, promoCode)</code> que depende de múltiplos aggregates; <code>FundsTransferService.transfer(fromAccount, toAccount, amount)</code> que envolve dois aggregates distintos.</li><li><strong>Application Service</strong> (Use Case): orquestra — busca aggregates via repositório, chama domain service ou aggregate, salva resultado, publica eventos. Não contém regra de negócio — é o maestro, não o músico.</li></ul><p>Sinal de alarme: Application Service com <code>if (order.status === \'confirmed\' && payment.amount > 1000)</code> — isso é regra de negócio no lugar errado. Deveria estar no aggregate ou domain service.</p><p>Outro sinal: Domain Service que chama repositório diretamente — violação, pois acoplou domínio a infraestrutura. Domain Service recebe os objetos como parâmetro; Application Service é quem os busca no repositório.</p>',
+        tip: 'Essa pergunta é frequentíssima e muitos confundem. A resposta clara com exemplos concretos e anti-patterns mostra domínio real do assunto.',
+      },
+      {
+        q: 'Como você lida com invariantes que cruzam aggregates?',
+        level: 'senior',
+        a: '<p>Invariante que cruza aggregates é o caso mais delicado de DDD. A regra de ouro de Vaughn Vernon: <strong>apenas um aggregate por transação</strong>. Então como garantir invariante entre dois?</p><p>Três estratégias, ordenadas por preferência:</p><ol><li><strong>Redefinir o limite do aggregate.</strong> Se a invariante é "um cliente não pode ter mais de 3 pedidos ativos", talvez <code>CustomerOrderPolicy</code> seja um aggregate que encapsula os IDs dos pedidos ativos do cliente. Você re-examina a fronteira antes de aceitar que precisa de transação cruzada.</li><li><strong>Eventual consistency via Domain Events.</strong> Order é confirmado (transação 1, aggregate Order). OrderConfirmed event dispara handler no contexto de Inventory que reserva estoque (transação 2, aggregate Inventory). A consistência é eventual — aceita pelo negócio. Esta é a solução padrão quando negócio tolerainconssistência temporária.</li><li><strong>Saga.</strong> Sequência de transações locais coordenadas por eventos ou orquestrador. Cada passo toca um aggregate. Em falha, compensating transactions desfazem os passos anteriores.</li></ol><p>O que <em>não</em> fazer: transação que salva dois aggregates ao mesmo tempo. Cria acoplamento físico, mata concorrência, e mostra fronteira de aggregate errada.</p>',
+        tip: 'Essa é pergunta de nível sênior puro. Quem responde "coloco numa transação só" não entende DDD. Quem diferencia as três estratégias e menciona Eventual Consistency está no nível certo.',
+      },
+      {
+        q: 'Como você representa estados complexos em DDD? (State Machine)',
+        level: 'senior',
+        a: '<p>Aggregates com múltiplos estados (Order: pending → confirmed → paid → shipped → delivered | cancelled) são naturalmente State Machines. Em DDD, modelar isso explicitamente tem benefícios concretos:</p><p><strong>Abordagem com enum + guard clauses:</strong></p><pre><code>type OrderStatus = \'pending\' | \'confirmed\' | \'shipped\' | \'cancelled\'\n\nclass Order {\n  confirm(): void {\n    if (this.status !== \'pending\') throw new InvalidStatusTransitionError()\n    this._status = \'confirmed\'\n    this.addEvent(new OrderConfirmed(this.id))\n  }\n\n  ship(): void {\n    if (this.status !== \'confirmed\') throw new InvalidStatusTransitionError()\n    this._status = \'shipped\'\n  }\n}</code></pre><p><strong>Abordagem com State pattern</strong>: cada estado é uma classe que implementa as transições válidas. Lança erro em transições inválidas automaticamente. Mais verboso, mas torna estados explícitos e elimina guard clauses espalhadas pelo aggregate.</p><p>Vantagens de modelar explicitamente:</p><ul><li>Transições inválidas são impossíveis de chegar ao banco</li><li>Testes documentam o fluxo de negócio</li><li>Domain Events acoplados à transição (confirmação sempre emite <code>OrderConfirmed</code>)</li><li>Histórico de estados é naturalmente o Event Log em Event Sourcing</li></ul><p>Persisto o estado como string (enum serializado) no banco. A State Machine vive no domínio, não na tabela.</p>',
+        tip: 'Modelar State Machine explicitamente em aggregates mostra nível avançado. Citar as duas abordagens (enum + guard vs State pattern) com prós/contras é sênior diferenciado.',
+      },
+      {
+        q: 'Qual a relação entre Repository e Unit of Work em DDD?',
+        level: 'senior',
+        a: '<p>Em DDD, <strong>Repository</strong> provê a ilusão de que o aggregate existe numa coleção em memória: <code>orderRepo.findById(id)</code>, <code>orderRepo.save(order)</code>. O repositório abstrai completamente a persistência — use case não sabe se é Postgres, Mongo ou arquivo.</p><p><strong>Unit of Work (UoW)</strong> rastreia todas as mudanças feitas durante uma operação de negócio e as aplica numa única transação ao final. É o coordenador de transação que o repository usa.</p><p>Integração prática com Prisma:</p><pre><code>// IUnitOfWork no domínio (application layer)\ninterface IUnitOfWork {\n  run&lt;T&gt;(work: (repos: BoundRepos) => Promise&lt;T&gt;): Promise&lt;T&gt;\n}\n\n// Implementação na infra\nclass PrismaUnitOfWork implements IUnitOfWork {\n  async run&lt;T&gt;(work: (repos) => Promise&lt;T&gt;): Promise&lt;T&gt; {\n    return this.prisma.$transaction(async tx => {\n      const repos = { orders: new PrismaOrderRepo(tx), ... }\n      return work(repos)\n    })\n  }\n}</code></pre><p>Quando usar: use cases que tocam múltiplos aggregates precisam de coordenação transacional. UoW encapsula isso sem vazar transação ao domínio. Repositories filhos do UoW compartilham a mesma conexão de transação.</p><p>Cuidado: UoW não é obrigatório quando use case toca só 1 aggregate — repositório único com save() já é suficiente.</p>',
+        tip: 'Integrar Repository com Unit of Work e mostrar código com Prisma.$transaction é diferencial raro. Muitos sabem o conceito; poucos sabem implementar.',
+      },
+      {
+        q: 'Como você aborda DDD num time que nunca usou antes?',
+        level: 'senior',
+        a: '<p>Introduzir DDD no time inteiro de uma vez é o caminho mais rápido para cargo-cult — nomes DDD, zero benefício. Estratégia incremental que funciona:</p><ol><li><strong>Começa pelo vocabulário, não pelo código.</strong> Um glossário de domínio no repositório, construído com o PO. Toda reunião usa os termos. Toda PR usa os termos. Só isso já tem impacto sem mudar arquitetura.</li><li><strong>Escolhe o módulo mais dolorido</strong> — onde há mais bug, mudança mais difícil, teste mais lento. Aplica DDD tático lá: entity com comportamento, aggregate root, domain events. Faz o antes/depois visível pra todo o time.</li><li><strong>Workshop interno de 3h</strong>: Event Storming simplificado do módulo escolhido com o time inteiro. Não precisa de Brandolini ao vivo — um post de blog e post-its digitais bastam. O time vê o domínio pelo olhar do negócio pela primeira vez.</li><li><strong>Pair programming nos primeiros aggregates.</strong> Não code review depois — par durante. Decisões de design emergem na conversa, não em comentário de PR 2 dias depois.</li></ol><p>Armadilha: querer convencer o time de que "DDD é melhor". Não funciona. Mostra o problema que resolve, aplica no código que todos conhecem, e deixa o resultado falar.</p>',
+        tip: 'Pergunta sobre liderança técnica disfarçada de DDD. Resposta mostra que você pensa em adoção, não apenas em expertise técnica individual.',
+      },
     ],
     exercises: [
       {
@@ -3731,6 +3863,233 @@ export class Order {
   get items(): ReadonlyArray<OrderItem> { return [...this._items] }
 }`,
       },
+      {
+        title: 'Context Map com Anti-Corruption Layer (TypeScript)',
+        description: 'Bounded Context de Orders integrado a ERP legado via ACL: tradução de modelo, isolamento total do domínio limpo.',
+        language: 'typescript',
+        code: `// === CONTEXTO ORDERS (limpo) ===
+
+// domain/value-objects/order-id.ts
+export class OrderId {
+  private constructor(public readonly value: string) {}
+  static generate() { return new OrderId(crypto.randomUUID()) }
+  static of(value: string) {
+    if (!value) throw new Error('OrderId inválido')
+    return new OrderId(value)
+  }
+  equals(other: OrderId) { return this.value === other.value }
+}
+
+// domain/entities/order.ts (domínio limpo — sem vestígio do ERP)
+export class Order {
+  private constructor(
+    public readonly id: OrderId,
+    public readonly customerId: string,
+    public readonly items: ReadonlyArray<{ sku: string; qty: number; unitPrice: number }>,
+    public readonly status: 'open' | 'invoiced' | 'cancelled',
+    public readonly totalAmount: number,
+  ) {}
+
+  static create(customerId: string, items: Array<{ sku: string; qty: number; unitPrice: number }>): Order {
+    if (!items.length) throw new Error('Pedido precisa de ao menos 1 item')
+    const total = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0)
+    return new Order(OrderId.generate(), customerId, items, 'open', total)
+  }
+
+  invoice(): Order {
+    if (this.status !== 'open') throw new Error('Só pedidos abertos podem ser faturados')
+    return new Order(this.id, this.customerId, this.items, 'invoiced', this.totalAmount)
+  }
+}
+
+// === ANTI-CORRUPTION LAYER (infrastructure layer) ===
+
+// O ERP legado usa modelo completamente diferente:
+// { PEDIDO_ID, COD_CLI, VLR_BRUTO, ST_PEDIDO: 'A'|'F'|'C', ITENS: [{SKU, QTD, VLR_UNIT}] }
+
+interface ErpOrder {
+  PEDIDO_ID: string
+  COD_CLI: string
+  VLR_BRUTO: number
+  ST_PEDIDO: 'A' | 'F' | 'C' // A=aberto, F=faturado, C=cancelado
+  ITENS: Array<{ SKU: string; QTD: number; VLR_UNIT: number }>
+}
+
+// infrastructure/acl/erp-order.translator.ts
+export class ErpOrderTranslator {
+  /** ERP → Domínio */
+  toDomain(erp: ErpOrder): Order {
+    const statusMap: Record<ErpOrder['ST_PEDIDO'], Order['status']> = {
+      A: 'open', F: 'invoiced', C: 'cancelled',
+    }
+    return new (Order as any)(
+      OrderId.of(erp.PEDIDO_ID),
+      erp.COD_CLI,
+      erp.ITENS.map(i => ({ sku: i.SKU, qty: i.QTD, unitPrice: i.VLR_UNIT })),
+      statusMap[erp.ST_PEDIDO],
+      erp.VLR_BRUTO,
+    )
+  }
+
+  /** Domínio → ERP */
+  toErp(order: Order): ErpOrder {
+    const statusMap: Record<Order['status'], ErpOrder['ST_PEDIDO']> = {
+      open: 'A', invoiced: 'F', cancelled: 'C',
+    }
+    return {
+      PEDIDO_ID: order.id.value,
+      COD_CLI: order.customerId,
+      VLR_BRUTO: order.totalAmount,
+      ST_PEDIDO: statusMap[order.status],
+      ITENS: order.items.map(i => ({ SKU: i.sku, QTD: i.qty, VLR_UNIT: i.unitPrice })),
+    }
+  }
+}
+
+// infrastructure/acl/erp-order.gateway.ts
+export class ErpOrderGateway {
+  constructor(
+    private readonly erp: ErpHttpClient, // cliente HTTP do ERP legado
+    private readonly translator: ErpOrderTranslator,
+  ) {}
+
+  async findByCustomer(customerId: string): Promise<Order[]> {
+    // Chama o ERP com o modelo dele
+    const erpOrders: ErpOrder[] = await this.erp.get(\`/PEDIDOS?COD_CLI=\${customerId}\`)
+    // ACL traduz pro nosso domínio — o domínio nunca vê ErpOrder
+    return erpOrders.map(e => this.translator.toDomain(e))
+  }
+
+  async syncOrder(order: Order): Promise<void> {
+    const erpPayload = this.translator.toErp(order)
+    await this.erp.put(\`/PEDIDOS/\${erpPayload.PEDIDO_ID}\`, erpPayload)
+  }
+}
+
+// Teste que prova isolamento: se ERP mudar COD_CLI para CODIGO_CLIENTE,
+// apenas ErpOrderTranslator quebra — Order e use cases ficam intactos
+`,
+      },
+      {
+        title: 'Repositório DDD com Specification Pattern (TypeScript/Prisma)',
+        description: 'Repository interface no domínio com Specification para queries expressivas, implementação Prisma no adapter sem vazar ORM ao domínio.',
+        language: 'typescript',
+        code: `// === DOMAIN LAYER ===
+
+// domain/specifications/specification.ts
+export interface Specification<T> {
+  isSatisfiedBy(candidate: T): boolean
+  toQuery?(): Record<string, unknown> // opcional — para push-down de query no repo
+}
+
+// domain/specifications/order-specs.ts
+export class PendingOrdersSpec implements Specification<Order> {
+  isSatisfiedBy(order: Order): boolean {
+    return order.status === 'pending'
+  }
+  toQuery() { return { status: 'pending' } }
+}
+
+export class HighValueOrderSpec implements Specification<Order> {
+  constructor(private readonly minAmount: number) {}
+  isSatisfiedBy(order: Order): boolean {
+    return order.totalAmount >= this.minAmount
+  }
+  toQuery() { return { totalAmount: { gte: this.minAmount } } }
+}
+
+// Combinator
+export class AndSpec<T> implements Specification<T> {
+  constructor(private readonly left: Specification<T>, private readonly right: Specification<T>) {}
+  isSatisfiedBy(candidate: T): boolean {
+    return this.left.isSatisfiedBy(candidate) && this.right.isSatisfiedBy(candidate)
+  }
+  toQuery() {
+    return { AND: [this.left.toQuery?.(), this.right.toQuery?.()] }
+  }
+}
+
+// domain/repositories/i-order-repository.ts
+export interface IOrderRepository {
+  findById(id: OrderId): Promise<Order | null>
+  findBySpec(spec: Specification<Order>): Promise<Order[]>
+  save(order: Order): Promise<void>
+  delete(id: OrderId): Promise<void>
+}
+
+// === INFRASTRUCTURE LAYER ===
+
+// infrastructure/repositories/prisma-order.repository.ts
+import { PrismaClient } from '@prisma/client'
+
+export class PrismaOrderRepository implements IOrderRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async findById(id: OrderId): Promise<Order | null> {
+    const row = await this.prisma.order.findUnique({ where: { id: id.value }, include: { items: true } })
+    return row ? this.toDomain(row) : null
+  }
+
+  async findBySpec(spec: Specification<Order>): Promise<Order[]> {
+    // Push-down: se a spec tem toQuery, usamos no banco para eficiência
+    const where = spec.toQuery?.() ?? {}
+    const rows = await this.prisma.order.findMany({ where, include: { items: true } })
+    // Filtro em memória para specs sem toQuery ou com condições adicionais
+    return rows.map(r => this.toDomain(r)).filter(o => spec.isSatisfiedBy(o))
+  }
+
+  async save(order: Order): Promise<void> {
+    const data = this.toPersistence(order)
+    await this.prisma.order.upsert({
+      where: { id: data.id },
+      create: data,
+      update: data,
+    })
+  }
+
+  async delete(id: OrderId): Promise<void> {
+    await this.prisma.order.delete({ where: { id: id.value } })
+  }
+
+  // Mapper: Prisma row → Domain entity (privado ao adapter)
+  private toDomain(row: any): Order {
+    return Order.reconstitute(
+      OrderId.of(row.id),
+      row.customerId,
+      row.items.map((i: any) => ({ sku: i.sku, qty: i.quantity, unitPrice: i.unitPrice })),
+      row.status as Order['status'],
+      row.totalAmount,
+    )
+  }
+
+  // Mapper: Domain entity → Prisma data
+  private toPersistence(order: Order): any {
+    return {
+      id: order.id.value,
+      customerId: order.customerId,
+      status: order.status,
+      totalAmount: order.totalAmount,
+      items: { deleteMany: {}, createMany: { data: order.items } },
+    }
+  }
+}
+
+// === USO NO APPLICATION LAYER ===
+
+// application/use-cases/get-high-value-pending-orders.use-case.ts
+export class GetHighValuePendingOrdersUseCase {
+  constructor(private readonly orderRepo: IOrderRepository) {}
+
+  async exec(minAmount: number): Promise<OrderSummaryDto[]> {
+    const spec = new AndSpec(new PendingOrdersSpec(), new HighValueOrderSpec(minAmount))
+    const orders = await this.orderRepo.findBySpec(spec)
+    return orders.map(o => ({ id: o.id.value, total: o.totalAmount, status: o.status }))
+  }
+}
+// Spec combina lógica de domínio legível com push-down eficiente no banco
+// Use case não importa Prisma — troca por qualquer IOrderRepository sem mudar nada
+`,
+      },
     ],
     mindmap: {
       title: 'DDD — Mapa estratégico e tático',
@@ -3802,78 +4161,1783 @@ export class Order {
   },
 
   'microservices': {
-    tagline: 'Quebrar sistema em serviços independentes deployaveis com fronteira de negocio clara.',
-    why: 'Toda vaga senior pergunta sobre microservices. O que diferencia você e ter opinião: quando NÃO usar, qual o custo operacional real, como lidar com transação distribuida. Falar bem aqui mostra que você já sentiu a dor, não só leu blog.',
-    summary: 'Microservices e estilo arquitetural onde sistema e composto por serviços pequenos, independentes, com fronteira de domínio (geralmente bounded context), deploy próprio, banco próprio e comunicação via rede. Beneficio: escala independente, autonomia de time, tecnologia heterogenea. Custo: complexidade operacional brutal — observability, transação distribuida, versionamento de API, latência de rede, debugging difícil. Maioria dos projetos começa errado escolhendo microservice antes de ter o problema.',
+    tagline: 'Decompor sistema em serviços independentes, deployáveis com fronteira de domínio clara e banco próprio.',
+    why: 'Toda vaga sênior pergunta sobre microservices. O que diferencia você é ter opinião formada: quando NÃO usar, qual o custo operacional real, como lidar com transação distribuída. Falar bem aqui mostra que você já sentiu a dor, não só leu blog.',
+    prerequisite: 'DDD (Bounded Context), Docker/Kubernetes básico, mensageria (Kafka/RabbitMQ), REST/gRPC.',
+    summary: 'Microservices é estilo arquitetural onde o sistema é composto por serviços pequenos, independentes, com fronteira de domínio (geralmente Bounded Context), deploy próprio, banco próprio e comunicação via rede. Benefício: escala independente, autonomia de time, tecnologia heterogênea. Custo: complexidade operacional brutal — observability, transação distribuída, versionamento de API, latência de rede, debugging difícil. A maioria dos projetos começa errado escolhendo microservices antes de ter o problema que eles resolvem.',
+    howToStudy: 'Estude os padrões na ordem: 1) Bounded Context (DDD) — fundamento do particionamento. 2) Database per service — não negociável. 3) Saga — transação distribuída. 4) API Gateway + BFF. 5) Observability (OpenTelemetry). Só depois vá para service mesh, CQRS integrado e event sourcing. Leia "Building Microservices" (Newman) do início ao fim.',
+    diagrams: [
+      {
+        title: 'Monolito vs Microservices',
+        caption: 'Estrutura de código, banco, deploy e modelo de falha — comparação lado a lado.',
+        html: `<style>
+.ms1-wrap{font-family:system-ui,sans-serif;display:flex;gap:0;width:100%;border-radius:10px;overflow:hidden;border:2px solid #1793D1}
+.ms1-col{flex:1;padding:18px;background:#0f172a}
+.ms1-col+.ms1-col{border-left:2px solid #1793D1}
+.ms1-head{font-size:13px;font-weight:700;text-align:center;padding:6px 10px;border-radius:6px;margin-bottom:14px;letter-spacing:.5px}
+.ms1-mono .ms1-head{background:#334155;color:#94a3b8}
+.ms1-micro .ms1-head{background:#1793D1;color:#fff}
+.ms1-block{border-radius:6px;padding:8px 10px;font-size:11px;margin-bottom:6px;border:1px solid #334155}
+.ms1-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:600}
+.ms1-mono .ms1-block{background:#1e293b;color:#cbd5e1}
+.ms1-micro .ms1-block{background:#1e293b;color:#93c5fd}
+.ms1-db{background:#312e81!important;color:#c4b5fd!important;border-color:#4f46e5!important;font-weight:600}
+.ms1-fail-bad{background:#450a0a!important;color:#fca5a5!important;border-color:#b91c1c!important}
+.ms1-fail-ok{background:#052e16!important;color:#86efac!important;border-color:#15803d!important}
+.ms1-row{display:flex;gap:6px;flex-wrap:wrap}
+.ms1-svc{flex:1;min-width:80px;border-radius:6px;padding:7px 8px;font-size:10px;text-align:center;background:#1e3a5f;color:#93c5fd;border:1px solid #1793D1}
+.ms1-svcdb{font-size:9px;color:#818cf8;margin-top:3px}
+.ms1-arrow{color:#1793D1;font-weight:700;font-size:14px;text-align:center;margin:4px 0}
+</style>
+<div class="ms1-wrap">
+  <div class="ms1-col ms1-mono">
+    <div class="ms1-head">MONOLITO</div>
+    <div class="ms1-label">Código</div>
+    <div class="ms1-block">📦 Uma aplicação<br/>Orders + Users + Payments + Inventory — tudo junto</div>
+    <div class="ms1-label">Banco</div>
+    <div class="ms1-block ms1-db">🗄 Um banco compartilhado<br/>schema único, migrations afetam tudo</div>
+    <div class="ms1-label">Deploy</div>
+    <div class="ms1-block">🚀 Deploy único da aplicação inteira<br/>1 mudança = rebuild + redeploy completo</div>
+    <div class="ms1-label">Falha em cascata</div>
+    <div class="ms1-block ms1-fail-bad">💥 Bug em Payments trava toda a app<br/>Escala: vertical (máquina maior)</div>
+  </div>
+  <div class="ms1-col ms1-micro">
+    <div class="ms1-head">MICROSERVICES</div>
+    <div class="ms1-label">Serviços independentes</div>
+    <div class="ms1-row">
+      <div class="ms1-svc">📦 Orders<div class="ms1-svcdb">🗄 Postgres</div></div>
+      <div class="ms1-svc">👤 Users<div class="ms1-svcdb">🗄 MySQL</div></div>
+      <div class="ms1-svc">💳 Payments<div class="ms1-svcdb">🗄 Postgres</div></div>
+      <div class="ms1-svc">📦 Inventory<div class="ms1-svcdb">🗄 MongoDB</div></div>
+    </div>
+    <div class="ms1-label" style="margin-top:10px">Deploy</div>
+    <div class="ms1-block">🚀 Deploy independente por serviço<br/>Payments atualiza sem tocar Orders</div>
+    <div class="ms1-label">Falha isolada</div>
+    <div class="ms1-block ms1-fail-ok">✅ Bug em Payments isolado<br/>Orders continua funcionando<br/>Escala: horizontal por serviço</div>
+  </div>
+</div>`,
+      },
+      {
+        title: 'Saga Pattern — Coreografia vs Orquestração',
+        caption: 'Transação distribuída Order → Payment → Inventory → Shipping com compensating transactions.',
+        html: `<style>
+.ms2-wrap{font-family:system-ui,sans-serif;width:100%}
+.ms2-title{font-size:12px;font-weight:700;color:#1793D1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+.ms2-cols{display:flex;gap:12px;margin-bottom:14px}
+.ms2-pane{flex:1;background:#0f172a;border:1.5px solid #1793D1;border-radius:8px;padding:14px}
+.ms2-phead{font-size:11px;font-weight:700;color:#fff;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #1e3a5f}
+.ms2-step{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.ms2-num{background:#1793D1;color:#fff;width:18px;height:18px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ms2-evt{font-size:10px;color:#93c5fd}
+.ms2-svc{font-size:10px;color:#a5f3fc;font-weight:600}
+.ms2-comp{font-size:10px;color:#fca5a5;background:#450a0a;border-radius:4px;padding:2px 6px;margin-top:3px;display:inline-block}
+.ms2-ok{color:#86efac}
+.ms2-vs{display:flex;justify-content:center;align-items:center;font-size:11px;color:#64748b;font-weight:700;padding:0 6px}
+.ms2-note{background:#1e293b;border-left:3px solid #1793D1;padding:8px 12px;font-size:10px;color:#94a3b8;border-radius:0 6px 6px 0}
+.ms2-kafka{font-size:9px;color:#f59e0b;background:#422006;border-radius:3px;padding:1px 5px;font-weight:600}
+</style>
+<div class="ms2-wrap">
+  <div class="ms2-title">Saga Pattern — Transação Distribuída</div>
+  <div class="ms2-cols">
+    <div class="ms2-pane">
+      <div class="ms2-phead">Coreografia (Choreography) <span class="ms2-kafka">Kafka</span></div>
+      <div class="ms2-step"><div class="ms2-num">1</div><div><div class="ms2-svc">Orders Service</div><div class="ms2-evt">→ publica: <code>order.created</code></div></div></div>
+      <div class="ms2-step"><div class="ms2-num">2</div><div><div class="ms2-svc">Payment Service</div><div class="ms2-evt">← consome: <code>order.created</code><br/>→ publica: <code>payment.processed</code></div></div></div>
+      <div class="ms2-step"><div class="ms2-num">3</div><div><div class="ms2-svc">Inventory Service</div><div class="ms2-evt">← consome: <code>payment.processed</code><br/>→ publica: <code>stock.reserved</code></div></div></div>
+      <div class="ms2-step"><div class="ms2-num">4</div><div><div class="ms2-svc">Shipping Service</div><div class="ms2-evt">← consome: <code>stock.reserved</code><br/><span class="ms2-ok">✓ despacha pedido</span></div></div></div>
+      <div class="ms2-step"><div class="ms2-num">✗</div><div><div class="ms2-svc">Falha em Inventory</div><div class="ms2-comp">→ publica: stock.failed</div><div class="ms2-comp">Payment escuta e estorna</div></div></div>
+    </div>
+    <div class="ms2-vs">VS</div>
+    <div class="ms2-pane">
+      <div class="ms2-phead">Orquestração (Orchestration)</div>
+      <div class="ms2-step"><div class="ms2-num">1</div><div><div class="ms2-svc">Saga Orchestrator</div><div class="ms2-evt">→ chama: Payment.charge()</div></div></div>
+      <div class="ms2-step"><div class="ms2-num">2</div><div><div class="ms2-svc">Saga Orchestrator</div><div class="ms2-evt">← recebe: {<!-- -->success}<br/>→ chama: Inventory.reserve()</div></div></div>
+      <div class="ms2-step"><div class="ms2-num">3</div><div><div class="ms2-svc">Saga Orchestrator</div><div class="ms2-evt">← recebe: {<!-- -->success}<br/>→ chama: Shipping.dispatch()</div></div></div>
+      <div class="ms2-step"><div class="ms2-num">✗</div><div><div class="ms2-svc">Falha em Inventory</div><div class="ms2-comp">Orchestrator chama: Payment.refund()</div><div class="ms2-comp">Orchestrator chama: Order.cancel()</div></div></div>
+    </div>
+  </div>
+  <div class="ms2-note">
+    <strong style="color:#e2e8f0">Coreografia:</strong> simples, desacoplado, difícil de rastrear o fluxo completo.
+    <strong style="color:#e2e8f0">Orquestração:</strong> fluxo explícito e rastreável, mas orquestrador vira ponto central de complexidade.
+    <strong style="color:#1793D1">Idempotência é obrigatória nos dois casos</strong> — at-least-once delivery garante re-entrega.
+  </div>
+</div>`,
+      },
+      {
+        title: 'Arquitetura Completa com Observabilidade',
+        caption: 'API Gateway → serviços → message broker → observabilidade com service discovery e circuit breaker.',
+        html: `<style>
+.ms3-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.ms3-row{display:flex;gap:8px;margin-bottom:8px;align-items:stretch}
+.ms3-box{background:#0f172a;border:1px solid #1e3a5f;border-radius:7px;padding:9px 12px;font-size:10px;color:#cbd5e1;flex:1;text-align:center}
+.ms3-box strong{display:block;color:#fff;font-size:11px;margin-bottom:3px}
+.ms3-gw{border-color:#1793D1!important;background:#0c2340!important}
+.ms3-gw strong{color:#1793D1}
+.ms3-svc{border-color:#3b82f6;background:#0f1f3a}
+.ms3-svc strong{color:#93c5fd}
+.ms3-broker{border-color:#f59e0b;background:#1c1008}
+.ms3-broker strong{color:#fbbf24}
+.ms3-obs{border-color:#8b5cf6;background:#120d1f}
+.ms3-obs strong{color:#c4b5fd}
+.ms3-arrow{text-align:center;font-size:14px;color:#1793D1;margin:2px 0;line-height:1}
+.ms3-label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:6px}
+.ms3-tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;margin:2px 2px 0}
+.ms3-cb{background:#450a0a;color:#fca5a5}
+.ms3-sd{background:#052e16;color:#86efac}
+.ms3-sc{background:#1e1b4b;color:#a5b4fc}
+.ms3-client{background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 12px;font-size:10px;color:#94a3b8;text-align:center}
+</style>
+<div class="ms3-wrap">
+  <div class="ms3-label">Cliente</div>
+  <div class="ms3-row">
+    <div class="ms3-client">🌐 Web App</div>
+    <div class="ms3-client">📱 Mobile App</div>
+    <div class="ms3-client">🔗 Third-party</div>
+  </div>
+  <div class="ms3-arrow">↓</div>
+  <div class="ms3-label">API Gateway + BFF</div>
+  <div class="ms3-row">
+    <div class="ms3-box ms3-gw">
+      <strong>API Gateway</strong>
+      Auth · Rate Limit · Routing · SSL<br/>
+      <span class="ms3-tag ms3-sd">Service Discovery</span>
+      <span class="ms3-tag ms3-cb">Circuit Breaker</span>
+    </div>
+  </div>
+  <div class="ms3-arrow">↓</div>
+  <div class="ms3-label">Microserviços (cada um com banco próprio)</div>
+  <div class="ms3-row">
+    <div class="ms3-box ms3-svc"><strong>Orders</strong>Postgres<br/><span class="ms3-tag ms3-sc">Sidecar (Envoy)</span></div>
+    <div class="ms3-box ms3-svc"><strong>Payments</strong>Postgres<br/><span class="ms3-tag ms3-sc">Sidecar (Envoy)</span></div>
+    <div class="ms3-box ms3-svc"><strong>Inventory</strong>MongoDB<br/><span class="ms3-tag ms3-sc">Sidecar (Envoy)</span></div>
+    <div class="ms3-box ms3-svc"><strong>Shipping</strong>MySQL<br/><span class="ms3-tag ms3-sc">Sidecar (Envoy)</span></div>
+  </div>
+  <div class="ms3-arrow">↓</div>
+  <div class="ms3-label">Message Broker</div>
+  <div class="ms3-row">
+    <div class="ms3-box ms3-broker"><strong>Kafka / RabbitMQ</strong>Eventos de domínio · Saga events · Retry · DLQ</div>
+  </div>
+  <div class="ms3-arrow">↓</div>
+  <div class="ms3-label">Observabilidade</div>
+  <div class="ms3-row">
+    <div class="ms3-box ms3-obs"><strong>Distributed Tracing</strong>Jaeger · Zipkin<br/>correlation-id</div>
+    <div class="ms3-box ms3-obs"><strong>Metrics</strong>Prometheus + Grafana<br/>SLI/SLO</div>
+    <div class="ms3-box ms3-obs"><strong>Logs</strong>ELK Stack<br/>structured JSON</div>
+  </div>
+</div>`,
+      },
+    ],
     keypoints: [
-      { title: 'Por bounded context, não por entidade', body: 'Erro #1: criar microservice por tabela (UserService, OrderService, ItemService). Quebra coesao, gera N+1 de rede. Serviço deve corresponder a bounded context com regra própria.' },
-      { title: 'Banco por serviço', body: 'Cada serviço tem seu banco. Compartilhar banco mata o ponto inteiro — qualquer mudança de schema afeta todos. Usa eventos/API pra integrar dados.' },
-      { title: 'Sync vs Async', body: 'REST/gRPC sync = simples mas acopla disponibilidade. Async via fila/evento = desacopla mas adiciona complexidade (idempotencia, ordem, dead letter). Senior mistura.' },
-      { title: 'Saga e transação distribuida', body: 'Sem 2PC em microservice. Saga = sequência de transações locais com compensacao em falha. Choreography (eventos) ou orchestration (coordenador). Idempotencia e obrigatória.' },
-      { title: 'API Gateway', body: 'Ponto de entrada único — autenticação, rate limit, routing, agregacao. Evita cliente conhecer N serviços. BFF (Backend For Frontend) e variante por canal (web/mobile).' },
-      { title: 'Service Discovery', body: 'Serviços descobrem uns aos outros via DNS, Consul, Eureka, Kubernetes. Em K8s, Service object resolve. Em VM, registry + health check.' },
-      { title: 'Observability obrigatória', body: 'Logging estruturado + correlation id, tracing distribuido (OpenTelemetry, Jaeger), metrics (Prometheus). Sem isso, debug em microservice e impossivel.' },
+      { title: 'Por Bounded Context, não por entidade', body: 'Erro #1: criar microservice por tabela (UserService, OrderService, ItemService). Isso quebra a coesão e gera N+1 de rede. O serviço deve corresponder a um Bounded Context com regra de negócio própria. Se dois "serviços" sempre fazem deploy juntos, a fronteira está errada.' },
+      { title: 'Database per service — não negociável', body: 'Cada serviço tem seu banco. Compartilhar banco mata o ponto inteiro — qualquer mudança de schema afeta todos, elimina autonomia de deploy, cria acoplamento de dados. Integração via eventos/API, nunca por JOIN direto.' },
+      { title: 'Sync (REST/gRPC) vs Async (eventos)', body: 'Sync: simples, response imediato, debugging linear. Mas acopla disponibilidade — se B caiu, A também cai. Async (Kafka/RabbitMQ): desacopla temporalmente, absorve picos. Custo: idempotência, ordem, dead letter, eventual consistency. Sênior mistura: sync para leitura interativa, async para reação a eventos de negócio.' },
+      { title: 'Saga para transação distribuída', body: 'Sem 2PC em microservices — não escala e cria coupling. Saga = sequência de transações locais com compensating transactions em falha. Choreography (serviços reagem a eventos) ou Orchestration (coordenador explícito). Idempotência é obrigatória.' },
+      { title: 'API Gateway e BFF', body: 'Ponto de entrada único: autenticação, rate limit, routing, SSL termination, agregação de resposta. Evita cliente conhecer N serviços. BFF (Backend For Frontend) é variante especializada por canal — web BFF diferente do mobile BFF. Não coloque lógica de negócio no gateway.' },
+      { title: 'Service Discovery', body: 'Serviços precisam descobrir uns aos outros dinamicamente. Em Kubernetes, Service + DNS resolve automaticamente. Em VM/baremetal: Consul, Eureka, ou service mesh (Istio). Health check é parte do registro — serviço doente sai do pool.' },
+      { title: 'Observability é infra, não feature', body: 'Sem observability, debug em microservices é impossível. O mínimo: logging estruturado em JSON com correlation-id propagado, tracing distribuído (OpenTelemetry + Jaeger), métricas (Prometheus + Grafana). Correlation-id deve fluir em TODOS os serviços desde a borda.' },
+      { title: 'Strangler Fig para migração', body: 'Nunca migre monolito para microservices em big bang. Strangler fig: extrai um Bounded Context por vez, começando pelos menos acoplados. Fase 1: modularize dentro do monolito. Se não conseguir modularizar no monolito, microservice não vai resolver.' },
+    ],
+    cheatsheet: {
+      title: 'Checklist: Você Precisa de Microservices?',
+      html: `<style>
+.msc-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.msc-title{font-size:13px;font-weight:700;color:#1793D1;margin-bottom:14px}
+.msc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.msc-section{background:#0f172a;border-radius:8px;padding:12px;border:1px solid #1e3a5f}
+.msc-head{font-size:11px;font-weight:700;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #1e3a5f}
+.msc-ok .msc-head{color:#4ade80}
+.msc-no .msc-head{color:#f87171}
+.msc-item{font-size:10px;color:#cbd5e1;margin-bottom:4px;padding-left:14px;position:relative}
+.msc-item::before{position:absolute;left:0;top:0}
+.msc-ok .msc-item::before{content:"✓";color:#4ade80}
+.msc-no .msc-item::before{content:"✗";color:#f87171}
+.msc-patterns{background:#0f172a;border-radius:8px;padding:12px;border:1px solid #1e3a5f;margin-top:12px}
+.msc-patterns-head{font-size:11px;font-weight:700;color:#1793D1;margin-bottom:8px}
+.msc-ptable{width:100%;border-collapse:collapse;font-size:10px}
+.msc-ptable th{background:#1e3a5f;color:#93c5fd;padding:5px 8px;text-align:left}
+.msc-ptable td{padding:5px 8px;color:#cbd5e1;border-bottom:1px solid #1e293b}
+.msc-ptable code{background:#1e293b;padding:1px 4px;border-radius:3px;font-size:9px;color:#a5f3fc}
+</style>
+<div class="msc-wrap">
+  <div class="msc-title">Checklist: Você Precisa de Microservices?</div>
+  <div class="msc-grid">
+    <div class="msc-section msc-ok">
+      <div class="msc-head">USE quando...</div>
+      <div class="msc-item">Times grandes pisando no pé um do outro</div>
+      <div class="msc-item">Deploy do monolito bloqueia entrega</div>
+      <div class="msc-item">Módulos com necessidade de escala muito diferente</div>
+      <div class="msc-item">Fronteiras de domínio claras (Bounded Contexts)</div>
+      <div class="msc-item">Maturidade DevOps: CI/CD, K8s, observability</div>
+      <div class="msc-item">Diferentes stacks justificadas por domínio</div>
+    </div>
+    <div class="msc-section msc-no">
+      <div class="msc-head">NÃO USE quando...</div>
+      <div class="msc-item">Time &lt; 10 pessoas</div>
+      <div class="msc-item">Domínio ainda mal compreendido (pre-PMF)</div>
+      <div class="msc-item">Sem DevOps/SRE dedicado</div>
+      <div class="msc-item">Monolito funciona bem e não há gargalo real</div>
+      <div class="msc-item">"Porque Netflix usa" — cargo cult</div>
+      <div class="msc-item">Sem capacidade de operar observability</div>
+    </div>
+  </div>
+  <div class="msc-patterns">
+    <div class="msc-patterns-head">Padrões de Comunicação</div>
+    <table class="msc-ptable">
+      <tr><th>Padrão</th><th>Quando usar</th><th>Ferramenta</th></tr>
+      <tr><td>REST sync</td><td>Query interativa, resposta imediata</td><td><code>HTTP/JSON</code></td></tr>
+      <tr><td>gRPC sync</td><td>Alta performance entre serviços internos</td><td><code>Protobuf</code></td></tr>
+      <tr><td>Eventos async</td><td>Reação a evento de negócio, integração</td><td><code>Kafka, RabbitMQ</code></td></tr>
+      <tr><td>Saga Choreo</td><td>Transação distribuída simples</td><td><code>Kafka events</code></td></tr>
+      <tr><td>Saga Orch</td><td>Fluxo longo e rastreável</td><td><code>Temporal, Conductor</code></td></tr>
+      <tr><td>BFF</td><td>Cliente com requisito específico (mobile)</td><td><code>GraphQL, REST</code></td></tr>
+    </table>
+  </div>
+</div>`,
+    },
+    mnemonics: [
+      {
+        label: 'CBRT — Resiliência em Microservices',
+        trick: 'C-B-R-T: "Cuidado, Breaker Resiste ao Timeout"',
+        explanation: 'Circuit Breaker (falha rápida), Bulkhead (isolamento de pool), Retry com backoff+jitter, Timeout obrigatório em toda chamada remota. Os 4 padrões de resiliência que todo sênior precisa combinar.',
+      },
+      {
+        label: 'CO — Escolhendo o tipo de Saga',
+        trick: 'CO: "Coreografia é simples, Orquestração é clara"',
+        explanation: 'Choreography = eventos sem coordenador, simples para flows curtos. Orchestration = coordenador explícito, melhor para flows longos e rastreabilidade. Escolha pela complexidade do fluxo, não por preferência.',
+      },
+      {
+        label: 'BODS — Database per service',
+        trick: 'BODS: "Banco Own, Deploy Separado"',
+        explanation: 'Cada serviço possui (Own) seu banco, faz deploy separado, e integra via eventos. Se dois serviços compartilham banco, você não tem microservices — tem um distributed monolith.',
+      },
+      {
+        label: '3 Pilares de Observability: LMT',
+        trick: 'LMT: "Logs, Métricas, Traces" — os três pés do tripé',
+        explanation: 'Logs (eventos discretos, structured JSON), Metrics (agregações numéricas, Prometheus), Traces (fluxo de request entre serviços, Jaeger). Sem os três, diagnóstico em produção é adivinhação.',
+      },
     ],
     gotchas: [
-      'Time pequeno (<10 pessoas) com microservice — overhead operacional supera ganho. Monolito modular bem feito ganha.',
-      'Distributed monolith — serviços que dependem uns dos outros pra qualquer feature, deploy precisa coordenar. Pior dos dois mundos.',
-      'Compartilhar banco entre serviços — qualquer migration afeta todo mundo. Mata autonomia.',
-      'API breaking change sem versionamento — deploya serviço A, quebra serviço B em produção. Use contract test e versionamento.',
-      'Subestimar latência de rede — chamada local <1us vira chamada de rede 1-10ms. N chamadas em série = morte de UX.',
-      'Achar que micro = pequeno em LoC — micro e em escopo de domínio. Serviço de 50K linhas com fronteira clara e melhor que 10 serviços de 5K com acoplamento.',
+      'Time pequeno (<10 pessoas) com microservices — overhead de operar 10 serviços (CI/CD, monitoramento, deploy, on-call) suga a capacidade que deveria entregar feature. Monolito modular ganha em ROI.',
+      'Distributed monolith — serviços que dependem uns dos outros para qualquer feature, deploy precisa coordenar. É o pior dos dois mundos: complexidade de microservices sem os benefícios.',
+      'Compartilhar banco entre serviços — qualquer migration afeta todo mundo. Mata autonomia. Se você compartilha banco, você não tem microservices.',
+      'API breaking change sem versionamento — deploya serviço A, quebra serviço B em produção. Use contract test (Pact) e versionamento de API.',
+      'Subestimar latência de rede — chamada local <1μs vira chamada de rede 1-10ms. N chamadas síncronas em série = morte de UX e de SLA.',
+      'Achar que micro = pequeno em linhas de código — micro é em escopo de domínio. Serviço de 50K linhas com fronteira clara é melhor que 10 serviços de 5K com acoplamento.',
+      'Saga sem idempotência — at-least-once delivery garante que eventos chegam mais de uma vez. Sem idempotência no handler, você processa o mesmo evento duas vezes e corrompe dados.',
+      'Não ter fallback no circuit breaker — breaker abre, sistema falha rápido, mas usuário ainda vê erro. Defina a experiência degradada (cache stale, mensagem amigável, fila para reprocessar depois).',
     ],
     interview: [
-      { q: 'Que red flag te faz NÃO recomendar microservices?', a: '<p>Time de 5-10 dev — overhead de operar 10 serviços (CI/CD, monitoramento, deploy, on-call) suga capacidade que deveria entregar feature. <strong>Monolito modular</strong> ganha em ROI.</p><p>Outras red flags: domínio mal entendido (fronteiras erradas viram pesadelo de refactor), sem maturidade DevOps (observability, IaC), produto pre-PMF (arquitetura mudando direto), e <strong>"queremos microservices porque Netflix usa"</strong> — cargo cult clássico. Sam Newman: <em>"don\'t do microservices"</em> e literalmente o titulo de talk dele.</p>' },
-      { q: 'Como você lida com transação que cruza microservices?', a: '<p>Esqueco 2PC — não escala. Uso <strong>Saga</strong>: sequência de transações locais, cada serviço pública evento, próximo serviço reage. Em falha, dispara compensacao (cancelar reserva, estornar pagamento).</p><p>Duas variantes: <strong>choreography</strong> (serviços reagem a eventos sem coordenador, simples mas difícil de visualizar) e <strong>orchestration</strong> (um serviço orquestra a saga, mais claro mas vira ponto central). Idempotencia e <code>outbox pattern</code> são obrigatórios pra garantia.</p>' },
-      { q: 'Como você define a fronteira de um microservico?', a: '<p>Começo por <strong>bounded context</strong> de DDD — onde o modelo e a linguagem mudam. Verifico também: dado que muda junto fica junto, time autonomo dono do serviço, frequência de mudança compatível, escala independente justificada.</p><p>Heurística de Newman: se você precisa fazer deploy coordenado de dois serviços pra entregar feature, <strong>a fronteira está errada</strong>. Junte ou redesenhe.</p>' },
-      { q: 'Tradeoff: REST sync vs eventos async entre serviços?', a: '<p><strong>Sync (REST/gRPC)</strong>: simples, response imediato, debugging linear. Mas acopla disponibilidade (se B caiu, A também cai), adiciona latência em cadeia, e cria fanout difícil de escalar.</p><p><strong>Async (eventos/fila)</strong>: desacopla, absorve spike, escala bem. Mas complexidade sobe — idempotencia, ordem, dead letter, observability mais difícil, response não e imediato (precisa polling/websocket).</p><p>Regra: caminho de leitura interativo = sync. Reacao a evento de negocio (notificacao, replicação, integração) = async. Misturo dentro do mesmo serviço sem culpa.</p>' },
-      { q: 'Como você versiona API entre microservices?', a: '<p>Prefiro <strong>backward compatibility</strong> a versionamento explícito. Adicionar campo: ok. Remover/renomear: nunca direto — adiciona novo, depreca antigo, monitora uso, remove depois.</p><p>Quando precisa breaking: versão na URL (<code>/v2/orders</code>) ou header. Contract test (Pact) garante que mudança em A não quebra B em CI antes de chegar em prod.</p>' },
-      { q: 'Quando migrar de monolito pra microservices?', a: '<p>Quando a <strong>dor justifica o custo</strong>. Sintomas: deploy do monolito demora horas e bloqueia times, escala vertical no limite, módulo X precisa de stack diferente, time grande pisando no pe um do outro.</p><p>Estrategia: <strong>strangler fig</strong> — extrai um bounded context por vez, começa pelos menos acoplados. Nunca big bang. Antes de extrair, modulariza dentro do monolito (monolito modular) — se não consegue ai, microservice não vai resolver.</p>' },
+      {
+        q: 'Que red flag te faz NÃO recomendar microservices?',
+        a: '<p>Time de 5-10 devs — overhead de operar 10 serviços (CI/CD, monitoramento, deploy, on-call) suga a capacidade que deveria entregar feature. <strong>Monolito modular</strong> ganha em ROI.</p><p>Outras red flags: domínio mal entendido (fronteiras erradas viram pesadelo de refactor), sem maturidade DevOps (observability, IaC), produto pré-PMF (arquitetura mudando direto), e <strong>"queremos microservices porque Netflix usa"</strong> — cargo cult clássico. Sam Newman: <em>"don\'t do microservices"</em> é literalmente o título de uma talk dele.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você lida com transação que cruza microservices?',
+        a: '<p>Descarto 2PC — não escala e cria acoplamento de disponibilidade. Uso <strong>Saga</strong>: sequência de transações locais, cada serviço publica evento, o próximo serviço reage. Em falha, dispara compensating transactions (cancelar reserva, estornar pagamento).</p><p>Duas variantes: <strong>choreography</strong> (serviços reagem a eventos sem coordenador, simples mas difícil de visualizar o fluxo completo) e <strong>orchestration</strong> (um serviço orquestra a saga, mais claro e rastreável mas cria ponto central). Idempotência e <code>outbox pattern</code> são obrigatórios para garantia de entrega.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você define a fronteira de um microserviço?',
+        a: '<p>Começo por <strong>Bounded Context</strong> de DDD — onde o modelo e a linguagem de negócio mudam. Verifico também: dado que muda junto fica junto, time autônomo como dono do serviço, frequência de mudança compatível, escala independente justificada por dado real.</p><p>Heurística de Newman: se você precisa fazer deploy coordenado de dois serviços para entregar uma feature, <strong>a fronteira está errada</strong>. Junte ou redesenhe.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Tradeoff: REST sync vs eventos async entre serviços?',
+        a: '<p><strong>Sync (REST/gRPC)</strong>: simples, response imediato, debugging linear. Mas acopla disponibilidade — se B caiu, A também cai — adiciona latência em cadeia e cria fanout difícil de escalar.</p><p><strong>Async (eventos/fila)</strong>: desacopla temporalmente, absorve pico, escala bem. Mas complexidade sobe — idempotência, ordem, dead letter, observability mais difícil, response não é imediato (precisa polling ou websocket).</p><p>Regra prática: caminho de leitura interativa = sync. Reação a evento de negócio (notificação, replicação, integração) = async. Misturo dentro do mesmo sistema sem culpa.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Como você versiona API entre microservices?',
+        a: '<p>Prefiro <strong>backward compatibility</strong> a versionamento explícito. Adicionar campo: ok. Remover/renomear: nunca direto — adiciona o novo, depreca o antigo, monitora uso via analytics, remove depois.</p><p>Quando precisa de breaking change: versão na URL (<code>/v2/orders</code>) ou header (<code>Accept-Version</code>). <strong>Contract test</strong> (Pact) garante que mudança em A não quebra B em CI antes de chegar em produção. Consumer-driven contracts são o padrão em organizações maduras.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Quando migrar de monolito para microservices?',
+        a: '<p>Quando a <strong>dor justifica o custo</strong>. Sintomas reais: deploy do monolito demora horas e bloqueia times, escala vertical chegou ao limite, módulo X precisa de stack diferente, time grande pisando no pé um do outro com merge conflicts frequentes.</p><p>Estratégia: <strong>strangler fig</strong> — extrai um Bounded Context por vez, começa pelos menos acoplados. Nunca big bang. Antes de extrair, modularize dentro do monolito — se não consegue fazer isso, microservice não vai resolver.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'O que é um distributed monolith e como evitar?',
+        a: '<p>Distributed monolith é quando você tem a complexidade de microservices sem os benefícios: serviços que precisam ser deployados juntos, que compartilham banco, que fazem chamadas síncronas em cadeia para cada request.</p><p>Evitar: <strong>database per service</strong> (sem exceção), comunicação async para fluxos não interativos, fronteiras por Bounded Context (não por entidade técnica), e o teste: consigo fazer deploy de A sem que B precise ser atualizado?</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Como você garante que um evento seja processado exatamente uma vez?',
+        a: '<p>Exatamente uma vez (<em>exactly-once</em>) é extremamente difícil de garantir em sistemas distribuídos — Kafka oferece isso dentro do cluster, mas não ponta a ponta. O padrão prático é <strong>at-least-once + idempotência no consumer</strong>.</p><p>Implementação: cada evento tem um <code>eventId</code> único. Consumer verifica em tabela de idempotência se já processou; se sim, ignora (ack sem reprocessar). A tabela faz parte da mesma transação do efeito colateral. Isso garante efetivamente o comportamento de exactly-once para o negócio.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Explique o Outbox Pattern e quando usá-lo.',
+        a: '<p>Problema: gravo no banco de dados E preciso publicar um evento. Se publico antes de commitar, evento vai mas transação pode falhar. Se publico depois do commit, processo pode morrer antes de publicar — evento se perde.</p><p><strong>Outbox Pattern</strong>: na mesma transação de negócio, insiro o evento numa tabela <code>outbox</code>. Um relay separado (ou CDC via Debezium) lê essa tabela e publica no broker. Garante que evento só é publicado se a transação commitou. É <strong>at-least-once</strong> — relay garante entrega, consumer precisa de idempotência.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você implementa Circuit Breaker em microservices?',
+        a: '<p>Três estados: <code>CLOSED</code> (chamadas passam, monitoro falhas), <code>OPEN</code> (rejeito imediatamente — fail-fast), <code>HALF_OPEN</code> (deixo passar algumas chamadas de teste).</p><p>Configuração típica: janela deslizante de 60s, volume mínimo de 20 calls, taxa de erro &gt; 50% abre. Após 30s em OPEN, vai para HALF_OPEN, testa 5 calls. Se passarem, fecha; se falharem, abre novamente com backoff.</p><p>Bibliotecas: Resilience4j (Java), Polly (.NET), opossum (Node). Em K8s com Istio, breaker fica no sidecar proxy — sem mudar código da aplicação.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você monitora saúde do sistema de microservices?',
+        a: '<p>Os três pilares de observability: <strong>Logs</strong> (JSON estruturado com correlation-id, via ELK ou Loki), <strong>Metrics</strong> (Prometheus + Grafana, com SLI/SLO definidos), <strong>Traces</strong> (OpenTelemetry + Jaeger para rastrear request entre serviços).</p><p>O correlation-id deve ser gerado na borda (API Gateway) e propagado em todos os headers de chamada entre serviços. Sem isso, rastrear um erro que cruzou 5 serviços é impossível.</p><p>Alertas em cima de SLOs, não de métricas brutas. Error budget como gatilho para postmortem.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'O que é BFF (Backend For Frontend)?',
+        a: '<p>BFF é uma variação do API Gateway onde cada "tipo de cliente" tem seu próprio backend especializado. Web BFF agrega e formata dados para o app web; Mobile BFF faz o mesmo para o app mobile — campos diferentes, payloads menores, APIs otimizadas por cliente.</p><p>Resolve o problema de o frontend web precisar de dados muito diferentes do mobile, evitando que o gateway genérico vire um agregador que serve mal aos dois. Time de frontend pode possuir e deployar seu próprio BFF.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Como você lida com service discovery em Kubernetes?',
+        a: '<p>Kubernetes tem service discovery nativo via DNS e Service objects. Quando crio um Service do tipo ClusterIP, o kube-dns resolve <code>orders-service.default.svc.cluster.local</code> para o IP virtual, que é load-balanced entre os pods.</p><p>Não preciso de Consul ou Eureka em K8s — o control plane cuida disso. O que preciso garantir: health checks corretos no readinessProbe (pod só entra no pool quando está pronto), graceful shutdown (pod sai do pool antes de morrer), e PodDisruptionBudget para não tirar todos os pods de uma vez em rolling update.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Quando usar gRPC ao invés de REST entre serviços?',
+        a: '<p>gRPC é vantajoso quando: comunicação interna de alta frequência onde o overhead de JSON e parsing HTTP/1.1 importa, streaming bidirecional necessário, contrato forte via Protobuf é importante para evitar breaking changes acidentais, e você tem clientes gerados automaticamente em múltiplas linguagens.</p><p>REST ainda faz sentido para: APIs públicas (tooling de mercado melhor, legibilidade), integração com sistemas que não suportam HTTP/2, ou quando a equipe não tem familiaridade com Protobuf. Em prática: REST para APIs externas, gRPC para comunicação interna de performance crítica.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você testa microservices em isolamento?',
+        a: '<p>Pirâmide adaptada para microservices: <strong>unit tests</strong> para lógica de domínio (sem rede), <strong>component tests</strong> para o serviço completo com dependências mockadas (WireMock, Testcontainers), <strong>contract tests</strong> (Pact) para garantir que producer e consumer concordam com a interface, e <strong>integration tests</strong> mínimos end-to-end em ambiente de staging.</p><p>Evito rodar todos os microservices juntos em CI — é lento, frágil e mascara falhas. Contract tests substituem E2E na maioria dos casos e rodam 10x mais rápido.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você lida com deploy de múltiplos microservices sem downtime?',
+        level: 'senior',
+        a: '<p>Zero-downtime deployment em microservices exige coordenação de API versioning, rolling updates e backward compatibility. As práticas essenciais:</p><ul><li><strong>Rolling deployment no Kubernetes:</strong> <code>RollingUpdate</code> com <code>maxUnavailable: 0</code> e <code>maxSurge: 1</code>. Novos pods sobem antes dos velhos saírem. <code>readinessProbe</code> garante que o pod só recebe tráfego quando está pronto.</li><li><strong>Backward compatibility obrigatória:</strong> nunca remova ou renomeie campo de API enquanto consumers antigos existem. Adicione campos, não substitua. Versione endpoint quando não há outra opção (<code>/v2/orders</code>).</li><li><strong>Expand-contract pattern:</strong> ao mudar schema de evento Kafka, primeiro faça Expand (adiciona novo campo, mantém antigo), deploya consumidores que leem o novo campo, então faça Contract (remove antigo). Nunca remove em único deploy.</li><li><strong>Feature flags para rollout gradual:</strong> nova lógica por trás de flag. Deploy sem ativar. Ativa pra 1% do tráfego, depois 10%, depois 100%. Rollback é só desativar a flag.</li></ul><p>Validação de que funcionou: <code>kubectl rollout status deployment/orders-service</code>. Monitora error rate no Grafana durante rollout — se subir, <code>kubectl rollout undo</code> instantâneo.</p>',
+        tip: 'Citar readinessProbe, expand-contract e feature flags mostra que você pensa em deploy como engenharia, não como "subir a versão nova". Diferencial real em entrevista de sistema distribuído.',
+      },
+      {
+        q: 'O que é service mesh e quando justifica sua complexidade?',
+        level: 'senior',
+        a: '<p>Service mesh (Istio, Linkerd) é uma camada de infraestrutura que intercepta toda comunicação entre serviços via sidecar proxies (Envoy). Oferece: mTLS automático, circuit breaking, retry com backoff, rate limiting, distributed tracing e traffic shifting — tudo sem mudar código da aplicação.</p><p>Quando justifica:</p><ul><li><strong>mTLS entre serviços:</strong> em ambiente de segurança rigorosa, certificar comunicação serviço-a-serviço sem implementar no código de cada um.</li><li><strong>Canary deployment sofisticado:</strong> 5% do tráfego para v2 baseado em header ou percentual — impossível de fazer elegantemente sem mesh.</li><li><strong>Observability unificada:</strong> tracing distribuído automático sem instrumentar cada serviço individualmente.</li><li><strong>Cluster grande (20+ serviços):</strong> a partir de certo tamanho, o custo de implementar esses concerns em cada serviço supera o custo operacional do mesh.</li></ul><p>Quando NÃO justifica: cluster pequeno (5-10 serviços), time sem experiência em Kubernetes avançado, ou startup sem necessidade de mTLS e canary. Istio tem curva de operação brutal — troubleshooting de mTLS pode tomar dias sem expertise. Comece com circuit breaker na aplicação (Resilience4j/opossum) e adicione mesh quando o ganho operacional for mensurável.</p>',
+        tip: 'Saber quando NÃO usar service mesh é diferencial sênior. Muitos falam de Istio como solução default — quem entende o custo operacional e quando vale mostra maturidade.',
+      },
+      {
+        q: 'Como você garante idempotência em handlers de eventos?',
+        level: 'senior',
+        a: '<p>Idempotência é obrigatória em qualquer sistema com entrega at-least-once. O handler pode receber o mesmo evento N vezes — seja por retry do broker, reprocessamento de dead letter, ou reconstrução de read model.</p><p><strong>Padrão mais robusto — tabela de idempotência:</strong></p><pre><code>// Na mesma transação do efeito colateral\nasync function handleOrderPaid(event: OrderPaidEvent): Promise&lt;void&gt; {\n  await db.transaction(async tx => {\n    // Verifica se já processou\n    const exists = await tx.idempotencyLog.findUnique({ where: { eventId: event.id } })\n    if (exists) return // ack sem reprocessar\n\n    // Efeito colateral (ex: atualizar read model)\n    await tx.orderView.update({ where: { id: event.orderId }, data: { status: \'paid\' } })\n\n    // Registra processamento NA MESMA TRANSAÇÃO\n    await tx.idempotencyLog.create({ data: { eventId: event.id, processedAt: new Date() } })\n  })\n}</code></pre><p>Outros padrões:</p><ul><li><strong>Estado natural idempotente:</strong> <code>UPDATE ... SET status = \'paid\' WHERE id = ?</code> é idempotente por natureza — aplicar N vezes tem mesmo resultado que 1 vez.</li><li><strong>Upsert:</strong> <code>INSERT ... ON CONFLICT DO UPDATE</code> — idempotente para criação de registros.</li><li><strong>Versão/número de sequência:</strong> só processa se <code>event.version > currentVersion</code>. Rejeita eventos duplicados ou fora de ordem.</li></ul><p>Cuidado com a tabela de idempotência: ela cresce indefinidamente. Adiciona TTL ou limpeza periódica para eventos com mais de N dias.</p>',
+        tip: 'Mostrar código com transação atômica que inclui o registro de idempotência é o que diferencia quem implementou de quem apenas sabe o conceito.',
+      },
+      {
+        q: 'Como você projeta API Gateway para múltiplos microservices?',
+        level: 'senior',
+        a: '<p>API Gateway é o ponto de entrada único do sistema para o exterior — cliente nunca fala com serviço interno diretamente. Responsabilidades do Gateway:</p><ul><li><strong>Roteamento:</strong> <code>GET /orders/123</code> → Orders Service. <code>POST /payments</code> → Payment Service.</li><li><strong>Autenticação/Autorização:</strong> valida JWT ou chama Identity Service. Serviços internos confiam no header passado pelo gateway.</li><li><strong>Rate limiting:</strong> por IP ou por usuário. Protege serviços de DDoS sem implementar em cada um.</li><li><strong>Aggregation:</strong> uma chamada do cliente que precisa de dados de 3 serviços — gateway agrega internamente. Sem isso, frontend faz 3 chamadas paralelas.</li><li><strong>Protocol translation:</strong> cliente HTTP/REST, serviço interno gRPC — gateway traduz.</li></ul><p>Opções de implementação:</p><ul><li><strong>Kong/KrakenD/AWS API Gateway:</strong> configuração declarativa, sem código. Melhor para casos de roteamento e autenticação puros.</li><li><strong>BFF (Backend for Frontend):</strong> gateway com lógica customizada por tipo de cliente (Web, Mobile). Code-based — NestJS ou Express. Permite agregação complexa e formatação específica por cliente.</li></ul><p>Anti-pattern: API Gateway com regra de negócio. Se o gateway faz cálculo de desconto ou validação de estoque, virou God Service. Gateway é infraestrutura — transparente ao negócio.</p>',
+        tip: 'Diferenciar API Gateway puro de BFF e saber quando cada um se aplica é pergunta frequente em entrevistas de arquitetura de microservices.',
+      },
+      {
+        q: 'Como você implementa rastreabilidade (tracing) entre microservices?',
+        level: 'senior',
+        a: '<p>Distributed tracing é fundamental em microservices: sem ele, um erro que cruzou 5 serviços é impossível de rastrear. A solução padrão hoje é <strong>OpenTelemetry (OTel)</strong>.</p><p>Componentes:</p><ul><li><strong>Trace:</strong> representa uma operação end-to-end (ex: GET /orders/123 que cruzou 4 serviços)</li><li><strong>Span:</strong> uma unidade de trabalho dentro do trace (cada chamada de serviço, cada query SQL)</li><li><strong>Context propagation:</strong> o traceId é passado em header (<code>traceparent</code>) de serviço em serviço automaticamente</li></ul><p>Implementação com NestJS:</p><pre><code>// main.ts — instrumentação automática\nimport { NodeSDK } from \'@opentelemetry/sdk-node\'\nimport { JaegerExporter } from \'@opentelemetry/exporter-jaeger\'\n\nconst sdk = new NodeSDK({\n  traceExporter: new JaegerExporter({ endpoint: \'http://jaeger:14268/api/traces\' }),\n  instrumentations: [getNodeAutoInstrumentations()], // HTTP, gRPC, DB automático\n})\nsdk.start()</code></pre><p>Boas práticas:</p><ul><li><strong>Correlation ID</strong> gerado no API Gateway, propagado em todos os headers internos</li><li><strong>Span attributes</strong>: adiciona <code>order.id</code>, <code>customer.id</code> nos spans relevantes — facilita busca</li><li><strong>Sampling estratégico:</strong> 100% em erros e operações lentas (&gt;p95), 1% em chamadas normais — controla volume</li><li><strong>Alertas em latência</strong>: span &gt;500ms dispara alerta com traceId embutido — debuggable direto</li></ul>',
+        tip: 'Citar OpenTelemetry (não Zipkin ou Jaeger como ferramenta de instrumentação — são apenas backends) e mostrar código real de setup mostra expertise de produção.',
+      },
+    ],
+    exercises: [
+      {
+        level: 'iniciante',
+        title: 'Identificar Bounded Contexts num e-commerce',
+        description: 'Dado um sistema de e-commerce com User, Product, Order, Payment, Inventory, Shipping, Notification: identifique os Bounded Contexts, defina quais seriam microservices e desenhe o fluxo de criação de pedido com as comunicações entre eles.',
+        concepts: ['Bounded Context', 'Database per service', 'Comunicação entre serviços'],
+        hint: 'Comece agrupando entidades que mudam juntas e têm a mesma linguagem de negócio. Pense: quem é dono dos dados de "produto" no contexto de catálogo vs no contexto de carrinho?',
+      },
+      {
+        level: 'intermediario',
+        title: 'Implementar Saga de Criação de Pedido',
+        description: 'Implemente uma Saga de coreografia (via eventos) para o fluxo: OrderCreated → PaymentProcessed → StockReserved → ShippingDispatched. Inclua compensating transactions para falha em Payment (order cancelado) e falha em Stock (payment estornado, order cancelado). Garanta idempotência nos handlers.',
+        concepts: ['Saga', 'Choreography', 'Compensating transactions', 'Idempotência', 'Outbox pattern'],
+        hint: 'Use uma tabela de idempotência com eventId. Na compensação, lembre que o evento de compensação também pode ser entregue mais de uma vez — a compensação também precisa ser idempotente.',
+        relatedKeypoints: [3, 6],
+      },
+      {
+        level: 'intermediario',
+        title: 'Implementar Outbox Pattern',
+        description: 'Implemente o Outbox Pattern para garantir que eventos de domínio não sejam perdidos. Crie a tabela outbox, modifique o repositório para inserir o evento na mesma transação, e implemente o relay que publica no Kafka. Teste o cenário de falha entre commit e publicação.',
+        concepts: ['Outbox pattern', 'At-least-once delivery', 'Transactional messaging', 'CDC'],
+        hint: 'O relay pode usar polling simples (SELECT + DELETE) ou CDC via Debezium lendo o WAL do Postgres. A diferença em latência é significativa — polling adiciona delay de até N segundos dependendo do intervalo.',
+      },
+      {
+        level: 'senior',
+        title: 'Strangler Fig: Extrair Payments do Monolito',
+        description: 'Dado um monolito Rails com módulo de Payments acoplado ao módulo de Orders (compartilham banco, chamadas diretas de método), projete a extração incremental usando Strangler Fig. Defina as etapas, como lidar com o banco compartilhado, como versionar a API durante a transição, e como garantir zero downtime.',
+        concepts: ['Strangler fig', 'Database decomposition', 'API versioning', 'Feature flags', 'Contract testing'],
+        hint: 'A extração do banco é a parte mais perigosa. Considere: Schema separation primeiro (tabelas de Payments num schema separado mas mesmo banco), depois extract service apontando para o mesmo banco, depois database separation com sincronização via CDC, depois remover sincronização.',
+        relatedKeypoints: [7],
+      },
+    ],
+    codeExamples: [
+      {
+        title: 'Saga de Coreografia com Outbox Pattern (TypeScript/NestJS)',
+        description: 'Implementação completa de Saga coreografada: Orders Service cria pedido + insere evento no outbox na mesma transação. Payment Service consome evento com idempotência.',
+        language: 'typescript',
+        code: `// === ORDERS SERVICE ===
+
+// order.entity.ts
+export class Order {
+  constructor(
+    public readonly id: string,
+    public readonly customerId: string,
+    public readonly items: OrderItem[],
+    public status: 'pending' | 'confirmed' | 'cancelled' = 'pending',
+  ) {}
+
+  get total(): number {
+    return this.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  }
+}
+
+// create-order.usecase.ts
+@Injectable()
+export class CreateOrderUseCase {
+  constructor(
+    private readonly orderRepo: OrderRepository,
+    private readonly outboxRepo: OutboxRepository,
+    private readonly db: DataSource,
+  ) {}
+
+  async execute(cmd: CreateOrderCommand): Promise<string> {
+    return this.db.transaction(async (em) => {
+      // 1. Cria pedido
+      const order = new Order(uuid(), cmd.customerId, cmd.items)
+      await this.orderRepo.save(order, em)
+
+      // 2. Insere evento no outbox NA MESMA TRANSAÇÃO
+      // Garante: se transação commitar, evento está garantido de ser publicado
+      await this.outboxRepo.insert({
+        id: uuid(),
+        aggregateType: 'Order',
+        aggregateId: order.id,
+        eventType: 'order.created',
+        payload: JSON.stringify({
+          orderId: order.id,
+          customerId: order.customerId,
+          total: order.total,
+          items: order.items,
+        }),
+        createdAt: new Date(),
+      }, em)
+
+      return order.id
+    })
+  }
+}
+
+// outbox.relay.ts — relay que publica do outbox para Kafka
+@Injectable()
+export class OutboxRelay implements OnApplicationBootstrap {
+  constructor(
+    private readonly outboxRepo: OutboxRepository,
+    private readonly kafka: KafkaProducer,
+  ) {}
+
+  onApplicationBootstrap() {
+    // Polling a cada 500ms — pode ser substituído por CDC via Debezium
+    setInterval(() => this.publishPending(), 500)
+  }
+
+  private async publishPending(): Promise<void> {
+    const events = await this.outboxRepo.findPending(limit: 100)
+    for (const event of events) {
+      await this.kafka.send({
+        topic: event.eventType,
+        messages: [{ key: event.aggregateId, value: event.payload }],
+      })
+      await this.outboxRepo.markPublished(event.id)
+    }
+  }
+}
+
+// === PAYMENT SERVICE ===
+
+// payment-saga.handler.ts
+@Injectable()
+export class PaymentSagaHandler {
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly idempotencyRepo: IdempotencyRepository,
+    private readonly kafka: KafkaProducer,
+    private readonly db: DataSource,
+  ) {}
+
+  @KafkaConsumer('order.created')
+  async handleOrderCreated(event: OrderCreatedEvent): Promise<void> {
+    // Idempotência: verifica se já processamos este eventId
+    const alreadyProcessed = await this.idempotencyRepo.exists(event.id)
+    if (alreadyProcessed) {
+      console.log(\`[idempotency] Evento \${event.id} já processado, ignorando\`)
+      return
+    }
+
+    await this.db.transaction(async (em) => {
+      // Processa pagamento
+      const result = await this.paymentService.charge({
+        orderId: event.payload.orderId,
+        customerId: event.payload.customerId,
+        amount: event.payload.total,
+      })
+
+      // Registra idempotência + publica próximo evento na mesma transação
+      await this.idempotencyRepo.insert(event.id, em)
+
+      const nextEvent = result.success
+        ? { topic: 'payment.processed', payload: { orderId: event.payload.orderId, paymentId: result.paymentId } }
+        : { topic: 'payment.failed', payload: { orderId: event.payload.orderId, reason: result.error } }
+
+      await this.outboxRepo.insert({ eventType: nextEvent.topic, payload: nextEvent.payload }, em)
+    })
+  }
+}
+
+// === ORDERS SERVICE — Compensating Transaction ===
+@KafkaConsumer('payment.failed')
+async handlePaymentFailed(event: PaymentFailedEvent): Promise<void> {
+  const alreadyProcessed = await this.idempotencyRepo.exists(event.id)
+  if (alreadyProcessed) return
+
+  await this.db.transaction(async (em) => {
+    await this.orderRepo.updateStatus(event.payload.orderId, 'cancelled', em)
+    await this.idempotencyRepo.insert(event.id, em)
+    // Notifica cliente via evento (sem acoplamento direto ao Notification Service)
+    await this.outboxRepo.insert({
+      eventType: 'order.cancelled',
+      payload: { orderId: event.payload.orderId, reason: event.payload.reason },
+    }, em)
+  })
+}`,
+      },
+      {
+        title: 'Circuit Breaker com Resilience4j (Java/Spring Boot)',
+        description: 'Configuração e uso do Circuit Breaker com fallback, bulkhead e retry encadeados. Padrão de resiliência CBRT completo.',
+        language: 'java',
+        code: `// application.yml
+resilience4j:
+  circuitbreaker:
+    instances:
+      payment-service:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50        # abre com 50% de falha
+        waitDurationInOpenState: 30s    # espera 30s antes de half-open
+        permittedNumberOfCallsInHalfOpenState: 5
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  retry:
+    instances:
+      payment-service:
+        maxAttempts: 3
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+  bulkhead:
+    instances:
+      payment-service:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 500ms
+
+// PaymentClient.java
+@Service
+public class PaymentClient {
+    private final WebClient webClient;
+    private final PaymentCache cache;
+
+    // Encadeamento: Bulkhead → CircuitBreaker → Retry → TimeLimiter
+    @Bulkhead(name = "payment-service", fallbackMethod = "paymentFallback")
+    @CircuitBreaker(name = "payment-service", fallbackMethod = "paymentFallback")
+    @Retry(name = "payment-service")
+    @TimeLimiter(name = "payment-service")
+    public CompletableFuture<PaymentResult> charge(ChargeRequest request) {
+        return webClient.post()
+            .uri("/v1/charges")
+            .bodyValue(request)
+            .retrieve()
+            .bodyToMono(PaymentResult.class)
+            .toFuture();
+    }
+
+    // Fallback: cache stale ou resposta degradada
+    public CompletableFuture<PaymentResult> paymentFallback(
+        ChargeRequest request, Exception ex
+    ) {
+        log.warn("Circuit breaker ativo para payment-service: {}", ex.getMessage());
+        // Retorna resultado em fila para processamento posterior
+        return CompletableFuture.completedFuture(
+            PaymentResult.queued(request.getOrderId(), "Processando em segundo plano")
+        );
+    }
+}
+
+// Observability: monitorar estado do breaker
+@Component
+public class CircuitBreakerMetricsExporter implements ApplicationListener<CircuitBreakerOnStateTransitionEvent> {
+    private final MeterRegistry meterRegistry;
+
+    @Override
+    public void onApplicationEvent(CircuitBreakerOnStateTransitionEvent event) {
+        Counter.builder("circuit_breaker.state_transition")
+            .tag("name", event.getCircuitBreakerName())
+            .tag("from", event.getStateTransition().getFromState().name())
+            .tag("to", event.getStateTransition().getToState().name())
+            .register(meterRegistry)
+            .increment();
+
+        log.warn("Circuit Breaker '{}': {} → {}",
+            event.getCircuitBreakerName(),
+            event.getStateTransition().getFromState(),
+            event.getStateTransition().getToState());
+    }
+}`,
+      },
+      {
+        title: 'Strangler Fig — Extração Incremental de Serviço (NestJS)',
+        description: 'Padrão Strangler Fig com proxy reverso e feature flag para migrar módulo de Payments do monolito para microservice com zero downtime.',
+        language: 'typescript',
+        code: `// === MONOLITO — adiciona proxy layer antes de extrair ===
+
+// payment.proxy.ts — substitui chamadas diretas por proxy que roteia
+@Injectable()
+export class PaymentProxy {
+  constructor(
+    private readonly legacyPaymentService: LegacyPaymentService, // serviço original
+    private readonly httpClient: HttpService,                      // novo microservice
+    private readonly featureFlags: FeatureFlagService,
+  ) {}
+
+  async charge(request: ChargeRequest): Promise<PaymentResult> {
+    const useNewService = await this.featureFlags.isEnabled(
+      'payments-microservice',
+      { customerId: request.customerId } // rollout gradual por customerId
+    )
+
+    if (useNewService) {
+      // Rota para novo microservice
+      try {
+        const response = await this.httpClient.post(
+          'http://payment-service/v1/charges',
+          request,
+          { timeout: 3000 }
+        ).toPromise()
+        return response.data
+      } catch (error) {
+        // Fallback para legado em caso de falha do novo serviço
+        this.metrics.increment('payment_proxy.fallback', { reason: error.code })
+        return this.legacyPaymentService.charge(request)
+      }
+    }
+
+    return this.legacyPaymentService.charge(request)
+  }
+}
+
+// feature-flag.service.ts — rollout gradual
+@Injectable()
+export class FeatureFlagService {
+  async isEnabled(flag: string, context: { customerId: string }): Promise<boolean> {
+    // Rollout por hash do customerId: 0-10% inicialmente
+    const hash = murmurhash(context.customerId) % 100
+    const rolloutPct = await this.redis.get(\`ff:\${flag}:rollout_pct\`) ?? 0
+    return hash < Number(rolloutPct)
+  }
+}
+
+// === NOVO MICROSERVICE — Payment Service ===
+
+// payment.controller.ts
+@Controller('v1')
+export class PaymentController {
+  @Post('charges')
+  async charge(@Body() dto: ChargeRequestDto): Promise<ChargeResponseDto> {
+    const result = await this.chargeUseCase.execute(dto)
+    return { paymentId: result.id, status: result.status }
+  }
+}
+
+// === MIGRAÇÃO DE BANCO — etapas ===
+// Etapa 1: Schema separation (mesmo banco, schema separado)
+//   CREATE SCHEMA payments;
+//   ALTER TABLE public.payments SET SCHEMA payments;
+//
+// Etapa 2: Novo microservice aponta para schema 'payments' no mesmo banco
+//   DATABASE_URL=postgres://host/db?schema=payments
+//
+// Etapa 3: Database separation com CDC (Debezium sincroniza durante transição)
+//   Source: postgres/payments → Sink: novo banco do microservice
+//   Após verificar consistência, desliga sincronização
+//
+// Etapa 4: Remove dependência do legado, apaga código morto`,
+      },
+    ],
+    videos: [
+      { title: 'Microservices — Sam Newman (GOTO Conf)', channel: 'GOTO Conferences', url: 'https://www.youtube.com/watch?v=PFQnNFe27kU', topic: 'Fundamentos e quando não usar', note: 'O autor do livro explicando os princípios originais' },
+      { title: 'What is a Distributed Monolith?', channel: 'Mark Richards', url: 'https://www.youtube.com/watch?v=p2GlRToY5HI', topic: 'Anti-pattern distribuído', note: 'Reconhecer e evitar o pior dos dois mundos' },
+      { title: 'Saga Pattern — Orchestration vs Choreography', channel: 'Hussein Nasser', url: 'https://www.youtube.com/watch?v=C0rXKREH4cg', topic: 'Transação distribuída', note: 'Implementação prática com código' },
+      { title: 'Strangler Fig Pattern', channel: 'Fireship', url: 'https://www.youtube.com/watch?v=GBTdnfD6s5Q', topic: 'Migração incremental', note: 'Migração de monolito passo a passo' },
+      { title: 'OpenTelemetry em 20 minutos', channel: 'TechWorld with Nana', url: 'https://www.youtube.com/watch?v=r8UvWSX3KA8', topic: 'Observabilidade', note: 'Setup completo de tracing distribuído' },
     ],
     resources: [
-      { title: 'Building Microservices (Sam Newman)', url: 'https://samnewman.io/books/building_microservices_2nd_edition/', kind: 'livro' },
-      { title: 'Microservices.io (Chris Richardson)', url: 'https://microservices.io/', kind: 'docs' },
-      { title: 'Martin Fowler — Microservices', url: 'https://martinfowler.com/articles/microservices.html', kind: 'artigo' },
+      { title: 'Building Microservices — Sam Newman (2ª ed)', url: 'https://samnewman.io/books/building_microservices_2nd_edition/', kind: 'livro' },
+      { title: 'Microservices.io — Chris Richardson (padrões)', url: 'https://microservices.io/', kind: 'docs' },
+      { title: 'Martin Fowler — Microservices original article', url: 'https://martinfowler.com/articles/microservices.html', kind: 'artigo' },
       { title: 'Software Architecture: The Hard Parts', url: 'https://www.oreilly.com/library/view/software-architecture-the/9781492086888/', kind: 'livro' },
-      { title: 'MonolithFirst (Fowler)', url: 'https://martinfowler.com/bliki/MonolithFirst.html', kind: 'artigo' },
+      { title: 'MonolithFirst — Martin Fowler', url: 'https://martinfowler.com/bliki/MonolithFirst.html', kind: 'artigo' },
+      { title: 'Saga Pattern — microservices.io', url: 'https://microservices.io/patterns/data/saga.html', kind: 'docs' },
+      { title: 'Outbox Pattern — microservices.io', url: 'https://microservices.io/patterns/data/transactional-outbox.html', kind: 'docs' },
+      { title: 'Resilience4j — Circuit Breaker docs', url: 'https://resilience4j.readme.io/docs/circuitbreaker', kind: 'docs' },
+      { title: 'OpenTelemetry — Getting Started', url: 'https://opentelemetry.io/docs/getting-started/', kind: 'docs' },
+      { title: 'Pact — Contract Testing', url: 'https://docs.pact.io/', kind: 'docs' },
     ],
+    mindmap: {
+      title: 'Mindmap — Microservices',
+      html: `<style>
+.msm-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:12px;padding:20px;border:1.5px solid #1793D1}
+.msm-center{background:#1793D1;color:#fff;border-radius:10px;padding:12px 20px;text-align:center;font-weight:700;font-size:14px;margin-bottom:16px}
+.msm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.msm-node{background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;padding:10px 12px}
+.msm-node-title{font-size:11px;font-weight:700;color:#1793D1;margin-bottom:6px;border-bottom:1px solid #1e3a5f;padding-bottom:4px}
+.msm-item{font-size:9.5px;color:#94a3b8;margin-bottom:2px;padding-left:10px;position:relative}
+.msm-item::before{content:"·";position:absolute;left:2px;color:#1793D1}
+.msm-warn{color:#fca5a5}
+.msm-ok{color:#86efac}
+</style>
+<div class="msm-wrap">
+  <div class="msm-center">MICROSERVICES</div>
+  <div class="msm-grid">
+    <div class="msm-node">
+      <div class="msm-node-title">Fundamentos</div>
+      <div class="msm-item">Database per service</div>
+      <div class="msm-item">Deploy independente</div>
+      <div class="msm-item">Fronteira = Bounded Context</div>
+      <div class="msm-item">Falha isolada</div>
+      <div class="msm-item msm-warn">Não = pequeno em LoC</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Comunicação</div>
+      <div class="msm-item">REST sync (interativo)</div>
+      <div class="msm-item">gRPC (performance interna)</div>
+      <div class="msm-item">Kafka async (eventos)</div>
+      <div class="msm-item">API Gateway + BFF</div>
+      <div class="msm-item">Service Discovery</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Transações Distribuídas</div>
+      <div class="msm-item msm-warn">Sem 2PC</div>
+      <div class="msm-item">Saga Choreography</div>
+      <div class="msm-item">Saga Orchestration</div>
+      <div class="msm-item">Outbox Pattern</div>
+      <div class="msm-item">Idempotência obrigatória</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Resiliência (CBRT)</div>
+      <div class="msm-item">Circuit Breaker</div>
+      <div class="msm-item">Bulkhead</div>
+      <div class="msm-item">Retry + backoff + jitter</div>
+      <div class="msm-item">Timeout em toda chamada</div>
+      <div class="msm-item">Fallback definido</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Observabilidade (LMT)</div>
+      <div class="msm-item">Logs JSON + correlation-id</div>
+      <div class="msm-item">Metrics: Prometheus/Grafana</div>
+      <div class="msm-item">Traces: OpenTelemetry+Jaeger</div>
+      <div class="msm-item">SLI/SLO/Error Budget</div>
+      <div class="msm-item">Alertas em SLO</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Quando NÃO usar</div>
+      <div class="msm-item msm-warn">Time &lt;10 pessoas</div>
+      <div class="msm-item msm-warn">Domínio indefinido (pré-PMF)</div>
+      <div class="msm-item msm-warn">Sem DevOps maduro</div>
+      <div class="msm-item msm-warn">Distributed monolith</div>
+      <div class="msm-item msm-ok">Monolito modular ganha</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Migração: Strangler Fig</div>
+      <div class="msm-item">Modularize o monolito</div>
+      <div class="msm-item">Proxy layer primeiro</div>
+      <div class="msm-item">Extrai 1 BC por vez</div>
+      <div class="msm-item">Schema → DB separation</div>
+      <div class="msm-item">Feature flags + rollout</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Anti-patterns</div>
+      <div class="msm-item msm-warn">Serviço por entidade/tabela</div>
+      <div class="msm-item msm-warn">Banco compartilhado</div>
+      <div class="msm-item msm-warn">Deploy coordenado</div>
+      <div class="msm-item msm-warn">Sem observability</div>
+      <div class="msm-item msm-warn">Big bang migration</div>
+    </div>
+    <div class="msm-node">
+      <div class="msm-node-title">Teste</div>
+      <div class="msm-item">Unit (lógica de domínio)</div>
+      <div class="msm-item">Component (serviço isolado)</div>
+      <div class="msm-item">Contract (Pact)</div>
+      <div class="msm-item msm-warn">E2E mínimo (lento/frágil)</div>
+      <div class="msm-item">Chaos engineering</div>
+    </div>
+  </div>
+</div>`,
+    },
   },
 
   'cqrs': {
-    tagline: 'Separar modelo de escrita do modelo de leitura quando os requisitos divergem.',
-    why: 'CQRS aparece em vaga senior em fintech, e-commerce, sistemas com leitura pesada. Entrevistador testa se você sabe quando aplicar (raro) e quando NÃO aplicar (frequente). Confundir CQRS com Event Sourcing e erro clássico.',
-    summary: 'CQRS (Command Query Responsibility Segregation) separa o modelo que escreve (command) do modelo que le (query). Cada lado pode ter banco próprio, schema otimizado e escala independente. Útil quando leitura e escrita tem requisitos muito diferentes — escrita transacional num banco normalizado, leitura denormalizada num search engine ou view materializada. Comumente combinado com Event Sourcing, mas são independentes. Custo: complexidade alta, eventual consistency, sincronização via eventos. Em CRUD normal, e overkill brutal.',
+    tagline: 'Segregar o modelo de escrita do modelo de leitura quando os requisitos divergem e CRUD começa a doer.',
+    why: 'CQRS aparece em vaga sênior em fintech, e-commerce e sistemas com leitura pesada. O entrevistador testa se você sabe quando aplicar (raro) e quando NÃO aplicar (frequente). Confundir CQRS com Event Sourcing é erro clássico que elimina candidatos bons.',
+    prerequisite: 'DDD (Aggregates, Domain Events), Event Sourcing básico, mensageria (Kafka/RabbitMQ), Outbox Pattern.',
+    summary: 'CQRS (Command Query Responsibility Segregation) separa o modelo que escreve (Command) do modelo que lê (Query). Cada lado pode ter banco próprio, schema otimizado e escala independente. Útil quando leitura e escrita têm requisitos muito diferentes — escrita transacional num banco normalizado, leitura denormalizada num search engine ou view materializada. Comumente combinado com Event Sourcing, mas são independentes — CQRS pode existir com Postgres simples no write side. Custo real: complexidade alta, eventual consistency visível ao usuário, projectors para manter, reconstrução de read model em falha. Em CRUD normal é overkill brutal.',
+    howToStudy: 'Estude nesta ordem: 1) CQS (Bertrand Meyer) — o princípio original mais simples. 2) CQRS básico com mesmo banco mas serviços separados. 3) CQRS com read model separado (Redis/ElasticSearch). 4) CQRS + Event Sourcing como combinação avançada. Implemente um CRUD simples, depois migre para CQRS e sinta o custo real antes de defender o padrão.',
+    diagrams: [
+      {
+        title: 'Fluxo CQRS — Command Bus e Query Bus',
+        caption: 'Separação completa do caminho de escrita (Command) e leitura (Query) com handlers e modelos distintos.',
+        html: `<style>
+.cq1-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.cq1-row{display:flex;gap:10px;margin-bottom:10px;align-items:stretch}
+.cq1-box{background:#0f172a;border:1px solid #1e3a5f;border-radius:7px;padding:9px 12px;font-size:10px;color:#cbd5e1;flex:1;text-align:center}
+.cq1-box strong{display:block;font-size:11px;margin-bottom:3px}
+.cq1-cmd .cq1-box strong{color:#f87171}
+.cq1-qry .cq1-box strong{color:#34d399}
+.cq1-bus{border:1.5px solid #1793D1!important;background:#0c2340!important}
+.cq1-bus strong{color:#1793D1!important}
+.cq1-db-w{border-color:#f87171!important;background:#1c0a0a!important}
+.cq1-db-w strong{color:#fca5a5!important}
+.cq1-db-r{border-color:#34d399!important;background:#061c12!important}
+.cq1-db-r strong{color:#6ee7b7!important}
+.cq1-arrow{text-align:center;font-size:13px;color:#1793D1;line-height:1.4;font-weight:700}
+.cq1-label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:5px}
+.cq1-section{flex:1;background:#0a0f1e;border-radius:8px;padding:10px;border:1px solid #1e3a5f}
+.cq1-section-head{font-size:11px;font-weight:700;padding:4px 8px;border-radius:5px;text-align:center;margin-bottom:8px}
+.cq1-cmd .cq1-section-head{background:#450a0a;color:#fca5a5}
+.cq1-qry .cq1-section-head{background:#052e16;color:#86efac}
+.cq1-vs{display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;font-size:13px;padding:0 4px}
+.cq1-event{background:#312e81;border:1px solid #4f46e5;border-radius:5px;padding:5px 8px;font-size:9.5px;color:#a5b4fc;text-align:center;margin-top:6px}
+</style>
+<div class="cq1-wrap">
+  <div class="cq1-label">Entrada (Controller / API)</div>
+  <div class="cq1-row">
+    <div class="cq1-box cq1-cmd" style="border-color:#f87171"><strong>POST /orders</strong>CreateOrderCommand{<!-- -->{ customerId, items }}</div>
+    <div class="cq1-box cq1-qry" style="border-color:#34d399"><strong>GET /orders?userId=x</strong>GetOrdersQuery{<!-- -->{ userId, page }}</div>
+  </div>
+  <div class="cq1-row" style="gap:10px">
+    <div class="cq1-section cq1-cmd" style="border-color:#450a0a">
+      <div class="cq1-section-head">COMMAND SIDE (Write)</div>
+      <div class="cq1-box cq1-bus"><strong>Command Bus</strong>roteia para handler</div>
+      <div style="margin-top:6px" class="cq1-box" style="border-color:#7f1d1d"><strong>CreateOrderHandler</strong>valida, aplica regras, salva Aggregate</div>
+      <div class="cq1-event">publica: OrderCreated event</div>
+      <div style="margin-top:6px" class="cq1-box cq1-db-w"><strong>Write DB (Postgres)</strong>schema normalizado, ACID, invariantes</div>
+    </div>
+    <div class="cq1-vs">⟷</div>
+    <div class="cq1-section cq1-qry" style="border-color:#052e16">
+      <div class="cq1-section-head">QUERY SIDE (Read)</div>
+      <div class="cq1-box cq1-bus"><strong>Query Bus</strong>roteia para handler</div>
+      <div style="margin-top:6px" class="cq1-box" style="border-color:#065f46"><strong>GetOrdersHandler</strong>lê direto do read model, sem regra de negócio</div>
+      <div class="cq1-event" style="background:#052e16;border-color:#065f46;color:#6ee7b7">consome: OrderCreated → projeta</div>
+      <div style="margin-top:6px" class="cq1-box cq1-db-r"><strong>Read DB (ElasticSearch / Redis)</strong>denormalizado, otimizado por query</div>
+    </div>
+  </div>
+</div>`,
+      },
+      {
+        title: 'CQRS + Event Sourcing — Write Side vs Read Side',
+        caption: 'Event Store como fonte da verdade no write side; projectors constroem read models independentes.',
+        html: `<style>
+.cq2-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.cq2-row{display:flex;gap:10px;margin-bottom:8px}
+.cq2-box{background:#0f172a;border:1px solid #1e3a5f;border-radius:7px;padding:8px 12px;font-size:10px;color:#cbd5e1;flex:1;text-align:center}
+.cq2-box strong{display:block;font-size:11px;margin-bottom:3px}
+.cq2-es{border-color:#f59e0b!important;background:#1c1008!important}
+.cq2-es strong{color:#fbbf24!important}
+.cq2-proj{border-color:#8b5cf6!important;background:#120d1f!important}
+.cq2-proj strong{color:#c4b5fd!important}
+.cq2-rm{border-color:#34d399;background:#061c12}
+.cq2-rm strong{color:#6ee7b7}
+.cq2-arrow{text-align:center;font-size:13px;color:#1793D1;margin:3px 0;font-weight:700}
+.cq2-label{font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:5px}
+.cq2-note{background:#1e293b;border-left:3px solid #f59e0b;padding:8px 12px;font-size:10px;color:#94a3b8;border-radius:0 6px 6px 0;margin-top:10px}
+</style>
+<div class="cq2-wrap">
+  <div class="cq2-label">Write Side — Event Sourcing</div>
+  <div class="cq2-row">
+    <div class="cq2-box" style="border-color:#f87171"><strong>CreateOrderCommand</strong></div>
+    <div class="cq2-box"><strong>Order Aggregate</strong>aplica regras, emite eventos</div>
+  </div>
+  <div class="cq2-arrow">↓</div>
+  <div class="cq2-row">
+    <div class="cq2-box cq2-es"><strong>Event Store (Kafka / EventStoreDB)</strong>OrderCreated{<!-- -->{ id, items, total }}<br/>OrderPaid{<!-- -->{ paymentId }}<br/>OrderShipped{<!-- -->{ trackingCode }}<br/><em style="font-size:9px;color:#92400e">Fonte da verdade — nunca muta</em></div>
+  </div>
+  <div class="cq2-arrow">↓ (stream de eventos)</div>
+  <div class="cq2-label">Read Side — Projectors constroem Read Models</div>
+  <div class="cq2-row">
+    <div class="cq2-box cq2-proj"><strong>OrderSummaryProjector</strong>consome eventos do stream</div>
+    <div class="cq2-box cq2-proj"><strong>DashboardProjector</strong>métricas e agregações</div>
+    <div class="cq2-box cq2-proj"><strong>SearchProjector</strong>full-text index</div>
+  </div>
+  <div class="cq2-arrow">↓</div>
+  <div class="cq2-row">
+    <div class="cq2-box cq2-rm"><strong>Orders Table (Postgres)</strong>denormalizado, por UI</div>
+    <div class="cq2-box cq2-rm"><strong>Redis Cache</strong>dashboard real-time</div>
+    <div class="cq2-box cq2-rm"><strong>Elasticsearch</strong>full-text search</div>
+  </div>
+  <div class="cq2-note">
+    <strong style="color:#fbbf24">Read models são descartáveis</strong> — se o projector tiver bug, apaga o read model e reconstrói replaying todos os eventos do Event Store. Isso é a superpotência do ES+CQRS.<br/>
+    <strong style="color:#e2e8f0">Custo:</strong> reconstrução pode demorar horas em sistemas grandes — use snapshots periodicamente.
+  </div>
+</div>`,
+      },
+      {
+        title: 'CQRS Simples vs CQRS + Event Sourcing — Tradeoffs',
+        caption: 'Quando cada variante faz sentido e o que cada uma custa em complexidade operacional.',
+        html: `<style>
+.cq3-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.cq3-title{font-size:12px;font-weight:700;color:#1793D1;margin-bottom:12px}
+.cq3-table{width:100%;border-collapse:collapse;font-size:10px}
+.cq3-table th{background:#1e3a5f;color:#93c5fd;padding:7px 10px;text-align:left;font-size:10px}
+.cq3-table td{padding:7px 10px;color:#cbd5e1;border-bottom:1px solid #1e293b;vertical-align:top}
+.cq3-table tr:last-child td{border-bottom:none}
+.cq3-ok{color:#4ade80;font-weight:600}
+.cq3-warn{color:#fbbf24;font-weight:600}
+.cq3-bad{color:#f87171;font-weight:600}
+.cq3-note{background:#1e293b;border-left:3px solid #1793D1;padding:8px 12px;font-size:10px;color:#94a3b8;border-radius:0 6px 6px 0;margin-top:10px}
+</style>
+<div class="cq3-wrap">
+  <div class="cq3-title">CQRS: Variantes e Tradeoffs</div>
+  <table class="cq3-table">
+    <tr>
+      <th>Aspecto</th>
+      <th>CRUD puro</th>
+      <th>CQRS simples</th>
+      <th>CQRS + Event Sourcing</th>
+    </tr>
+    <tr>
+      <td><strong>Write model</strong></td>
+      <td>Mesmo modelo</td>
+      <td><span class="cq3-ok">Separado (Aggregate)</span></td>
+      <td><span class="cq3-ok">Event Store (imutável)</span></td>
+    </tr>
+    <tr>
+      <td><strong>Read model</strong></td>
+      <td>Mesmo modelo</td>
+      <td><span class="cq3-ok">View/projeção separada</span></td>
+      <td><span class="cq3-ok">N read models independentes</span></td>
+    </tr>
+    <tr>
+      <td><strong>Consistência</strong></td>
+      <td>Strong (ACID)</td>
+      <td><span class="cq3-warn">Eventual (ms a s)</span></td>
+      <td><span class="cq3-warn">Eventual + replay</span></td>
+    </tr>
+    <tr>
+      <td><strong>Auditoria</strong></td>
+      <td><span class="cq3-bad">Só estado atual</span></td>
+      <td><span class="cq3-warn">Depende de audit log</span></td>
+      <td><span class="cq3-ok">Histórico completo nativo</span></td>
+    </tr>
+    <tr>
+      <td><strong>Debug de estado</strong></td>
+      <td>Fácil</td>
+      <td>Médio</td>
+      <td><span class="cq3-warn">Difícil (replay de eventos)</span></td>
+    </tr>
+    <tr>
+      <td><strong>Complexidade operacional</strong></td>
+      <td><span class="cq3-ok">Baixa</span></td>
+      <td><span class="cq3-warn">Média</span></td>
+      <td><span class="cq3-bad">Alta (versionamento de evento, snapshot)</span></td>
+    </tr>
+    <tr>
+      <td><strong>Quando usar</strong></td>
+      <td>CRUD, protótipos</td>
+      <td>Read pesada, requisitos divergentes</td>
+      <td>Auditoria obrigatória, time-travel, BI</td>
+    </tr>
+  </table>
+  <div class="cq3-note">
+    Greg Young (criador do CQRS): <em>"If you have doubt about using CQRS, don't."</em><br/>
+    Comece com CRUD. Migre para CQRS simples quando a dor aparecer. Adicione Event Sourcing só se o domínio exigir histórico completo.
+  </div>
+</div>`,
+      },
+    ],
     keypoints: [
-      { title: 'Command vs Query', body: 'Command altera estado e não retorna dado (só ack/erro). Query le e não altera. Separa interfaces, services, e idealmente banco. Habilita otimização independente de cada caminho.' },
-      { title: 'Read model denormalizado', body: 'Read side pode ter view materializada, projeção em ElasticSearch, cache em Redis — formato otimizado pra UI. Write side mantem normalizacao e invariantes.' },
-      { title: 'Sincronização via evento', body: 'Write pública evento (OrderPlaced). Projector consome e atualiza read model. Eventual consistency e a regra. Latência entre write e read visível = ms a segundos.' },
-      { title: 'Event Sourcing e diferente', body: 'CQRS pode existir SEM Event Sourcing (write num Postgres normal). ES guarda eventos como source of truth e reconstroi estado. Combinam bem mas não são a mesma coisa.' },
-      { title: 'Multiplas read models', body: 'Pra cada caso de uso de leitura, uma projeção otimizada. Dashboard usa um, search usa outro, relatório usa outro. Custa storage mas resolve performance.' },
-      { title: 'Saga e CQRS', body: 'Em microservices, saga + CQRS e padrão: command em serviço A gera evento, serviço B atualiza read model próprio, fluxo de negocio coordena via eventos.' },
-      { title: 'Quando vale o custo', body: 'Read/write ratio extremo, requisitos muito diferentes (escrita ACID + leitura full-text), escala independente crítica, múltiplas projeções. Sem isso, CRUD normal ganha.' },
+      { title: 'CQS: o princípio original (Meyer)', body: 'Command Query Separation de Bertrand Meyer: um método ou muda estado (command) ou retorna valor (query), nunca os dois. CQRS eleva isso para nível arquitetural — objetos/serviços/bancos separados por responsabilidade.' },
+      { title: 'Command: altera, não retorna dado', body: 'Command muda estado do sistema e retorna apenas ack (void/201/ID). Nunca retorna o objeto criado/modificado — quem precisa lê via Query. Isso força a separação real e evita que o write side seja tentado a otimizar leituras.' },
+      { title: 'Query: lê, não altera estado', body: 'Query retorna dado e jamais tem efeito colateral. O read side pode ter qualquer estrutura — view materializada em Postgres, projeção em ElasticSearch, cache em Redis — o que for mais rápido para a consulta específica.' },
+      { title: 'Read model denormalizado e descartável', body: 'O read model é construído especificamente para a query — denormalizado, com JOINs pré-computados. É descartável: se tiver bug ou precisar mudar formato, apaga e reconstrói a partir dos eventos. Isso funciona especialmente bem com Event Sourcing.' },
+      { title: 'Sincronização via eventos (Outbox)', body: 'Write side publica evento (OrderCreated). Projector consome e atualiza read model. A sincronização mais segura usa Outbox Pattern: evento gravado no mesmo banco na mesma transação, relay publica para broker. Eventual consistency é a regra — latência típica de ms a segundos.' },
+      { title: 'CQRS ≠ Event Sourcing', body: 'CQRS pode existir sem Event Sourcing — write num Postgres normal, evento publicado, read model em ElasticSearch. Event Sourcing armazena eventos como fonte de verdade e reconstrói estado por replay. Eles combinam bem, mas são decisões independentes. Comece CQRS sem ES.' },
+      { title: 'Múltiplas projeções independentes', body: 'Para cada caso de uso de leitura, uma projeção otimizada. Dashboard usa uma, busca por texto usa outra, relatório contábil usa outra. Custa storage e projectors, mas resolve performance de forma cirúrgica.' },
+      { title: 'Quando vale o custo', body: 'Read/write ratio muito assimétrico (100:1), requisitos conceitualmente diferentes (escrita ACID + leitura full-text), escala independente crítica, auditoria obrigatória de estado histórico. Sem ao menos dois desses, CRUD ganha.' },
+    ],
+    cheatsheet: {
+      title: 'Cheatsheet CQRS — Estrutura de Command/Query com NestJS/CQRS',
+      html: `<style>
+.cqc-wrap{font-family:'JetBrains Mono',monospace,system-ui;width:100%;background:#0a0f1e;border-radius:10px;padding:16px;border:1.5px solid #1793D1}
+.cqc-title{font-size:12px;font-weight:700;color:#1793D1;margin-bottom:12px;font-family:system-ui}
+.cqc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cqc-block{background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;padding:12px}
+.cqc-head{font-size:10px;font-weight:700;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #1e3a5f;font-family:system-ui}
+.cqc-cmd .cqc-head{color:#f87171}
+.cqc-qry .cqc-head{color:#34d399}
+.cqc-proj .cqc-head{color:#c4b5fd}
+.cqc-es .cqc-head{color:#fbbf24}
+.cqc-code{font-size:9px;color:#a5f3fc;line-height:1.6;white-space:pre}
+.cqc-comment{color:#4b5563}
+.cqc-kw{color:#c084fc}
+.cqc-type{color:#fbbf24}
+.cqc-str{color:#86efac}
+.cqc-full{grid-column:span 2}
+</style>
+<div class="cqc-wrap">
+  <div class="cqc-title">CQRS com @nestjs/cqrs — Estrutura Completa</div>
+  <div class="cqc-grid">
+    <div class="cqc-block cqc-cmd">
+      <div class="cqc-head">Command + Handler</div>
+      <pre class="cqc-code"><span class="cqc-comment">// create-order.command.ts</span>
+<span class="cqc-kw">export class</span> <span class="cqc-type">CreateOrderCommand</span> {
+  <span class="cqc-kw">constructor</span>(
+    <span class="cqc-kw">public readonly</span> customerId: <span class="cqc-type">string</span>,
+    <span class="cqc-kw">public readonly</span> items: <span class="cqc-type">OrderItem</span>[],
+  ) {}
+}
+
+<span class="cqc-comment">// create-order.handler.ts</span>
+<span class="cqc-kw">@CommandHandler</span>(<span class="cqc-type">CreateOrderCommand</span>)
+<span class="cqc-kw">export class</span> <span class="cqc-type">CreateOrderHandler</span> {
+  <span class="cqc-kw">async</span> execute(cmd: <span class="cqc-type">CreateOrderCommand</span>) {
+    <span class="cqc-kw">const</span> order = Order.create(cmd)
+    <span class="cqc-kw">await</span> this.orderRepo.save(order)
+    <span class="cqc-comment">// publica via outbox</span>
+    <span class="cqc-kw">await</span> this.outbox.insert(order.events)
+  }
+}</pre>
+    </div>
+    <div class="cqc-block cqc-qry">
+      <div class="cqc-head">Query + Handler</div>
+      <pre class="cqc-code"><span class="cqc-comment">// get-orders.query.ts</span>
+<span class="cqc-kw">export class</span> <span class="cqc-type">GetOrdersQuery</span> {
+  <span class="cqc-kw">constructor</span>(
+    <span class="cqc-kw">public readonly</span> userId: <span class="cqc-type">string</span>,
+    <span class="cqc-kw">public readonly</span> page: <span class="cqc-type">number</span>,
+  ) {}
+}
+
+<span class="cqc-comment">// get-orders.handler.ts</span>
+<span class="cqc-kw">@QueryHandler</span>(<span class="cqc-type">GetOrdersQuery</span>)
+<span class="cqc-kw">export class</span> <span class="cqc-type">GetOrdersHandler</span> {
+  <span class="cqc-kw">async</span> execute(q: <span class="cqc-type">GetOrdersQuery</span>) {
+    <span class="cqc-comment">// lê do read model (denormalizado)</span>
+    <span class="cqc-kw">return</span> this.readRepo.findByUser(
+      q.userId, q.page
+    )
+  }
+}</pre>
+    </div>
+    <div class="cqc-block cqc-proj">
+      <div class="cqc-head">Projector (atualiza read model)</div>
+      <pre class="cqc-code"><span class="cqc-comment">// order-summary.projector.ts</span>
+<span class="cqc-kw">@EventsHandler</span>(<span class="cqc-type">OrderCreatedEvent</span>)
+<span class="cqc-kw">export class</span> <span class="cqc-type">OrderSummaryProjector</span> {
+  <span class="cqc-kw">async</span> handle(e: <span class="cqc-type">OrderCreatedEvent</span>) {
+    <span class="cqc-comment">// idempotência obrigatória</span>
+    <span class="cqc-kw">const</span> exists = <span class="cqc-kw">await</span>
+      this.readRepo.exists(e.orderId)
+    <span class="cqc-kw">if</span> (exists) <span class="cqc-kw">return</span>
+
+    <span class="cqc-kw">await</span> this.readRepo.upsert({
+      orderId: e.orderId,
+      status: <span class="cqc-str">'pending'</span>,
+      total: e.total,
+      createdAt: e.occurredOn,
+    })
+  }
+}</pre>
+    </div>
+    <div class="cqc-block cqc-es">
+      <div class="cqc-head">Controller (despacha Command/Query)</div>
+      <pre class="cqc-code"><span class="cqc-comment">// orders.controller.ts</span>
+<span class="cqc-kw">@Controller</span>(<span class="cqc-str">'orders'</span>)
+<span class="cqc-kw">export class</span> <span class="cqc-type">OrdersController</span> {
+  <span class="cqc-kw">constructor</span>(
+    <span class="cqc-kw">private readonly</span> bus: <span class="cqc-type">CommandBus</span>,
+    <span class="cqc-kw">private readonly</span> queries: <span class="cqc-type">QueryBus</span>,
+  ) {}
+
+  <span class="cqc-kw">@Post</span>()
+  create(<span class="cqc-kw">@Body</span>() dto: <span class="cqc-type">CreateOrderDto</span>) {
+    <span class="cqc-kw">return</span> this.bus.execute(
+      <span class="cqc-kw">new</span> <span class="cqc-type">CreateOrderCommand</span>(
+        dto.customerId, dto.items
+      )
+    )
+  }
+
+  <span class="cqc-kw">@Get</span>()
+  list(<span class="cqc-kw">@Query</span>() q: <span class="cqc-type">ListOrdersDto</span>) {
+    <span class="cqc-kw">return</span> this.queries.execute(
+      <span class="cqc-kw">new</span> <span class="cqc-type">GetOrdersQuery</span>(q.userId, q.page)
+    )
+  }
+}</pre>
+    </div>
+  </div>
+</div>`,
+    },
+    mnemonics: [
+      {
+        label: 'CWR — O que Command e Query fazem',
+        trick: 'C-W-R: "Command Writes, Query Reads" — nunca os dois ao mesmo tempo',
+        explanation: 'Command (C) escreve (W) estado e não retorna dado. Query (Q) lê (R) e não muda estado. Mnemônico simples para lembrar a separação fundamental e explicar o princípio em entrevista sem gaguejar.',
+      },
+      {
+        label: 'CQRS ≠ ES — a distinção crítica',
+        trick: '"CQRS tem Query Bus, ES tem Event Store" — são eixos diferentes',
+        explanation: 'CQRS = separação de modelos de leitura/escrita (eixo de responsabilidade). Event Sourcing = eventos como fonte de verdade (eixo de persistência). Podem existir independentemente. Confundi-los em entrevista é sinal de que você leu sobre mas não implementou.',
+      },
+      {
+        label: 'PIP — quando CQRS vale o custo',
+        trick: 'PIP: "Performance, Independência, Projeções" — precisa dos 3 ou não vale',
+        explanation: 'Performance assimétrica (read/write muito diferentes), Independência de escala e banco por lado, Projeções múltiplas necessárias. Se não tem ao menos dois, CRUD com view materializada resolve mais barato.',
+      },
+      {
+        label: 'OREO — eventual consistency na UI',
+        trick: 'OREO: "Optimistic, Read-your-writes, Eventually, Observe"',
+        explanation: 'As quatro estratégias para lidar com eventual consistency no front-end: Optimistic update (atualiza antes de confirmar), Read-your-writes (espera versão alcançar), Eventually (aceita delay com UX de "processando"), Observe via WebSocket/push quando projector terminar.',
+      },
     ],
     gotchas: [
-      'Aplicar CQRS em CRUD trivial — duplica código, adiciona eventual consistency sem ganho. Overkill clássico.',
-      'Confundir CQRS com "ter DTO de leitura diferente do DTO de escrita" — isso é só boa prática de API. CQRS é separação mais profunda, geralmente com banco diferente.',
-      'Esquecer que leitura desatualizada vai aparecer pro usuário — UI precisa lidar com "acabei de criar e não vejo na lista". Use optimistic update ou polling.',
-      'Read model fora do ar = sistema parece quebrado mesmo com write funcionando — observability dos projectors e crítica.',
-      'Reprocessar eventos pra reconstruir read model demora horas em sistema grande — planeja desde o inicio (snapshot, projeção paralela).',
+      'Aplicar CQRS em CRUD trivial — duplica código, adiciona eventual consistency sem ganho real. Greg Young: "if you have doubt, don\'t."',
+      'Confundir CQRS com "ter DTO de leitura diferente do DTO de escrita" — isso é só boa prática de API, não CQRS. CQRS implica separação de handlers, modelos e geralmente bancos distintos.',
+      'Esquecer que o usuário vai ver leitura desatualizada — UI precisa lidar com "acabei de criar e não vejo na lista". Implemente optimistic update ou mostre "processando...".',
+      'Projector sem idempotência — at-least-once delivery garante que o mesmo evento chega mais de uma vez. Sem idempotência no projector, o read model fica corrompido.',
+      'Read model fora do ar = sistema "parece quebrado" mesmo com write funcionando — observability dos projectors é crítica. Alerte quando projector atrasar mais de N segundos.',
+      'Reconstruir read model demora horas em sistemas grandes — planeje desde o início: snapshots periódicos, replay paralelo, projeção em background sem derrubar a existente.',
+      'Event Sourcing "de graça" junto com CQRS — ES tem complexidade própria pesada (versionamento de evento, upcasting, snapshot strategy). Decida explicitamente, não por acidente.',
+      'Tratar Command como Request/Response — Command retorna só ack (ID ou 202 Accepted). Quem precisa do resultado lê via Query. Misturar os dois mata o ponto da separação.',
     ],
     interview: [
-      { q: 'Quando NÃO usar CQRS?', a: '<p>Em <strong>CRUD comum</strong>, onde leitura e escrita usam o mesmo modelo e não tem requisito divergente. CQRS adiciona: dois modelos, sincronização, eventual consistency, projector pra manter, bug de "criei e não apareceu". Sem necessidade real, e sabotagem do próprio time.</p><p>Greg Young (criador): <em>"se você tem duvida se precisa de CQRS, você não precisa"</em>. Comeca com modelo único, evolui pra CQRS quando a dor de performance ou divergencia de requisito aparecer.</p>' },
-      { q: 'Tradeoff: CQRS vs view materializada simples?', a: '<p><strong>View materializada</strong> (ou cache, ou índice) resolve 80% dos casos onde leitura está lenta — sem mudar arquitetura. Postgres tem materialized view, ElasticSearch como replica via CDC, Redis como cache.</p><p><strong>CQRS completo</strong> faz sentido quando: write e read têm <strong>modelos conceitualmente diferentes</strong> (não só formato), escala independente e crítica, ou você já vai usar Event Sourcing por outro motivo.</p><p>Senior tenta solução mais simples primeiro. View materializada/CDC resolve sem o custo cognitivo de CQRS.</p>' },
-      { q: 'Como você lida com eventual consistency em UI?', a: '<p>Tres estrategias:</p><ul><li><strong>Optimistic update</strong>: UI atualiza imediato como se sucesso, reverte em erro</li><li><strong>Read-your-writes</strong>: cliente envia versão do command, query espera read model alcancar</li><li><strong>Polling/WebSocket</strong>: UI re-busca após delay ou recebe push quando projector terminou</li></ul><p>Pra ação crítica (criar pedido), aviso usuário "processando" e mostro loading até confirmar. Tentar esconder eventual consistency 100% em UI e batalha perdida — abrace e desenhe pra ela.</p>' },
-      { q: 'CQRS sempre exige Event Sourcing?', a: '<p>Não. CQRS e separação de modelo de leitura/escrita. Você pode ter write num Postgres normal, publicar evento de domínio (sem armazenar evento como source of truth), e atualizar read model em ElasticSearch.</p><p>Event Sourcing armazena <strong>eventos como source of truth</strong> e reconstroi estado. Combinam bem (eventos do ES alimentam projectors), mas são decisões independentes. Comecar com CQRS sem ES e mais seguro — ES tem complexidade própria pesada (versionamento de evento, snapshot, replay).</p>' },
-      { q: 'Como você sincroniza write e read model?', a: '<p>Padrão mais robusto: <strong>outbox pattern</strong>. Na mesma transação do write, grava o evento numa tabela outbox. Um relay le da outbox e pública em fila/Kafka. Projector consome e atualiza read model. Garante <strong>at-least-once</strong> sem 2PC.</p><p>Alternativas: CDC (Debezium le WAL do Postgres e pública), eventos de domínio publicados direto (perigoso — falha entre commit e publish gera inconsistencia).</p><p>Idempotencia no projector e <strong>obrigatória</strong> — at-least-once significa que evento pode chegar duas vezes.</p>' },
+      {
+        q: 'Quando NÃO usar CQRS?',
+        a: '<p>Em <strong>CRUD comum</strong>, onde leitura e escrita usam o mesmo modelo e não há requisito divergente. CQRS adiciona: dois modelos, sincronização, eventual consistency, projector para manter, bug de "criei e não apareceu na lista". Sem necessidade real, é sabotagem do próprio time.</p><p>Greg Young (criador do padrão): <em>"if you have doubt about whether you need CQRS, you don\'t."</em> Comece com modelo único, evolua para CQRS quando a dor de performance ou divergência de requisito aparecer com dados reais.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Tradeoff: CQRS vs view materializada simples?',
+        a: '<p><strong>View materializada</strong> (ou cache, ou índice) resolve 80% dos casos onde leitura está lenta — sem mudar arquitetura. Postgres tem <code>MATERIALIZED VIEW</code>, ElasticSearch como réplica via CDC (Debezium), Redis como cache de query pesada.</p><p><strong>CQRS completo</strong> faz sentido quando: write e read têm <strong>modelos conceitualmente diferentes</strong> (não só formato de payload), escala independente é crítica, ou o negócio exige projeções radicalmente diferentes do mesmo dado. Sênior tenta a solução mais simples primeiro.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você lida com eventual consistency na UI?',
+        a: '<p>Quatro estratégias, escolhidas pelo criticidade da ação:</p><ul><li><strong>Optimistic update</strong>: UI atualiza imediatamente como se sucesso, reverte em erro — melhor UX para ação não crítica</li><li><strong>Read-your-writes</strong>: command retorna versão/timestamp, query espera o read model alcançar aquela versão antes de responder</li><li><strong>Polling</strong>: UI re-busca após delay estimado (ex: 500ms) — simples mas não elegante</li><li><strong>WebSocket/SSE push</strong>: projector emite evento quando termina, UI atualiza — melhor UX mas infraestrutura adicional</li></ul><p>Para ação crítica (criar pedido, pagamento), mostro "processando..." e bloqueo nova ação até confirmar. Tentar esconder eventual consistency 100% é batalha perdida.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'CQRS sempre exige Event Sourcing?',
+        a: '<p>Não — são decisões independentes em dois eixos diferentes. <strong>CQRS</strong> é sobre separação de responsabilidade (quem escreve vs quem lê). <strong>Event Sourcing</strong> é sobre persistência (guardar eventos como fonte de verdade em vez do estado atual).</p><p>Você pode ter CQRS com write num Postgres normal (guarda estado atual), publicar evento de domínio via outbox, e atualizar read model em ElasticSearch — sem ES. ES adiciona: histórico completo imutável, time-travel, reconstituição de estado por replay. Mas também adiciona: versionamento de eventos, upcasting, snapshot strategy. Comece CQRS sem ES — muito mais simples.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Como você sincroniza write e read model de forma confiável?',
+        a: '<p>O padrão mais robusto é o <strong>Outbox Pattern</strong>: na mesma transação do write (commit no banco), insiro o evento numa tabela <code>outbox</code>. Um relay separado lê da outbox e publica no broker (Kafka/RabbitMQ). Projector consome e atualiza read model. Garantia: <strong>at-least-once sem 2PC</strong>.</p><p>Alternativas: CDC via Debezium (lê WAL do Postgres e publica — zero código no app, mas dependência de Debezium), ou evento publicado direto após commit (perigoso — falha entre commit e publish perde o evento). Idempotência no projector é <strong>obrigatória</strong> em qualquer abordagem at-least-once.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você reconstrói um read model corrompido ou desatualizado?',
+        a: '<p>Se tenho <strong>Event Sourcing</strong>: replayo todos os eventos relevantes do Event Store para um novo read model. Processo em paralelo com o modelo atual, verifico consistência, faço swap atômico. O modelo antigo funciona durante a reconstrução.</p><p>Sem ES: preciso de alguma forma de reprocessar o histórico — log de auditoria, backup de estado, ou reprocessamento via CDC. É mais difícil — argumento adicional para ter Event Sourcing se auditoria/reconstrução for requisito.</p><p>Para sistemas grandes: snapshot periódico (ex: estado a cada 1000 eventos) + replay apenas os eventos posteriores ao snapshot. Reduz tempo de reconstrução de horas para minutos.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você implementaria CQRS num sistema existente (migração incremental)?',
+        a: '<p>Não faço big bang. Migração incremental:</p><ol><li>Identifica o endpoint de <strong>leitura mais crítico/lento</strong> — aquele que mais se beneficia de denormalização</li><li>Adiciona read model separado (Redis cache ou view materializada) para esse endpoint específico</li><li>Projector simples que atualiza o cache quando dado muda — mantém ambos os caminhos por um tempo</li><li>Monitora e valida, depois expande para outros endpoints</li></ol><p>A separação de Command e Query em handlers pode acontecer antes de ter bancos diferentes — é só organização de código. Bancos diferentes são o passo seguinte, com a sincronia via eventos como o custo principal a absorver.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'O que é um projector e quais são suas responsabilidades?',
+        a: '<p>Projector é o componente que <strong>consome eventos de domínio e atualiza o read model</strong>. É o "cola" entre write side e read side no CQRS.</p><p>Responsabilidades: consumir eventos do broker (Kafka consumer, event handler), verificar idempotência (não processar o mesmo evento duas vezes), transformar o evento em mutação no read model (INSERT/UPDATE/DELETE na view denormalizada), e emitir métricas de lag (alertar quando atraso entre write e read model ultrapassar SLA).</p><p>O que um projector <strong>NÃO deve fazer</strong>: chamar outros serviços, aplicar regras de negócio, ou ter efeitos colaterais além de atualizar o read model.</p>',
+        level: 'pleno',
+      },
+      {
+        q: 'Como CQRS se relaciona com microservices?',
+        a: '<p>CQRS e microservices se complementam naturalmente. Em microservices, cada serviço pode ter seu próprio write model (Aggregate + banco normalizado) e um ou mais read models denormalizados para suas queries específicas.</p><p>Fluxo típico: <strong>Saga + CQRS</strong> — Command em serviço A gera evento via outbox, serviço B consome e atualiza seu read model próprio. Serviço B nunca faz JOIN no banco de A — usa apenas os dados que projetou localmente a partir de eventos. Isso garante a autonomia de banco que microservices exige.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Qual a diferença entre CQS e CQRS?',
+        a: '<p><strong>CQS (Command Query Separation)</strong> é um princípio de design de Bertrand Meyer aplicado ao nível de método/objeto: um método ou muda estado (command) ou retorna valor (query), nunca os dois. Exemplo: <code>stack.pop()</code> viola CQS (remove E retorna).</p><p><strong>CQRS</strong> eleva esse princípio para nível arquitetural: objetos/serviços/handlers/bancos diferentes para cada responsabilidade. Greg Young cunhou o termo ao perceber que times aplicavam CQS em nível macro. CQRS é muito mais custoso que CQS — CQS é boa prática sempre, CQRS é padrão arquitetural para casos específicos.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você testa o lado de Command e o lado de Query independentemente?',
+        a: '<p><strong>Command side</strong>: unit tests no Aggregate/domain logic (sem infraestrutura), testes de integração no handler com banco real (Testcontainers). Assert: evento publicado na outbox, estado correto no write DB.</p><p><strong>Query side/Projector</strong>: testa o projector isoladamente injetando eventos e verificando o read model resultante. Read handlers: testam contra read DB populado pelo projector.</p><p><strong>Contract test</strong>: garante que o evento que o write side publica tem o schema que o projector espera consumir — evita breaking change silencioso entre os dois lados.</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você monitora a saúde do CQRS em produção?',
+        a: '<p>As métricas críticas: <strong>projector lag</strong> (tempo entre evento publicado e read model atualizado — alerte se &gt;5s em sistema normal), <strong>event queue depth</strong> (crescimento indica projector atrasado), <strong>idempotency skips</strong> (quantas vezes o projector pulou evento duplicado), e <strong>read model staleness</strong> (quão antigo está o dado mais recente em cada projeção).</p><p>Alertas: projector parado (lag cresce sem parar), read model muito defasado (impacta SLA de consistência), dead letter queue crescendo (eventos que o projector não consegue processar — geralmente schema incompatível).</p>',
+        level: 'senior',
+      },
+      {
+        q: 'Como você decide o schema do read model — o que desnormalizar?',
+        level: 'senior',
+        a: '<p>Read model é otimizado para a <strong>query específica que serve</strong>, não para normalização. A pergunta certa não é "como organizo os dados?" mas "qual é a tela/relatório que isso alimenta?"</p><p>Processo de decisão:</p><ol><li><strong>Identifica a query leaf</strong> — a query mais frequente e mais lenta. Ex: tela de lista de pedidos com nome do cliente, total, status e data. Essa é a query a otimizar.</li><li><strong>Projeta o documento ideal para essa query</strong>: <code>{ orderId, customerName, total, itemCount, status, createdAt }</code> — tudo numa linha, sem JOIN. JOIN zero na leitura é o objetivo.</li><li><strong>Aceita redundância</strong>: o nome do cliente vai estar em cada pedido do read model. Se o cliente muda de nome, o projector recebe CustomerNameUpdated e atualiza todos os pedidos desse cliente. Essa é a consistência eventual aceitável.</li><li><strong>Cria read models diferentes por caso de uso</strong>: tela de lista tem um schema; tela de detalhe tem outro (com todos os itens expandidos). Não tenta um read model "genérico" — ele degenera em modelo normalizado.</li></ol><p>Stores para read model: Postgres com tabela denormalizada, Redis para acesso por chave, Elasticsearch para busca full-text, DynamoDB para acesso por partition key de alta escala. Cada um serve um tipo de query diferente — não há escolha universal.</p>',
+        tip: 'Definir schema a partir da query (não do domínio) é o ponto central de CQRS. Quem inverte essa lógica vai ter read model que não resolve o problema de performance.',
+      },
+      {
+        q: 'Qual o impacto de CQRS na consistência de dados e como comunicar ao time de produto?',
+        level: 'senior',
+        a: '<p>CQRS com bancos separados introduz <strong>eventual consistency</strong>: a escrita aconteceu, mas a leitura pode refletir o dado antigo por milissegundos ou segundos. Isso é um tradeoff real que o time de produto precisa entender e aceitar.</p><p>Como comunicar ao produto:</p><ul><li><strong>Quantifique o lag esperado.</strong> "Após criar um pedido, ele aparece na lista em até 500ms." Produto precisa de número, não de conceito técnico.</li><li><strong>Identifique casos que não toleram eventual consistency.</strong> Pagamento processado? Deve aparecer imediatamente como "processando" — use optimistic update no frontend. Número de estoque em tempo real? Talvez esse campo específico precise ser lido do write model.</li><li><strong>Proponha UX que abraça o modelo.</strong> "Pedido criado com sucesso — aparecerá na lista em instantes." O usuário entende. É preferível a esconder e ter bug confuso.</li></ul><p>Impacto técnico que o time de engenharia precisa aceitar:</p><ul><li>Testes de integração precisam de await/polling para verificar read model após comando</li><li>Debugging requer correlacionar timestamps do evento com o read model</li><li>Rollback de read model corrompido exige replay — planejar antes de precisar</li></ul>',
+        tip: 'Mostrar que você pensa em eventual consistency como uma conversa de produto, não só como detalhe técnico, demonstra maturidade de engenheiro sênior que trabalha com stakeholders.',
+      },
+      {
+        q: 'CQRS com múltiplas projeções do mesmo evento — como organizar?',
+        level: 'senior',
+        a: '<p>Um único evento de domínio pode alimentar múltiplos read models com estruturas completamente diferentes. Exemplo: <code>OrderConfirmed</code> precisa atualizar:</p><ul><li><code>OrderSummaryView</code> — lista de pedidos do cliente</li><li><code>SalesReportView</code> — agregados por dia/mês para relatório financeiro</li><li><code>InventoryForecastView</code> — SKUs vendidos para previsão de estoque</li></ul><p>Padrões de organização:</p><ol><li><strong>Projector por read model.</strong> Cada view tem seu próprio consumer Kafka (com consumer group próprio). Eles processam o mesmo evento independentemente, no seu próprio ritmo, com sua própria tabela de idempotência. Um projector lento não bloqueia o outro.</li><li><strong>Projector multiplex (fan-out local).</strong> Um único consumer recebe o evento e chama múltiplos projectors internamente. Mais simples operacionalmente, mas um projector lento atrasa todos. Use só quando os projectors são para o mesmo bounded context.</li><li><strong>Separação por domínio.</strong> SalesReport é context diferente de Orders — consumer group diferente, repositório próprio, deploy próprio. Fronteira de contexto define separação de projector.</li></ol><p>Regra: prefira consumer group separado por read model crítico. Dá autonomia operacional — pode pausar e replay o SalesReport sem afetar OrderSummaryView.</p>',
+        tip: 'Falar em consumer groups separados por projeção e motivar com autonomia operacional mostra que você pensa em CQRS como sistema de produção, não como arquitetura em papel.',
+      },
+      {
+        q: 'Como você lida com versionamento de eventos em Event Sourcing?',
+        level: 'senior',
+        a: '<p>Versionamento de eventos é o problema mais subestimado de Event Sourcing. Você grava <code>OrderCreated v1</code> em 2023. Em 2024, o schema muda — como lidar com os eventos antigos?</p><p><strong>Upcasting</strong> — o padrão principal:</p><pre><code>// EventUpcaster transforma evento antigo em novo antes de entregar ao handler\nfunction upcastOrderCreated(raw: any): OrderCreatedV2 {\n  if (raw.version === 1) {\n    return {\n      ...raw,\n      version: 2,\n      // v1 não tinha campo "channel" — adiciona default\n      channel: \'web\',\n      // v1 tinha "amount" como number — v2 usa Money object\n      total: { amount: raw.amount, currency: \'BRL\' },\n    }\n  }\n  return raw\n}</code></pre><p>Outras estratégias:</p><ul><li><strong>Weak schema (JSON sem tipagem rígida):</strong> campos novos são opcionais. Handler usa <code>event.newField ?? defaultValue</code>. Simples mas frágil — perde segurança de tipo.</li><li><strong>Event versioning explícito:</strong> <code>OrderCreatedV1</code>, <code>OrderCreatedV2</code> como tipos distintos. Event Store guarda o tipo. Handler tem switch por versão. Mais verboso, mais explícito.</li><li><strong>Immutable old events:</strong> nunca modifica evento gravado. O upcaster é a camada de leitura. Garante auditoria perfeita — o log histórico é imutável.</li></ul><p>Regra de ouro: <strong>evento gravado nunca muda</strong>. Toda transformação acontece na leitura, não na gravação. Isso preserva o valor do Event Sourcing como audit log imutável.</p>',
+        tip: 'Upcasting e "evento gravado nunca muda" são os dois conceitos-chave de versionamento em ES. Quem cita esses dois está no nível certo de ES avançado.',
+      },
+      {
+        q: 'Como CQRS impacta a segurança e autorização de acesso?',
+        level: 'senior',
+        a: '<p>CQRS introduce uma separação natural que pode ser explorada para <strong>autorização granular</strong> por tipo de operação.</p><p><strong>Command side:</strong> autorização baseada em intenção. Quem pode emitir <code>ApproveOrderCommand</code>? Apenas role <code>MANAGER</code>. Isso é verificado no handler antes de processar o comando. Fácil de auditar — todo command tem um <code>issuedBy: UserId</code> que vai para o evento de domínio.</p><p><strong>Query side:</strong> autorização baseada em dados visíveis. Um cliente só vê seus próprios pedidos; um admin vê todos. O read model pode ter projeções diferentes por role — <code>OrderSummaryView</code> para cliente (sem campos internos), <code>AdminOrderView</code> com dados completos incluindo margens e custos.</p><p>Padrão recomendado:</p><ul><li>Command Handler valida autenticação/autorização antes de aplicar ao aggregate</li><li>Query Handler filtra por tenant/userId automaticamente via middleware de contexto</li><li>Eventos carregam <code>actorId</code> e <code>correlationId</code> — trilha de auditoria completa sem log adicional</li><li>Read models por role (projeções separadas) evitam vazamento de dados sensíveis em campos omitidos por código — o dado simplesmente não está na projeção</li></ul><p>Benefício de auditoria: em Event Sourcing, todo command que gerou um evento tem o ator registrado. Auditoria completa sem tabela de log adicional — o Event Store é o log.</p>',
+        tip: 'Conectar CQRS a auditoria e projeções por role é resposta de sênior que pensa em segurança como design, não como afterthought. Diferencial em entrevistas de sistema financeiro.',
+      },
+      {
+        q: 'Quais são os anti-patterns mais comuns em implementações de CQRS?',
+        level: 'pleno',
+        a: '<p>Top 5 anti-patterns que vejo em código de produção:</p><ol><li><strong>Command que retorna dados ricos.</strong> <code>CreateOrderCommand</code> retorna o Order completo — elimina o benefício de separação. Command retorna <code>void</code> ou só o ID. Cliente faz Query separada se precisar do dado.</li><li><strong>Read model que imita o write model.</strong> Se seu read model é a mesma tabela normalizada com o mesmo schema do write model, você tem duas fontes de verdade sem ganho. Read model deve ser denormalizado pra query específica.</li><li><strong>Projector com regra de negócio.</strong> O projector calcula desconto, valida CPF, aplica regra fiscal — isso é domínio, não projeção. Projector apenas transforma evento em mutação no read model. Sem lógica de negócio.</li><li><strong>Query via Command Bus.</strong> Rotear GET /orders através do Command Bus "por consistência" — viola o princípio fundamental de separação. Query tem seu próprio caminho, mais simples e mais rápido.</li><li><strong>Eventual consistency ignorada no frontend.</strong> Frontend cria um recurso e imediatamente faz GET esperando o dado. Sem optimistic update ou polling, UX quebra. A UI precisa abraçar o modelo de consistência, não fingir que não existe.</li></ol><p>Anti-pattern meta: adotar CQRS como padrão default em TODO o sistema, incluindo CRUD simples. CQRS tem custo — aplicar onde não há benefit é dívida técnica voluntária.</p>',
+        tip: 'Listar anti-patterns concretos mostra que você já viu código ruim de CQRS e sabe identificar. Mais valioso que listar benefícios teóricos.',
+      },
+      {
+        q: 'Como você implementa read-your-writes em CQRS com banco separado?',
+        level: 'senior',
+        a: '<p>Read-your-writes é o requisito: após o usuário criar um recurso, ele deve ver o dado imediatamente na próxima consulta — mesmo com eventual consistency no read model.</p><p><strong>Solução 1 — Versão no command response:</strong> o command handler retorna a versão do aggregate após o commit. O query endpoint aceita parâmetro <code>?minVersion=5</code>. O read model reader verifica se sua projeção alcançou aquela versão antes de responder. Se não, espera até timeout (ex: 2s) com retry interno.</p><p><strong>Solução 2 — Leitura direta do write model para queries de "minha criação":</strong> após o POST, o frontend faz o GET diretamente no write model endpoint (<code>/orders/123/raw</code>) por 1 requisição, depois volta para o read model. Mais simples, custo zero de infra adicional.</p><p><strong>Solução 3 — Optimistic update no frontend (recomendado para UX):</strong> adiciona o recurso no estado local imediatamente com ID temporário. Quando o read model retornar o item real (polling), substitui o temporário. Para o usuário: sem delay percebido.</p><p><strong>Solução 4 — Cabeçalho de versão na resposta:</strong> toda resposta de query inclui <code>X-Read-Model-Version: 47</code>. Frontend armazena e nas próximas queries envia <code>If-None-Match: 47</code>. API retorna 304 se não houve mudança, ou dados frescos se houve.</p><p>Em produção, combino optimistic update (UX) + versão mínima (correctness) para ações críticas.</p>',
+        tip: 'Read-your-writes é o problema prático mais frequente reportado por times que adotam CQRS. Ter 3-4 estratégias com trade-offs mostra experiência real de produção.',
+      },
+      {
+        q: 'Como você escalaria o write side independentemente do read side em CQRS?',
+        level: 'senior',
+        a: '<p>A separação física de write e read em CQRS permite escalar cada lado conforme seu gargalo específico — que são quase sempre diferentes.</p><p><strong>Write side (Command):</strong> gargalo típico é throughput de escrita no banco e validação de invariantes. Estratégias:</p><ul><li><strong>Vertical scaling do write DB:</strong> PostgreSQL com hardware mais potente suporta muito antes de precisar de sharding.</li><li><strong>Sharding por aggregate ID:</strong> <code>orderId % N</code> determina qual shard recebe o aggregate. Cada shard processa seus aggregates sem contenção com outros shards.</li><li><strong>Optimistic concurrency control:</strong> versão no aggregate evita lock pessimista — múltiplos writers concorrem sem bloquear, conflito é detectado no commit.</li><li><strong>Command queue (Kafka):</strong> commands chegam via fila, handlers processam em paralelo. Desacopla throughput de entrada do throughput de processamento.</li></ul><p><strong>Read side (Query):</strong> gargalo típico é volume de leitura e latência de query complexa. Estratégias:</p><ul><li><strong>Réplicas de leitura:</strong> N réplicas Postgres em read-only. Load balancer distribui queries.</li><li><strong>Horizontal scaling do read store:</strong> Redis cluster, Elasticsearch cluster — escalam horizontalmente por design.</li><li><strong>CDN para read models estáticos:</strong> projeções que mudam raramente (catálogo de produtos) podem ser cacheadas na borda.</li></ul><p>Métricas que determinam o scaling: p99 de latência de query, throughput de commands/s, lag do projector. Scale o lado que está no limite — não escala ambos por precaução.</p>',
+        tip: 'Mostrar que write e read escalam de forma diferente e com estratégias diferentes é o argumento mais concreto de performance para adotar CQRS. Diferencial em entrevistas de sistemas de alta escala.',
+      },
+    ],
+    exercises: [
+      {
+        level: 'iniciante',
+        title: 'Refatorar CRUD para CQRS simples',
+        description: 'Pegue um endpoint GET /products (lista) e POST /products (cria) com um único service. Refatore para ter CreateProductCommand + handler e GetProductsQuery + handler, com CommandBus e QueryBus. O banco pode ser o mesmo inicialmente — o objetivo é sentir a separação de responsabilidade.',
+        concepts: ['Command', 'Query', 'CommandBus', 'QueryBus', 'Separação de responsabilidade'],
+        hint: 'O Command handler deve retornar apenas o ID do produto criado (ou void). O controller faz GET separado se precisar do dado completo. Isso força o "Command não retorna dado" na prática.',
+      },
+      {
+        level: 'intermediario',
+        title: 'Implementar Read Model Denormalizado com Projector',
+        description: 'Num sistema de e-commerce: o write side salva Order com Items num Postgres normalizado. Crie um read model "OrderSummaryView" denormalizado em Redis (order_id, customer_name, total, item_count, status). Implemente o projector que consome OrderCreated/OrderStatusChanged e mantém o read model atualizado. Garanta idempotência.',
+        concepts: ['Read model', 'Projector', 'Denormalização', 'Idempotência', 'Redis'],
+        hint: 'Use um Set Redis de IDs já processados para idempotência, ou grave eventId na própria estrutura do read model. O projector deve ser reexecutável sem corromper o estado.',
+        relatedKeypoints: [3, 4],
+      },
+      {
+        level: 'intermediario',
+        title: 'Eventual Consistency na UI com Optimistic Update',
+        description: 'Implemente um frontend React que cria um produto via Command (POST) e lista via Query (GET). O projector tem 500ms de delay simulado. Implemente optimistic update: ao criar, adiciona o item na lista imediatamente no estado local; se a API retornar erro, remove e exibe mensagem. Implemente também polling: após criar, refaz o GET a cada 300ms por até 3s.',
+        concepts: ['Optimistic update', 'Eventual consistency', 'Polling', 'UX de sistemas distribuídos'],
+        hint: 'Use um ID temporário (uuid no frontend) para o item otimístico até o GET confirmar o item real. Se o GET retornar o item com o mesmo ID antes de 3s, o polling pode parar.',
+      },
+      {
+        level: 'senior',
+        title: 'Reconstrução de Read Model com Snapshot',
+        description: 'Implemente Event Sourcing no write side (OrderCreated, OrderPaid, OrderShipped). O projector cria um read model "order_current_status". Adicione: 1) snapshot automático a cada 100 eventos por aggregate, 2) endpoint admin de "rebuild read model" que replay eventos a partir do último snapshot sem derrubar o read model atual, 3) swap atômico do modelo reconstruído com o atual.',
+        concepts: ['Event Sourcing', 'Snapshot', 'Replay', 'Zero-downtime rebuild', 'CQRS avançado'],
+        hint: 'Faça o rebuild em tabela temporária (order_current_status_new), valide contagem de registros, depois renomeie atomicamente. O modelo atual continua servindo queries durante a reconstrução.',
+        relatedKeypoints: [5, 6],
+      },
+    ],
+    codeExamples: [
+      {
+        title: 'CQRS Completo com NestJS/CQRS — Command, Query, Projector',
+        description: 'Implementação end-to-end: CreateOrder command com handler e outbox, GetOrders query com read model, projector com idempotência.',
+        language: 'typescript',
+        code: `// ============================================================
+// WRITE SIDE
+// ============================================================
+
+// create-order.command.ts
+export class CreateOrderCommand {
+  constructor(
+    public readonly customerId: string,
+    public readonly items: Array<{ productId: string; quantity: number; price: number }>,
+  ) {}
+}
+
+// order.aggregate.ts
+export class Order {
+  private readonly _events: DomainEvent[] = []
+
+  constructor(
+    public readonly id: string,
+    public readonly customerId: string,
+    public readonly items: OrderItem[],
+    public status: 'pending' | 'paid' | 'shipped' | 'cancelled' = 'pending',
+  ) {}
+
+  static create(cmd: CreateOrderCommand): Order {
+    const order = new Order(uuid(), cmd.customerId, cmd.items)
+    // Registra evento de domínio — será persistido via outbox
+    order._events.push(new OrderCreatedEvent(order.id, order.customerId, order.total))
+    return order
+  }
+
+  get total(): number {
+    return this.items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  }
+
+  get domainEvents(): DomainEvent[] { return [...this._events] }
+}
+
+// create-order.handler.ts
+@CommandHandler(CreateOrderCommand)
+@Injectable()
+export class CreateOrderHandler implements ICommandHandler<CreateOrderCommand> {
+  constructor(
+    private readonly orderRepo: OrderRepository,
+    private readonly outboxRepo: OutboxRepository,
+    private readonly db: DataSource,
+  ) {}
+
+  async execute(cmd: CreateOrderCommand): Promise<string> {
+    return this.db.transaction(async (em) => {
+      const order = Order.create(cmd)
+      await this.orderRepo.save(order, em)
+
+      // Persiste eventos na outbox NA MESMA TRANSAÇÃO
+      for (const event of order.domainEvents) {
+        await this.outboxRepo.insert({
+          eventId: uuid(),
+          eventType: event.constructor.name,
+          aggregateId: order.id,
+          payload: JSON.stringify(event),
+        }, em)
+      }
+
+      return order.id
+    })
+  }
+}
+
+// ============================================================
+// READ SIDE
+// ============================================================
+
+// get-orders.query.ts
+export class GetOrdersQuery {
+  constructor(
+    public readonly customerId: string,
+    public readonly page: number = 1,
+    public readonly limit: number = 20,
+  ) {}
+}
+
+// order-summary.view.ts (read model interface)
+export interface OrderSummaryView {
+  orderId: string
+  customerId: string
+  status: string
+  total: number
+  itemCount: number
+  createdAt: string
+}
+
+// get-orders.handler.ts — lê do read model, zero regra de negócio
+@QueryHandler(GetOrdersQuery)
+@Injectable()
+export class GetOrdersHandler implements IQueryHandler<GetOrdersQuery> {
+  constructor(private readonly readRepo: OrderReadRepository) {}
+
+  async execute(query: GetOrdersQuery): Promise<OrderSummaryView[]> {
+    return this.readRepo.findByCustomer(query.customerId, {
+      page: query.page,
+      limit: query.limit,
+    })
+  }
+}
+
+// ============================================================
+// PROJECTOR
+// ============================================================
+
+// order-summary.projector.ts
+@EventsHandler(OrderCreatedEvent)
+@Injectable()
+export class OrderSummaryProjector implements IEventHandler<OrderCreatedEvent> {
+  constructor(
+    private readonly readRepo: OrderReadRepository,
+    private readonly idempotencyRepo: IdempotencyRepository,
+    private readonly db: DataSource,
+  ) {}
+
+  async handle(event: OrderCreatedEvent): Promise<void> {
+    // Idempotência: ignora se já processou este eventId
+    const processed = await this.idempotencyRepo.exists(event.eventId)
+    if (processed) {
+      console.log(\`[projector] Evento \${event.eventId} já projetado, ignorando\`)
+      return
+    }
+
+    await this.db.transaction(async (em) => {
+      await this.readRepo.upsert({
+        orderId: event.orderId,
+        customerId: event.customerId,
+        status: 'pending',
+        total: event.total,
+        itemCount: event.items.length,
+        createdAt: event.occurredOn.toISOString(),
+      }, em)
+
+      // Registra que processamos este evento (mesma transação)
+      await this.idempotencyRepo.insert(event.eventId, em)
+    })
+  }
+}
+
+// ============================================================
+// CONTROLLER
+// ============================================================
+
+@Controller('orders')
+export class OrdersController {
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
+
+  @Post()
+  @HttpCode(202)  // 202 Accepted — resultado virá via Query, não no response
+  async create(@Body() dto: CreateOrderDto): Promise<{ orderId: string }> {
+    const orderId = await this.commandBus.execute(
+      new CreateOrderCommand(dto.customerId, dto.items)
+    )
+    return { orderId }  // retorna só o ID — NÃO retorna o objeto completo
+  }
+
+  @Get()
+  list(@Query() q: ListOrdersDto): Promise<OrderSummaryView[]> {
+    return this.queryBus.execute(
+      new GetOrdersQuery(q.customerId, q.page)
+    )
+  }
+}`,
+      },
+      {
+        title: 'Event Sourcing — Write Side com Reconstrução de Aggregate',
+        description: 'Aggregate que persiste eventos como fonte de verdade e reconstrói estado por replay. Inclui snapshot para reconstituição eficiente.',
+        language: 'typescript',
+        code: `// event-store.repository.ts
+export class EventStoreRepository<T extends AggregateRoot> {
+  constructor(private readonly db: DataSource) {}
+
+  async save(aggregate: T): Promise<void> {
+    const uncommitted = aggregate.getUncommittedEvents()
+    if (uncommitted.length === 0) return
+
+    const currentVersion = aggregate.version
+    await this.db.getRepository(StoredEvent).save(
+      uncommitted.map((event, i) => ({
+        aggregateId: aggregate.id,
+        aggregateType: aggregate.constructor.name,
+        eventType: event.constructor.name,
+        payload: JSON.stringify(event),
+        version: currentVersion + i + 1,  // versão otimista para concorrência
+        occurredOn: new Date(),
+      }))
+    )
+
+    aggregate.markEventsAsCommitted()
+  }
+
+  async findById(id: string, AggregateClass: new() => T): Promise<T | null> {
+    // Verifica se há snapshot recente
+    const snapshot = await this.db.getRepository(AggregateSnapshot)
+      .findOne({ where: { aggregateId: id }, order: { version: 'DESC' } })
+
+    const fromVersion = snapshot?.version ?? 0
+    const storedEvents = await this.db.getRepository(StoredEvent)
+      .find({
+        where: { aggregateId: id, version: MoreThan(fromVersion) },
+        order: { version: 'ASC' },
+      })
+
+    if (!snapshot && storedEvents.length === 0) return null
+
+    // Reconstrói aggregate a partir do snapshot + eventos posteriores
+    const aggregate = snapshot
+      ? AggregateClass.fromSnapshot(JSON.parse(snapshot.state))
+      : new AggregateClass()
+
+    for (const stored of storedEvents) {
+      const event = this.deserializeEvent(stored.eventType, stored.payload)
+      aggregate.apply(event, { fromHistory: true })  // aplica sem registrar como uncommitted
+    }
+
+    return aggregate
+  }
+}
+
+// order.aggregate.ts — com Event Sourcing
+export class Order extends AggregateRoot {
+  id: string
+  customerId: string
+  status: OrderStatus = 'pending'
+  items: OrderItem[] = []
+  version: number = 0
+
+  // Comandos geram eventos
+  static create(cmd: CreateOrderCommand): Order {
+    const order = new Order()
+    order.apply(new OrderCreatedEvent(uuid(), cmd.customerId, cmd.items))
+    return order
+  }
+
+  pay(paymentId: string): void {
+    if (this.status !== 'pending') throw new Error('Pedido não está pendente')
+    this.apply(new OrderPaidEvent(this.id, paymentId))
+  }
+
+  // Aplica evento ao estado — chamado tanto em novos eventos quanto em replay
+  protected onOrderCreated(event: OrderCreatedEvent): void {
+    this.id = event.orderId
+    this.customerId = event.customerId
+    this.items = event.items
+    this.status = 'pending'
+  }
+
+  protected onOrderPaid(event: OrderPaidEvent): void {
+    this.status = 'paid'
+  }
+
+  // Snapshot para reconstituição eficiente
+  toSnapshot(): Record<string, unknown> {
+    return { id: this.id, customerId: this.customerId, status: this.status, items: this.items }
+  }
+
+  static fromSnapshot(state: ReturnType<Order['toSnapshot']>): Order {
+    const order = new Order()
+    Object.assign(order, state)
+    return order
+  }
+}`,
+      },
+      {
+        title: 'Optimistic Update na UI + Read-Your-Writes',
+        description: 'Frontend React com CQRS: cria via Command, lista via Query. Optimistic update + polling para lidar com eventual consistency.',
+        language: 'typescript',
+        code: `// useOrders.ts — hook com optimistic update e polling
+import { useState, useCallback, useRef } from 'react'
+
+interface Order {
+  orderId: string
+  status: string
+  total: number
+  _optimistic?: boolean  // marcador de item ainda não confirmado
+}
+
+export function useOrders(customerId: string) {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(false)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchOrders = useCallback(async () => {
+    const res = await fetch(\`/api/orders?customerId=\${customerId}\`)
+    return res.json() as Promise<Order[]>
+  }, [customerId])
+
+  const createOrder = useCallback(async (items: OrderItem[]) => {
+    // 1. Cria item otimístico no estado local
+    const tempId = \`temp-\${Date.now()}\`
+    const optimisticOrder: Order = {
+      orderId: tempId,
+      status: 'pending',
+      total: items.reduce((s, i) => s + i.price * i.quantity, 0),
+      _optimistic: true,
+    }
+    setOrders(prev => [optimisticOrder, ...prev])
+
+    try {
+      // 2. Envia command
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, items }),
+      })
+      if (!res.ok) throw new Error('Falha ao criar pedido')
+      const { orderId } = await res.json()
+
+      // 3. Polling até o read model refletir o novo pedido (eventual consistency)
+      let attempts = 0
+      const poll = async () => {
+        const serverOrders = await fetchOrders()
+        const confirmed = serverOrders.find(o => o.orderId === orderId)
+
+        if (confirmed) {
+          // Substituí o item otimístico pelo real
+          setOrders(serverOrders)
+          return
+        }
+
+        if (++attempts < 10) {
+          pollingRef.current = setTimeout(poll, 300)
+        } else {
+          // Timeout: mantém o otimístico mas remove marcador
+          setOrders(prev => prev.map(o =>
+            o.orderId === tempId ? { ...o, orderId, _optimistic: false } : o
+          ))
+        }
+      }
+      poll()
+
+    } catch (error) {
+      // 4. Reverte o otimístico em falha
+      setOrders(prev => prev.filter(o => o.orderId !== tempId))
+      throw error
+    }
+  }, [customerId, fetchOrders])
+
+  return { orders, loading, createOrder }
+}
+
+// OrdersPage.tsx
+export function OrdersPage() {
+  const { orders, createOrder } = useOrders('user-123')
+
+  return (
+    <ul>
+      {orders.map(order => (
+        <li key={order.orderId} style={{ opacity: order._optimistic ? 0.6 : 1 }}>
+          {order._optimistic && <span>Processando...</span>}
+          Pedido {order.orderId} — {order.status} — R$ {order.total}
+        </li>
+      ))}
+    </ul>
+  )
+}`,
+      },
+    ],
+    videos: [
+      { title: 'CQRS and Event Sourcing — Greg Young (GOTO 2014)', channel: 'GOTO Conferences', url: 'https://www.youtube.com/watch?v=JHGkaShoyNs', topic: 'CQRS e ES fundamentos', note: 'O criador do padrão explicando de primeira mão' },
+      { title: 'CQRS — Martin Fowler (bliki walkthrough)', channel: 'InfoQ', url: 'https://www.youtube.com/watch?v=EkEz3pcLdgY', topic: 'Quando usar CQRS', note: 'Foco em quando NÃO usar — perspectiva equilibrada' },
+      { title: 'Implementing CQRS with NestJS', channel: 'Marius Espejo', url: 'https://www.youtube.com/watch?v=BnFlpjhFToM', topic: 'Implementação prática', note: 'Código real com @nestjs/cqrs do zero' },
+      { title: 'Event Sourcing — você precisa mesmo disso?', channel: 'Hussein Nasser', url: 'https://www.youtube.com/watch?v=qJA6MaQ90YY', topic: 'ES vs CQRS', note: 'Desmistifica a diferença e os custos reais' },
+      { title: 'Eventual Consistency — como lidar na prática', channel: 'Arjan Codes', url: 'https://www.youtube.com/watch?v=oII6M8YGqyA', topic: 'UI e eventual consistency', note: 'Estratégias práticas para o frontend' },
     ],
     resources: [
-      { title: 'Martin Fowler — CQRS', url: 'https://martinfowler.com/bliki/CQRS.html', kind: 'artigo' },
-      { title: 'Microsoft — CQRS pattern', url: 'https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs', kind: 'docs' },
-      { title: 'Greg Young — CQRS Documents', url: 'https://cqrs.files.wordpress.com/2010/11/cqrs_documents.pdf', kind: 'artigo' },
-      { title: 'Implementing DDD (Vernon) — capitulos CQRS', url: 'https://www.amazon.com/Implementing-Domain-Driven-Design-Vaughn-Vernon/dp/0321834577', kind: 'livro' },
-      { title: 'microservices.io — CQRS', url: 'https://microservices.io/patterns/data/cqrs.html', kind: 'docs' },
+      { title: 'Martin Fowler — CQRS (bliki)', url: 'https://martinfowler.com/bliki/CQRS.html', kind: 'artigo' },
+      { title: 'Microsoft — CQRS pattern (Azure Architecture)', url: 'https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs', kind: 'docs' },
+      { title: 'Greg Young — CQRS Documents (PDF original)', url: 'https://cqrs.files.wordpress.com/2010/11/cqrs_documents.pdf', kind: 'artigo' },
+      { title: 'Implementing DDD — Vaughn Vernon (capítulos CQRS)', url: 'https://www.amazon.com/Implementing-Domain-Driven-Design-Vaughn-Vernon/dp/0321834577', kind: 'livro' },
+      { title: 'microservices.io — CQRS pattern', url: 'https://microservices.io/patterns/data/cqrs.html', kind: 'docs' },
+      { title: 'microservices.io — Outbox Pattern', url: 'https://microservices.io/patterns/data/transactional-outbox.html', kind: 'docs' },
+      { title: '@nestjs/cqrs — documentação oficial', url: 'https://docs.nestjs.com/recipes/cqrs', kind: 'docs' },
+      { title: 'Axon Framework (Java CQRS+ES)', url: 'https://docs.axoniq.io/reference-guide/', kind: 'docs' },
+      { title: 'EventStoreDB — documentação', url: 'https://developers.eventstore.com/clients/grpc/', kind: 'docs' },
+      { title: 'Building Event-Driven Microservices — Adam Bellemare', url: 'https://www.oreilly.com/library/view/building-event-driven-microservices/9781492057888/', kind: 'livro' },
     ],
-    diagram: 'cqrs-event-sourcing'
+    mindmap: {
+      title: 'Mindmap — CQRS',
+      html: `<style>
+.cqm-wrap{font-family:system-ui,sans-serif;width:100%;background:#0a0f1e;border-radius:12px;padding:20px;border:1.5px solid #1793D1}
+.cqm-center{background:#1793D1;color:#fff;border-radius:10px;padding:12px 20px;text-align:center;font-weight:700;font-size:14px;margin-bottom:16px}
+.cqm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cqm-node{background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;padding:10px 12px}
+.cqm-node-title{font-size:11px;font-weight:700;color:#1793D1;margin-bottom:6px;border-bottom:1px solid #1e3a5f;padding-bottom:4px}
+.cqm-item{font-size:9.5px;color:#94a3b8;margin-bottom:2px;padding-left:10px;position:relative}
+.cqm-item::before{content:"·";position:absolute;left:2px;color:#1793D1}
+.cqm-warn{color:#fca5a5}
+.cqm-ok{color:#86efac}
+.cqm-note{color:#fbbf24}
+</style>
+<div class="cqm-wrap">
+  <div class="cqm-center">CQRS — Command Query Responsibility Segregation</div>
+  <div class="cqm-grid">
+    <div class="cqm-node">
+      <div class="cqm-node-title">Fundamentos</div>
+      <div class="cqm-item">CQS (Meyer) → nível arquitetural</div>
+      <div class="cqm-item">Command: escreve, não retorna</div>
+      <div class="cqm-item">Query: lê, não muta</div>
+      <div class="cqm-item">Bancos diferentes (write/read)</div>
+      <div class="cqm-item">Eventual consistency</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Write Side</div>
+      <div class="cqm-item">Command + CommandHandler</div>
+      <div class="cqm-item">Aggregate com invariantes</div>
+      <div class="cqm-item">Postgres normalizado (ACID)</div>
+      <div class="cqm-item">Outbox Pattern</div>
+      <div class="cqm-item">Publica Domain Events</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Read Side</div>
+      <div class="cqm-item">Query + QueryHandler</div>
+      <div class="cqm-item">Read model denormalizado</div>
+      <div class="cqm-item">ElasticSearch / Redis / View</div>
+      <div class="cqm-item">Projector (consome eventos)</div>
+      <div class="cqm-item">Idempotência obrigatória</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">CQRS vs Event Sourcing</div>
+      <div class="cqm-item cqm-note">São independentes!</div>
+      <div class="cqm-item">CQRS = responsabilidade</div>
+      <div class="cqm-item">ES = persistência por eventos</div>
+      <div class="cqm-item">Podem existir separados</div>
+      <div class="cqm-item cqm-ok">Comece CQRS sem ES</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Eventual Consistency (OREO)</div>
+      <div class="cqm-item">Optimistic update</div>
+      <div class="cqm-item">Read-your-writes</div>
+      <div class="cqm-item">Eventually aceite delay</div>
+      <div class="cqm-item">Observe via WebSocket</div>
+      <div class="cqm-item cqm-warn">Nunca esconda 100%</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Quando usar (PIP)</div>
+      <div class="cqm-item cqm-ok">Performance assimétrica</div>
+      <div class="cqm-item cqm-ok">Independência de escala</div>
+      <div class="cqm-item cqm-ok">Projeções múltiplas</div>
+      <div class="cqm-item cqm-warn">Auditoria obrigatória</div>
+      <div class="cqm-item cqm-warn">Alta leitura/escrita ratio</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Quando NÃO usar</div>
+      <div class="cqm-item cqm-warn">CRUD simples</div>
+      <div class="cqm-item cqm-warn">Modelos não divergem</div>
+      <div class="cqm-item cqm-warn">"Só ter DTO diferente"</div>
+      <div class="cqm-item cqm-warn">Equipe pequena/júnior</div>
+      <div class="cqm-item cqm-ok">View materializada resolve</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Reconstrução de Read Model</div>
+      <div class="cqm-item">Replay eventos do ES</div>
+      <div class="cqm-item">Snapshot periódico</div>
+      <div class="cqm-item">Reconstrução paralela</div>
+      <div class="cqm-item">Swap atômico</div>
+      <div class="cqm-item">DLQ para eventos inválidos</div>
+    </div>
+    <div class="cqm-node">
+      <div class="cqm-node-title">Ferramentas</div>
+      <div class="cqm-item">@nestjs/cqrs (Node)</div>
+      <div class="cqm-item">Axon Framework (Java)</div>
+      <div class="cqm-item">MediatR (.NET)</div>
+      <div class="cqm-item">EventStoreDB</div>
+      <div class="cqm-item">Debezium (CDC)</div>
+    </div>
+  </div>
+</div>`,
+    },
   },
 
   'circuit-breakers': {
