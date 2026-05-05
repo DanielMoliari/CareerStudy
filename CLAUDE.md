@@ -31,16 +31,60 @@ src/
     ProgressBar.tsx   — Barra multi-segmento de progresso
   data/
     skills.ts         — CATEGORIES, ALL_SKILLS, SKILL_BY_SLUG, DEPENDENCIES, iconUrl()
-    content/          — Conteúdo por skill (frontend, backend, db, cloud, devops, obs, ai, arch, cs, soft)
+    content/
+      index.ts        — Agrega todos os domínios (não alterar)
+      meta.ts         — AUTO-GERADO: índice leve de todas as skills (score, campos presentes)
+      frontend/       — Um arquivo .ts por skill (react.ts, vue.ts, next-js.ts, ...)
+      backend/        — node-js.ts, nestjs.ts, graphql.ts, ...
+      database/       — postgresql.ts, redis.ts, ...
+      cloud/          — aws.ts, ec2.ts, lambda.ts, s3.ts, terraform.ts, ...
+      devops/         — docker.ts, playwright.ts, kubernetes.ts, ...
+      ai/             — agentic-workflows.ts, rag.ts, mcp.ts, ...
+      arch/           — clean-architecture.ts, microservices.ts, ddd.ts, ...
+      cs/             — algoritmos-ds.ts, dynamic-programming.ts, event-loop.ts, ...
+      obs/            — slis-slos-slas.ts, prometheus.ts, grafana.ts, ...
+      sec/            — owasp-api-top-10.ts, threat-modeling.ts, ...
+      soft/           — ingles.ts, comunicacao.ts, ...
   hooks/
     useProgress.ts    — Hook localStorage (getState, setState, cycleState, notas, stats, export/import)
   types/
     index.ts          — Todos os tipos TypeScript do projeto
 
+scripts/
+  generate-meta.js    — Regenera meta.ts a partir dos arquivos individuais
+
 skills-study.html     — Arquivo original (referência, não usar mais)
 graph.html            — Arquivo original do grafo (referência)
 CONTEXT.md            — Origem das skills, decisões, gaps identificados
 ```
+
+## Fluxo obrigatório para edição de conteúdo de skill
+
+**SEMPRE** seguir esse fluxo ao criar ou enriquecer qualquer skill:
+
+1. **Ler `src/data/content/meta.ts`** — arquivo de ~10KB que mostra score/campos de todas as 218 skills. Use para entender o que está incompleto sem abrir arquivos grandes.
+2. **Ler apenas o arquivo da skill alvo** — ex: `src/data/content/frontend/vue.ts` (~80KB) em vez de ler o arquivo monolítico inteiro.
+3. **Editar o arquivo individual** da skill diretamente.
+4. **Rodar `node scripts/generate-meta.js`** após qualquer criação ou enriquecimento de skill para manter o `meta.ts` atualizado.
+5. **Rodar `npx tsc --noEmit`** para confirmar zero erros TypeScript.
+
+> ⚠️ Nunca ler os arquivos `index.ts` das pastas para buscar conteúdo — eles só re-exportam. O conteúdo está nos arquivos individuais.
+
+## Padrão de completude de skill (score 10/10)
+
+Cada skill deve ter todos os campos abaixo para ser considerada completa:
+- `interview`: ≥20 Q&As com `level: 'pleno'|'senior'`, `a` em HTML rico, `tip`
+- `interview`: ≥10 Q&As (mínimo aceitável)
+- `diagrams`: ≥3 itens (HTML/CSS com prefix CSS único por skill)
+- `mnemonics`: ≥3 itens (`{label, trick, explanation}`)
+- `cheatsheet`: presente (DiagramBlock com HTML/CSS)
+- `mindmap`: presente (DiagramBlock com HTML/CSS)
+- `exercises`: ≥3 itens (`level: iniciante|intermediario|senior`)
+- `videos`: ≥4 itens (`{title, channel, url}`)
+- `resources`: ≥5 itens (`{title, url, kind}`)
+- `codeExamples`: ≥3 itens (`{title, code, language}`)
+
+Ao criar skill nova: criar arquivo em `{domain}/{slug}.ts`, importar no `{domain}/index.ts`, rodar `generate-meta.js`.
 
 ## Design system
 - Dark theme, scarlet accent `#ef4444`, fonts Space Grotesk + JetBrains Mono + Plus Jakarta Sans

@@ -324,39 +324,27 @@ export default function SkillPage() {
               ver diagrama →
             </Link>
           )}
-          <span
+          <Link
+            href={`/skill/${slug}/pdfs`}
             className="tag"
-            title="Em breve — conteúdo específico desta skill ainda não foi preparado"
-            style={{
-              cursor: 'not-allowed',
-              opacity: 0.45,
-              textDecoration: 'line-through',
-            }}
+            style={{ textDecoration: 'none' }}
           >
-            baixar PDFs <span style={{ fontStyle: 'italic', opacity: 0.7, marginLeft: 4 }}>em breve</span>
-          </span>
-          <span
+            baixar PDFs
+          </Link>
+          <Link
+            href={`/skill/${slug}/visuais`}
             className="tag"
-            title="Em breve — conteúdo específico desta skill ainda não foi preparado"
-            style={{
-              cursor: 'not-allowed',
-              opacity: 0.45,
-              textDecoration: 'line-through',
-            }}
+            style={{ textDecoration: 'none' }}
           >
-            visuais <span style={{ fontStyle: 'italic', opacity: 0.7, marginLeft: 4 }}>em breve</span>
-          </span>
-          <span
+            visuais
+          </Link>
+          <button
             className="tag"
-            title="Em breve — conteúdo específico desta skill ainda não foi preparado"
-            style={{
-              cursor: 'not-allowed',
-              opacity: 0.45,
-              textDecoration: 'line-through',
-            }}
+            onClick={() => window.print()}
+            style={{ cursor: 'pointer', border: 'none', background: 'none', font: 'inherit' }}
           >
-            imprimir <span style={{ fontStyle: 'italic', opacity: 0.7, marginLeft: 4 }}>em breve</span>
-          </span>
+            imprimir
+          </button>
         </div>
       </div>
     </div>

@@ -1,0 +1,48 @@
+import type { SkillContentMap } from '@/types'
+import systemDesign from './system-design'
+import solid from './solid'
+import cleanArchitecture from './clean-architecture'
+import ddd from './ddd'
+import microservices from './microservices'
+import cqrs from './cqrs'
+import circuitBreakers from './circuit-breakers'
+import rateLimiting from './rate-limiting'
+import tradeoffAnalysis from './tradeoff-analysis'
+import eventDriven from './event-driven'
+import designPatterns from './design-patterns'
+import dependencyInjection from './dependency-injection'
+import sharding from './sharding'
+import chaosEngineering from './chaos-engineering'
+import hmvc from './hmvc'
+import mvc from './mvc'
+import soa from './soa'
+import repositoryPattern from './repository-pattern'
+import multiTenant from './multi-tenant'
+import cleanCode from './clean-code'
+import codeReview from './code-review'
+
+const arch: SkillContentMap = {
+  'system-design': systemDesign,
+  'solid': solid,
+  'clean-architecture': cleanArchitecture,
+  'ddd': ddd,
+  'microservices': microservices,
+  'cqrs': cqrs,
+  'circuit-breakers': circuitBreakers,
+  'rate-limiting': rateLimiting,
+  'tradeoff-analysis': tradeoffAnalysis,
+  'event-driven': eventDriven,
+  'design-patterns': designPatterns,
+  'dependency-injection': dependencyInjection,
+  'sharding': sharding,
+  'chaos-engineering': chaosEngineering,
+  'hmvc': hmvc,
+  'mvc': mvc,
+  'soa': soa,
+  'repository-pattern': repositoryPattern,
+  'multi-tenant': multiTenant,
+  'clean-code': cleanCode,
+  'code-review': codeReview,
+}
+
+export default arch

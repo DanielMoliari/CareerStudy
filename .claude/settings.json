@@ -11,7 +11,9 @@
       "WebFetch(domain:jackherrington.com)",
       "WebFetch(domain:www.noxinfluencer.com)",
       "WebFetch(domain:www.classcentral.com)",
-      "WebFetch(domain:remix.guide)"
+      "WebFetch(domain:remix.guide)",
+      "WebFetch(domain:cookbook.openai.com)",
+      "WebFetch(domain:developers.openai.com)"
     ],
     "additionalDirectories": [
       "/Users/daniel-moliari/CareerStudy/src/app/skill",
