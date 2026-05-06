@@ -31,6 +31,7 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'slis-slos-slas': dynamic(() => import('@/data/content/obs/slis-slos-slas/SlisSlosSlasVisuais'), { ssr: false }),
   'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignVisuais'), { ssr: false }),
   'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsVisuais'), { ssr: false }),
+  'rag': dynamic(() => import('@/data/content/ai/rag/RagVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -64,5 +65,6 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'slis-slos-slas': dynamic(() => import('@/data/content/obs/slis-slos-slas/SlisSlosSlasPdfs'), { ssr: false }),
   'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignPdfs'), { ssr: false }),
   'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsPdfs'), { ssr: false }),
+  'rag': dynamic(() => import('@/data/content/ai/rag/RagPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

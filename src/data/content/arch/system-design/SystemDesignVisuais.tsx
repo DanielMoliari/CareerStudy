@@ -1339,6 +1339,665 @@ const CACHE_STRATEGIES: ProConOption[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 14 — CAP Theorem (triângulo com filtro por modo)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CAPTheoremVisual2() {
+  const [capMode, setCapMode] = useState<null | 'CP' | 'AP' | 'CA'>(null)
+
+  const infoMap: Record<string, string> = {
+    CP: 'Sistemas <strong>CP</strong> escolhem consistência em detrimento da disponibilidade durante partições de rede. Se um nó não consegue garantir consistência, ele rejeita a operação. PostgreSQL com réplicas síncronas, MongoDB com <code>writeConcern: majority</code>, HBase, Zookeeper e etcd são exemplos clássicos.',
+    AP: 'Sistemas <strong>AP</strong> escolhem disponibilidade: sempre respondem, mesmo que o dado retornado não seja o mais recente. Cassandra, DynamoDB, CouchDB e Riak operam nesse modo. A consistência eventual garante que os nós convergem — mas pode haver janela de inconsistência.',
+    CA: 'Sistemas <strong>CA</strong> garantem consistência e disponibilidade, mas só funcionam em ambiente de <strong>nó único</strong> — sem distribuição real. RDBMS clássico em uma máquina, SQLite local. Na prática: CA não existe em sistema distribuído porque partições de rede são inevitáveis.',
+  }
+
+  const modeDescriptions: Record<string, { label: string; color: string }> = {
+    CP: { label: 'CP — consistência + partição', color: RED },
+    AP: { label: 'AP — disponibilidade + partição', color: C },
+    CA: { label: 'CA — single-node (sem partição)', color: AMB },
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Botões de filtro */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {(['CP', 'AP', 'CA'] as const).map(mode => {
+          const cfg = modeDescriptions[mode]
+          const isActive = capMode === mode
+          return (
+            <button
+              key={mode}
+              onClick={() => setCapMode(isActive ? null : mode)}
+              style={{
+                padding: '7px 16px',
+                borderRadius: 8,
+                border: `2px solid ${isActive ? cfg.color : LINE}`,
+                background: isActive ? `${cfg.color}18` : CARD,
+                color: isActive ? cfg.color : FGMUTE,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                fontWeight: isActive ? 700 : 400,
+                transition: 'all .2s',
+              }}
+            >
+              {cfg.label}
+            </button>
+          )
+        })}
+        <button
+          onClick={() => setCapMode(null)}
+          style={{
+            padding: '7px 16px',
+            borderRadius: 8,
+            border: `2px solid ${LINE}`,
+            background: CARD,
+            color: FGMUTE,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 12,
+            transition: 'all .2s',
+          }}
+        >
+          limpar
+        </button>
+      </div>
+
+      {/* SVG triângulo */}
+      <svg viewBox="0 0 800 460" style={{ width: '100%', maxHeight: 360 }}>
+        {/* Lados do triângulo */}
+        <line x1={400} y1={60} x2={130} y2={400} stroke={LINE} strokeWidth={2} />
+        <line x1={400} y1={60} x2={670} y2={400} stroke={LINE} strokeWidth={2} />
+        <line x1={130} y1={400} x2={670} y2={400} stroke={LINE} strokeWidth={2} />
+
+        {/* Vértice C — topo */}
+        <circle cx={400} cy={60} r={36} fill={CARD2} stroke={RED} strokeWidth={2} />
+        <text x={400} y={65} textAnchor="middle" dominantBaseline="middle" fill={RED} fontSize={18} fontWeight={700}>C</text>
+        <text x={400} y={22} textAnchor="middle" fill={RED} fontSize={11} fontWeight={700} letterSpacing={1}>CONSISTENCY</text>
+
+        {/* Vértice A — esquerda */}
+        <circle cx={130} cy={400} r={36} fill={CARD2} stroke={C} strokeWidth={2} />
+        <text x={130} y={405} textAnchor="middle" dominantBaseline="middle" fill={C} fontSize={18} fontWeight={700}>A</text>
+        <text x={130} y={448} textAnchor="middle" fill={C} fontSize={11} fontWeight={700} letterSpacing={1}>AVAILABILITY</text>
+
+        {/* Vértice P — direita */}
+        <circle cx={670} cy={400} r={36} fill={CARD2} stroke={GRN} strokeWidth={2} />
+        <text x={670} y={405} textAnchor="middle" dominantBaseline="middle" fill={GRN} fontSize={18} fontWeight={700}>P</text>
+        <text x={670} y={448} textAnchor="middle" fill={GRN} fontSize={11} fontWeight={700} letterSpacing={.8}>PARTITION TOLERANCE</text>
+
+        {/* Box CP */}
+        <g style={{ opacity: capMode === 'CP' ? 1 : 0, transition: 'opacity .2s' }}>
+          <rect x={430} y={200} width={220} height={90} rx={8} fill={`${RED}12`} stroke={RED} strokeWidth={1.5} />
+          <text x={540} y={222} textAnchor="middle" fill={RED} fontSize={11} fontWeight={700}>CP — escolhe consistência</text>
+          <text x={540} y={242} textAnchor="middle" fill={FG} fontSize={10}>PostgreSQL (sync replicas)</text>
+          <text x={540} y={258} textAnchor="middle" fill={FG} fontSize={10}>MongoDB (majority write concern)</text>
+          <text x={540} y={274} textAnchor="middle" fill={FG} fontSize={10}>HBase · Zookeeper · etcd</text>
+        </g>
+
+        {/* Box AP */}
+        <g style={{ opacity: capMode === 'AP' ? 1 : 0, transition: 'opacity .2s' }}>
+          <rect x={290} y={320} width={220} height={80} rx={8} fill={`${C}12`} stroke={C} strokeWidth={1.5} />
+          <text x={400} y={342} textAnchor="middle" fill={C} fontSize={11} fontWeight={700}>AP — escolhe disponibilidade</text>
+          <text x={400} y={362} textAnchor="middle" fill={FG} fontSize={10}>Cassandra · DynamoDB</text>
+          <text x={400} y={378} textAnchor="middle" fill={FG} fontSize={10}>CouchDB · Riak</text>
+        </g>
+
+        {/* Box CA */}
+        <g style={{ opacity: capMode === 'CA' ? 1 : 0, transition: 'opacity .2s' }}>
+          <rect x={160} y={200} width={220} height={80} rx={8} fill={`${AMB}12`} stroke={AMB} strokeWidth={1.5} />
+          <text x={270} y={222} textAnchor="middle" fill={AMB} fontSize={11} fontWeight={700}>CA — só single-node</text>
+          <text x={270} y={242} textAnchor="middle" fill={FG} fontSize={10}>RDBMS clássico (1 máquina)</text>
+          <text x={270} y={258} textAnchor="middle" fill={FG} fontSize={10}>SQLite local</text>
+        </g>
+      </svg>
+
+      {/* Painel de info */}
+      <div style={{
+        padding: '14px 18px',
+        borderRadius: 10,
+        background: capMode ? `${modeDescriptions[capMode].color}0e` : CARD,
+        border: `1px solid ${capMode ? modeDescriptions[capMode].color + '40' : LINE}`,
+        fontSize: 13,
+        color: FG,
+        lineHeight: 1.7,
+        minHeight: 60,
+      }}>
+        {capMode
+          ? <span dangerouslySetInnerHTML={{ __html: infoMap[capMode] }} />
+          : <span style={{ color: FGMUTE }}>Selecione um modo acima para ver os sistemas correspondentes e entender o trade-off.</span>
+        }
+      </div>
+
+      {/* Texto explicativo */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}>
+        <span dangerouslySetInnerHTML={{ __html: 'Brewer disse: dado um <code>network partition</code>, você só pode escolher 2 de 3. Como <strong>P</strong> não é opcional em sistema distribuído, a escolha real é entre <strong>C ou A</strong>. PostgreSQL com réplicas síncronas escolhe C. Cassandra escolhe A. DynamoDB é <strong>tunable</strong>. PACELC estende: mesmo sem partição, tradeoff entre <code>Latency</code> e <code>Consistency</code>.' }} />
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 15 — Consistent Hashing interativo (add/remove nós e chaves)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type ChNode = { angle: number; name: string }
+type ChKey  = { angle: number; label: string }
+
+const CH_COLORS_LOCAL = ['#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f59e0b', '#14b8a6', '#ec4899']
+const CH_CX = 440
+const CH_CY = 220
+const CH_R  = 170
+
+function chOwnerFn(keyAngle: number, nodes: ChNode[]): ChNode {
+  const sorted = [...nodes].sort((a, b) => a.angle - b.angle)
+  for (const n of sorted) if (n.angle >= keyAngle) return n
+  return sorted[0]
+}
+
+function ConsistentHashingVisual2() {
+  const [nodes, setNodes] = useState<ChNode[]>([
+    { angle: 30, name: 'A' },
+    { angle: 150, name: 'B' },
+    { angle: 270, name: 'C' },
+  ])
+  const [keys, setKeys] = useState<ChKey[]>([
+    { angle: 80,  label: 'k1' },
+    { angle: 110, label: 'k2' },
+    { angle: 200, label: 'k3' },
+    { angle: 240, label: 'k4' },
+    { angle: 320, label: 'k5' },
+  ])
+  const [info, setInfo] = useState('Comece com 3 nós. Adiciona um quarto e veja quantas chaves precisaram ser realocadas.')
+
+  const nodeLetters = 'ABCDEFG'
+
+  function addNode() {
+    if (nodes.length >= 7) { setInfo('Máx 7 nós.'); return }
+    const newAngle = Math.floor(Math.random() * 360)
+    const newName = nodeLetters[nodes.length]
+    const before = keys.map(k => chOwnerFn(k.angle, nodes).name)
+    const newNodes = [...nodes, { angle: newAngle, name: newName }]
+    const after = keys.map(k => chOwnerFn(k.angle, newNodes).name)
+    const moved = before.filter((b, i) => b !== after[i]).length
+    setNodes(newNodes)
+    setInfo(`Nó ${newName} adicionado. ${moved} de ${keys.length} chaves foram realocadas (${Math.round(moved / keys.length * 100)}%).`)
+  }
+
+  function removeNode() {
+    if (nodes.length <= 2) { setInfo('Mín 2 nós.'); return }
+    const removed = nodes[nodes.length - 1]
+    const before = keys.map(k => chOwnerFn(k.angle, nodes).name)
+    const newNodes = nodes.slice(0, -1)
+    const after = keys.map(k => chOwnerFn(k.angle, newNodes).name)
+    const moved = before.filter((b, i) => b !== after[i]).length
+    setNodes(newNodes)
+    setInfo(`Nó ${removed.name} removido. ${moved} de ${keys.length} chaves foram realocadas.`)
+  }
+
+  function addKey() {
+    if (keys.length >= 12) { setInfo('Max 12 chaves.'); return }
+    const newAngle = Math.floor(Math.random() * 360)
+    const owner = chOwnerFn(newAngle, nodes)
+    const newLabel = `k${keys.length + 1}`
+    setKeys([...keys, { angle: newAngle, label: newLabel }])
+    setInfo(`Chave ${newLabel} (ângulo ${newAngle}°) mapeada para nó ${owner.name}.`)
+  }
+
+  function resetAll() {
+    setNodes([{ angle: 30, name: 'A' }, { angle: 150, name: 'B' }, { angle: 270, name: 'C' }])
+    setKeys([{ angle: 80, label: 'k1' }, { angle: 110, label: 'k2' }, { angle: 200, label: 'k3' }, { angle: 240, label: 'k4' }, { angle: 320, label: 'k5' }])
+    setInfo('Estado inicial restaurado.')
+  }
+
+  function chXY(angle: number, r: number) {
+    const rad = (angle - 90) * Math.PI / 180
+    return { x: CH_CX + r * Math.cos(rad), y: CH_CY + r * Math.sin(rad) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Botões */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={addNode} style={{ padding: '7px 14px', borderRadius: 7, border: `2px solid ${GRN}`, background: `${GRN}12`, color: GRN, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+          + adicionar nó
+        </button>
+        <button onClick={removeNode} style={{ padding: '7px 14px', borderRadius: 7, border: `2px solid ${RED}`, background: `${RED}12`, color: RED, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+          − remover nó
+        </button>
+        <button onClick={addKey} style={{ padding: '7px 14px', borderRadius: 7, border: `2px solid ${AMB}`, background: `${AMB}12`, color: AMB, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+          + adicionar chave
+        </button>
+        <button onClick={resetAll} style={{ padding: '7px 14px', borderRadius: 7, border: `2px solid ${LINE}`, background: CARD, color: FGMUTE, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>
+          resetar
+        </button>
+        <span style={{ fontSize: 12, color: FGMUTE, marginLeft: 'auto' }}>
+          nós: {nodes.length} · chaves: {keys.length}
+        </span>
+      </div>
+
+      {/* SVG anel */}
+      <svg viewBox="0 0 880 440" style={{ width: '100%', maxHeight: 340 }}>
+        {/* Anel tracejado */}
+        <circle cx={CH_CX} cy={CH_CY} r={CH_R} fill="none" stroke={LINE} strokeWidth={1.5} strokeDasharray="6 4" />
+        <text x={CH_CX} y={55} textAnchor="middle" fill={RED} fontSize={11} fontWeight={700}>hash ring (0 - 2^32)</text>
+
+        {/* Chaves */}
+        {keys.map((k, ki) => {
+          const owner = chOwnerFn(k.angle, nodes)
+          const ni = nodes.findIndex(n => n.name === owner.name)
+          const col = CH_COLORS_LOCAL[ni % 7]
+          const pos = chXY(k.angle, CH_R - 24)
+          const outer = chXY(k.angle, CH_R + 2)
+          const ownerPos = chXY(owner.angle, CH_R)
+          return (
+            <g key={ki}>
+              <line x1={pos.x} y1={pos.y} x2={ownerPos.x} y2={ownerPos.y} stroke={col} strokeWidth={1} strokeDasharray="4 3" opacity={0.5} />
+              <circle cx={pos.x} cy={pos.y} r={6} fill={col} opacity={0.85} />
+              <text x={outer.x} y={outer.y - 10} textAnchor="middle" fill={col} fontSize={9} fontWeight={600}>{k.label}</text>
+            </g>
+          )
+        })}
+
+        {/* Nós */}
+        {nodes.map((node, i) => {
+          const col = CH_COLORS_LOCAL[i % 7]
+          const pos = chXY(node.angle, CH_R)
+          const outer = chXY(node.angle, CH_R + 28)
+          return (
+            <g key={i}>
+              <circle cx={pos.x} cy={pos.y} r={14} fill={col} stroke={BG} strokeWidth={2} />
+              <text x={pos.x} y={pos.y + 1} textAnchor="middle" dominantBaseline="middle" fill={BG} fontSize={11} fontWeight={700}>{node.name}</text>
+              <text x={outer.x} y={outer.y} textAnchor="middle" fill={col} fontSize={9} fontWeight={600}>nó {node.name}</text>
+            </g>
+          )
+        })}
+
+        {/* Caixa de info central */}
+        <rect x={CH_CX - 100} y={CH_CY - 28} width={200} height={56} rx={8} fill={CARD2} stroke={LINE} strokeWidth={1} />
+        <text x={CH_CX} y={CH_CY - 8} textAnchor="middle" fill={FGMUTE} fontSize={9}>cada chave → primeiro nó no</text>
+        <text x={CH_CX} y={CH_CY + 8} textAnchor="middle" fill={FG} fontSize={10} fontWeight={600}>sentido horário</text>
+        <text x={CH_CX} y={CH_CY + 22} textAnchor="middle" fill={FGMUTE} fontSize={9}>1/N chaves afetadas ao mudar nó</text>
+      </svg>
+
+      {/* Painel de info */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD, border: `1px solid ${LINE}`, fontSize: 13, color: FG, lineHeight: 1.6 }}>
+        {info}
+      </div>
+
+      {/* Texto explicativo */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}>
+        <span dangerouslySetInnerHTML={{ __html: 'Hash modular ingênuo (<code>node = hash(k) % N</code>) é um pesadelo: muda N de 4 pra 5 e <strong>quase 100% das chaves</strong> trocam de nó. Consistent hashing mapeia tanto nós quanto chaves no mesmo anel circular. Adicionar um nó afeta apenas <strong>1/N</strong> das chaves. <strong>Virtual nodes</strong> — cada servidor físico tem 100-200 pontos no ring — distribuem a carga melhor.' }} />
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 16 — OSI / TCP-IP Layers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const OSI_LAYERS = [
+  { num: 7, name: 'Application',  desc: 'aplicações — onde seu código mora',     protocols: 'HTTP, gRPC, DNS, SMTP',     color: '#ef4444' },
+  { num: 6, name: 'Presentation', desc: 'serializa, comprime, criptografa',       protocols: 'TLS, JSON, protobuf',        color: '#f59e0b' },
+  { num: 5, name: 'Session',      desc: 'gerencia sessão entre apps',             protocols: 'NetBIOS, RPC',               color: '#eab308' },
+  { num: 4, name: 'Transport',    desc: 'end-to-end, portas, confiabilidade',     protocols: 'TCP, UDP, QUIC',             color: '#22c55e' },
+  { num: 3, name: 'Network',      desc: 'roteia entre redes diferentes',          protocols: 'IP, ICMP, BGP',              color: '#0ea5e9' },
+  { num: 2, name: 'Data Link',    desc: 'frames entre nodes do mesmo link',       protocols: 'Ethernet, ARP, MAC',         color: '#6366f1' },
+  { num: 1, name: 'Physical',     desc: 'bits virando sinal elétrico/luz',        protocols: 'cabo, fibra, wifi',          color: '#a78bfa' },
+]
+
+const OSI_INFO: Record<number, string> = {
+  7: 'L7: HTTP, gRPC, DNS, SMTP. Aplicações falando umas com as outras. É aqui que mora seu código. Cookies, headers, JSON.',
+  6: 'L6: serialização e cripto. Dados viram JSON, protobuf, ASCII. TLS no modelo clássico. Compressão gzip.',
+  5: 'L5: gerencia sessões. Em prática, quase não aparece — TCP já faz a maior parte.',
+  4: 'L4: end-to-end. TCP dá entrega confiável ordenada. UDP não dá garantia mas é rápido. QUIC senta aqui. Porta = endereço do processo.',
+  3: 'L3: roteamento. IP escolhe caminho entre redes diferentes. Routers operam aqui. ICMP (ping) é L3.',
+  2: 'L2: endereçamento dentro do mesmo segmento. MAC address. Switch é device L2. ARP traduz IP→MAC.',
+  1: 'L1: bits viram sinal. Cabo, ondas wifi, fibra. Voltagens, frequências, modulação.',
+}
+
+function OSILayersVisual() {
+  const [osiActive, setOsiActive] = useState<number | null>(null)
+  const osiInfo = osiActive ? OSI_INFO[osiActive] : 'Clique numa camada pra ver o que acontece nela.'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Camadas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {OSI_LAYERS.map(layer => {
+          const isActive = osiActive === layer.num
+          return (
+            <button
+              key={layer.num}
+              onClick={() => setOsiActive(isActive ? null : layer.num)}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '48px 140px 1fr auto',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 16px',
+                borderRadius: 8,
+                border: `2px solid ${isActive ? layer.color : LINE}`,
+                background: isActive ? `${layer.color}14` : CARD,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+                transition: 'all .18s',
+                width: '100%',
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? layer.color : FGMUTE }}>
+                L{layer.num}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? layer.color : FG }}>
+                {layer.name}
+              </span>
+              <span style={{ fontSize: 12, color: isActive ? FG : FGMUTE }}>
+                {layer.desc}
+              </span>
+              <span style={{ fontSize: 11, color: layer.color, fontFamily: 'monospace', textAlign: 'right' }}>
+                {layer.protocols}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Info panel */}
+      <div style={{
+        padding: '14px 18px',
+        borderRadius: 10,
+        background: osiActive ? `${OSI_LAYERS.find(l => l.num === osiActive)!.color}0e` : CARD,
+        border: `1px solid ${osiActive ? OSI_LAYERS.find(l => l.num === osiActive)!.color + '40' : LINE}`,
+        fontSize: 13,
+        color: FG,
+        lineHeight: 1.7,
+        minHeight: 52,
+      }}>
+        {osiInfo}
+      </div>
+
+      {/* Texto explicativo */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}>
+        <span dangerouslySetInnerHTML={{ __html: 'OSI tem 7 camadas no modelo teórico. <strong>TCP/IP real</strong> agrupa em 4. A regra mental: cada camada de baixo encapsula a de cima — HTTP virou bytes, bytes viraram TCP segments, segments viraram IP packets. Saber em qual camada cada problema acontece (timeout = L4, certificado errado = L6, 500 = L7) diferencia debugging amador de profissional.' }} />
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 17 — HTTP/1.1 vs HTTP/2 vs HTTP/3
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HTTP_VERSIONS = [
+  {
+    label: 'HTTP/1.1',
+    color: RED,
+    items: [
+      '1 conexão TCP por request',
+      'HOL no nível de aplicação',
+      'browser limita 6 conn/host',
+    ],
+    visual: [
+      { color: '#ef4444', label: 'req 1', w: 1 },
+      { color: '#ef4444', label: 'req 2', w: 1 },
+      { color: '#ef4444', label: 'req 3', w: 1 },
+    ],
+    sequential: true,
+    note: 'Conexões separadas, sequenciais',
+  },
+  {
+    label: 'HTTP/2',
+    color: AMB,
+    items: [
+      'multiplexing em 1 conexão TCP',
+      'streams paralelos + HPACK',
+      'HOL no TCP ainda existe! ⚠️',
+    ],
+    visual: [
+      { color: '#3b82f6', label: '1', w: 3 },
+      { color: '#22c55e', label: '2', w: 2 },
+      { color: '#a855f7', label: '3', w: 4 },
+    ],
+    sequential: false,
+    note: '1 conexão TCP, streams paralelos',
+  },
+  {
+    label: 'HTTP/3 / QUIC',
+    color: GRN,
+    items: [
+      'multiplexing real sobre UDP',
+      'streams verdadeiramente independentes ✓',
+      '0-RTT em retomada',
+    ],
+    visual: [
+      { color: '#3b82f6', label: '1', w: 3 },
+      { color: '#22c55e', label: '2', w: 2 },
+      { color: '#a855f7', label: '3', w: 4 },
+    ],
+    sequential: false,
+    note: 'UDP — perda de pacote não trava outros streams',
+  },
+]
+
+function HTTPVersionsVisual() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Grid de 3 colunas */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {HTTP_VERSIONS.map(v => (
+          <div
+            key={v.label}
+            style={{
+              borderRadius: 10,
+              border: `2px solid ${v.color}50`,
+              background: `${v.color}0a`,
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 700, color: v.color }}>{v.label}</div>
+
+            {/* Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {v.items.map((item, i) => (
+                <div key={i} style={{ fontSize: 12, color: FG, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <span style={{ color: v.color, flexShrink: 0 }}>•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Visual de conexões */}
+            <div style={{ padding: '10px 12px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}` }}>
+              <div style={{ fontSize: 10, color: FGMUTE, marginBottom: 8 }}>{v.note}</div>
+              {v.sequential ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {v.visual.map((seg, i) => (
+                    <div key={i} style={{
+                      height: 18,
+                      borderRadius: 4,
+                      background: seg.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      paddingLeft: 8,
+                      fontSize: 10,
+                      color: '#fff',
+                      fontWeight: 600,
+                    }}>{seg.label}</div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 3, height: 36, alignItems: 'stretch' }}>
+                  {v.visual.map((seg, i) => (
+                    <div key={i} style={{
+                      flex: seg.w,
+                      borderRadius: 4,
+                      background: seg.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 10,
+                      color: '#fff',
+                      fontWeight: 700,
+                    }}>{seg.label}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tradeoff box */}
+      <div style={{
+        padding: '12px 18px',
+        borderRadius: 10,
+        background: CARD,
+        border: `1px solid ${LINE}`,
+        fontSize: 13,
+        color: FG,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}>
+        <span style={{ color: RED, fontWeight: 700 }}>H1.1</span>
+        <span style={{ color: FGMUTE }}>simples •</span>
+        <span style={{ color: AMB, fontWeight: 700 }}>H2</span>
+        <span style={{ color: FGMUTE }}>acelera mas TCP HOL te machuca em redes ruins •</span>
+        <span style={{ color: GRN, fontWeight: 700 }}>H3</span>
+        <span style={{ color: FGMUTE }}>resolve mas precisa UDP aberto</span>
+      </div>
+
+      {/* Texto explicativo */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}>
+        <span dangerouslySetInnerHTML={{ __html: 'Cada versão tenta matar o <strong>head-of-line blocking</strong>. HTTP/1.1 trava no nível da aplicação. HTTP/2 multiplexa, mas como tudo passa por 1 socket TCP, perda de pacote trava todo mundo. HTTP/3 mudou pra UDP e implementa controle de fluxo em user space. Bônus do QUIC: <code>connection ID</code> independe de IP — você migra de wifi pra 4G sem dropar a conexão.' }} />
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 18 — TLS Handshake
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const TLS_INFO_LOCAL: Record<number, string> = {
+  1: '<strong>ClientHello.</strong> Lista de versões TLS suportadas, cipher suites, random de 32 bytes, e em TLS 1.3 já vai um KeyShare ECDHE. SNI também vai aqui.',
+  2: '<strong>ServerHello.</strong> Servidor escolhe versão e cipher suite, manda seu random e seu KeyShare. Junto vai o <code>Certificate</code> assinado pela CA.',
+  3: '<strong>Cliente valida o cert</strong> contra root stores, checa SAN e CN. Usa o KeyShare do servidor + seu KeyShare pra derivar a <code>shared secret</code> via ECDHE.',
+  4: '<strong>ChangeCipherSpec + Finished.</strong> Cliente confirma que daqui pra frente vai falar cifrado. Finished é um HMAC sobre todo o handshake — protege contra downgrade attack.',
+  5: '<strong>Server Finished.</strong> Servidor confirma a mesma coisa, fechando a negociação. Após isso, ambos têm a mesma chave simétrica derivada.',
+  6: '<strong>Application Data cifrado.</strong> AES-GCM ou ChaCha20-Poly1305 (AEAD). Cada record carrega seu nonce e MAC.',
+}
+
+type TLSMsg = {
+  step: number
+  label: string
+  dir: 'c2s' | 's2c' | 'both' | 'client'
+  color: string
+}
+
+const TLS_MSGS: TLSMsg[] = [
+  { step: 1, label: '1. ClientHello (versions, ciphers, random)',                    dir: 'c2s',    color: RED },
+  { step: 2, label: '2. ServerHello + Certificate + KeyShare + Random',              dir: 's2c',    color: RED },
+  { step: 3, label: '3. valida cert na CA chain / deriva shared secret (ECDHE)',     dir: 'client', color: AMB },
+  { step: 4, label: '4. ClientKeyShare + ChangeCipherSpec + Finished',               dir: 'c2s',    color: RED },
+  { step: 5, label: '5. Finished (HMAC do handshake)',                               dir: 's2c',    color: RED },
+  { step: 6, label: '6. Application Data (cifrado AES-GCM)',                         dir: 'both',   color: GRN },
+]
+
+function TLSHandshakeVisual() {
+  const [tlsStep, setTlsStep] = useState<number | null>(null)
+  const tlsInfo = tlsStep ? TLS_INFO_LOCAL[tlsStep] : 'Clique numa das mensagens acima pra ver o que ela carrega.'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Diagrama de sequência */}
+      <div style={{ padding: '16px', borderRadius: 10, background: CARD, border: `1px solid ${LINE}` }}>
+        {/* Cabeçalhos dos atores */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', marginBottom: 16 }}>
+          <div style={{ textAlign: 'center', padding: '8px 0', borderRadius: 6, background: `${C}18`, border: `2px solid ${C}50`, fontSize: 13, fontWeight: 700, color: C }}>
+            CLIENTE
+          </div>
+          <div style={{ textAlign: 'center', padding: '8px 0', borderRadius: 6, background: `${GRN}18`, border: `2px solid ${GRN}50`, fontSize: 13, fontWeight: 700, color: GRN }}>
+            SERVIDOR
+          </div>
+        </div>
+
+        {/* Mensagens */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {TLS_MSGS.map(msg => {
+            const isActive = tlsStep === msg.step
+            const isClient = msg.dir === 'client'
+            const isBoth = msg.dir === 'both'
+            const isC2S = msg.dir === 'c2s'
+
+            return (
+              <button
+                key={msg.step}
+                onClick={() => setTlsStep(isActive ? null : msg.step)}
+                style={{
+                  border: `1.5px solid ${isActive ? msg.color : LINE}`,
+                  borderRadius: 8,
+                  background: isActive ? `${msg.color}12` : CARD2,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  transition: 'all .18s',
+                  width: '100%',
+                  textAlign: 'left',
+                }}
+              >
+                {/* Indicador de direção */}
+                <div style={{ flexShrink: 0, width: 32, textAlign: 'center' }}>
+                  {isClient && <span style={{ fontSize: 13, color: AMB }}>⚙</span>}
+                  {isBoth && <span style={{ fontSize: 13, color: GRN }}>↔</span>}
+                  {isC2S && <span style={{ fontSize: 13, color: msg.color }}>→</span>}
+                  {msg.dir === 's2c' && <span style={{ fontSize: 13, color: msg.color }}>←</span>}
+                </div>
+                <span style={{ fontSize: 12, color: isActive ? msg.color : FG, flex: 1 }}>
+                  {msg.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Nota de rodapé */}
+        <div style={{ marginTop: 14, padding: '8px 12px', borderRadius: 6, background: CARD2, border: `1px solid ${LINE}`, fontSize: 11, color: FGMUTE, lineHeight: 1.6 }}>
+          TLS 1.3: 1-RTT (vs 2-RTT do TLS 1.2). 0-RTT com session ticket no resume. PFS via ECDHE • AEAD ciphers obrigatórias • RSA key exchange removido
+        </div>
+      </div>
+
+      {/* Info panel */}
+      <div style={{
+        padding: '14px 18px',
+        borderRadius: 10,
+        background: tlsStep ? `${TLS_MSGS.find(m => m.step === tlsStep)!.color}0e` : CARD,
+        border: `1px solid ${tlsStep ? TLS_MSGS.find(m => m.step === tlsStep)!.color + '40' : LINE}`,
+        fontSize: 13,
+        color: FG,
+        lineHeight: 1.7,
+        minHeight: 52,
+      }}>
+        <span dangerouslySetInnerHTML={{ __html: tlsInfo }} />
+      </div>
+
+      {/* Texto explicativo */}
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD2, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}>
+        <span dangerouslySetInnerHTML={{ __html: 'O TLS handshake resolve dois problemas: <strong>autenticar</strong> que você realmente está falando com o servidor e <strong>derivar uma chave simétrica</strong> compartilhada sem expor segredo. Em TLS 1.3 isso virou <code>1-RTT</code>. <strong>PFS (Perfect Forward Secrecy)</strong> garante que mesmo se a chave privada do servidor vazar amanhã, sessões antigas continuam ilegíveis — cada handshake usa keypair efêmero.' }} />
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1502,6 +2161,41 @@ export default function SystemDesignVisuais() {
           cardColor={CARD}
         />
       ),
+    },
+    {
+      id: 'cap-theorem',
+      title: 'CAP Theorem',
+      subtitle: 'Consistency, Availability, Partition Tolerance — e por que só dá pra ter 2',
+      accent: RED,
+      component: <CAPTheoremVisual2 />,
+    },
+    {
+      id: 'consistent-hashing-interactive',
+      title: 'Consistent Hashing',
+      subtitle: 'Adicionar/remover servidor sem reorganizar 100% das chaves',
+      accent: GRN,
+      component: <ConsistentHashingVisual2 />,
+    },
+    {
+      id: 'osi-layers',
+      title: 'OSI / TCP-IP Layers',
+      subtitle: 'O mapa quando o entrevistador pergunta "o que acontece quando você digita google.com"',
+      accent: C,
+      component: <OSILayersVisual />,
+    },
+    {
+      id: 'http-versions',
+      title: 'HTTP/1.1 vs HTTP/2 vs HTTP/3',
+      subtitle: 'A evolução do head-of-line blocking',
+      accent: AMB,
+      component: <HTTPVersionsVisual />,
+    },
+    {
+      id: 'tls-handshake',
+      title: 'TLS Handshake',
+      subtitle: 'A dança entre cliente e servidor pra concordar numa chave secreta',
+      accent: GRN,
+      component: <TLSHandshakeVisual />,
     },
   ]
 

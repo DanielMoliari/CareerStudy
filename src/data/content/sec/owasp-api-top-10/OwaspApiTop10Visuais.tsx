@@ -474,6 +474,87 @@ const SECURE_NODES: Record<string, DTNode> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 7 — JWT: estrutura e armadilhas
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function JWTVisual() {
+  const parts = [
+    {
+      label: 'HEADER (base64url)',
+      encoded: 'eyJhbGciOiJIUzI1NiJ9',
+      decoded: '{\n  "alg": "HS256",\n  "typ": "JWT"\n}',
+      bg: `${C}12`,
+      border: `${C}50`,
+      labelColor: C,
+    },
+    {
+      label: 'PAYLOAD (claims) — NÃO criptografado!',
+      encoded: 'eyJzdWIiOiIxMjMiLCJleHAiOjE3MDB9',
+      decoded: '{\n  "sub": "1234567890",\n  "name": "Daniel",\n  "iat": 1716239022,\n  "exp": 1716242622,\n  "iss": "https://auth.x",\n  "aud": "api.x"\n}',
+      bg: `${PRP}12`,
+      border: `${PRP}50`,
+      labelColor: PRP,
+    },
+    {
+      label: 'SIGNATURE (HMAC ou RSA)',
+      encoded: null,
+      decoded: 'HMACSHA256(\n  base64UrlEncode(header) + "." +\n  base64UrlEncode(payload),\n  SECRET_KEY\n)',
+      bg: `${GRN}12`,
+      border: `${GRN}50`,
+      labelColor: GRN,
+    },
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, flexWrap: 'wrap' }}>
+        {parts.map((p, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: p.bg, border: `2px solid ${p.border}`, minWidth: 200, flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: p.labelColor, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>{p.label}</div>
+              {p.encoded && (
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: p.labelColor, background: BG, padding: '6px 8px', borderRadius: 6, marginBottom: 8, wordBreak: 'break-all' }}>{p.encoded}</div>
+              )}
+              <pre style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: FG, background: BG, padding: '8px 10px', borderRadius: 6, margin: 0, overflowX: 'auto', lineHeight: 1.6 }}>{p.decoded}</pre>
+            </div>
+            {i < parts.length - 1 && (
+              <div style={{ fontSize: 28, fontWeight: 700, color: FGMUTE, padding: '40px 6px 0', alignSelf: 'flex-start' }}>.</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: '10px 16px', borderRadius: 8, background: CARD, border: `1px solid ${LINE}`, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: FG, textAlign: 'center' }}>
+        {'HMAC( base64url(header) + "." + base64url(payload), secret ) === signature?'}
+      </div>
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: `${AMB}10`, border: `1.5px solid ${AMB}50`, fontSize: 13, color: FG, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: 'Payload é só base64 — <strong>não é criptografado</strong>. Qualquer um que tiver o token consegue ler todos os claims. Nunca coloque senhas, dados sensíveis ou PII no payload. Se precisar esconder dados, use JWE ou mantenha referências (IDs) em vez de dados.' }}
+      />
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: `${C}10`, border: `1.5px solid ${C}50`, fontSize: 13, color: FG, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>Armadilhas clássicas</div>
+        {[
+          '<code>alg: "none"</code> attack — sempre valide o algoritmo explicitamente no servidor',
+          'Confusão HS256 vs RS256 — servidor pode aceitar HMAC com a chave pública como secret',
+          'Sem revogação fácil — token válido até exp; use allowlist ou curto TTL',
+          '<code>exp</code> obrigatório — token sem expiração é válido para sempre',
+        ].map((t, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+            <span style={{ color: C, flexShrink: 0 }}>•</span>
+            <span dangerouslySetInnerHTML={{ __html: t }} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: BG, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: 'JWT é stateless: o servidor não guarda sessão. Cliente manda <code>Authorization: Bearer eyJhbGc...</code>, server valida assinatura. Desvantagens reais: <strong>não dá pra revogar</strong> fácil (use refresh token + allowlist ou TTL curto), <strong>algoritmo "none"</strong> é CVE clássico (sempre valide alg explicitamente), confusão <strong>HS vs RS</strong> pode deixar qualquer um forjar token, e <strong>payload visível</strong> — qualquer um faz <code>atob(token.split(".")[1])</code>.' }}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Componente principal
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -558,6 +639,13 @@ export default function OwaspVisuais() {
           bgColor={BG}
         />
       ),
+    },
+    {
+      id: 'jwt-structure',
+      title: 'JWT — Estrutura e Armadilhas',
+      subtitle: 'Header, payload, signature — o que cada parte faz e como atacar',
+      accent: C,
+      component: <JWTVisual />,
     },
   ]
 

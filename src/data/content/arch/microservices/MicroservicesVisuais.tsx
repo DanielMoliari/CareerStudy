@@ -132,6 +132,123 @@ const SAGA_TRANSITIONS: SMTransition[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 2b — Circuit Breaker Simulação Interativa
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type CBState = 'CLOSED' | 'OPEN' | 'HALF-OPEN'
+
+function CircuitBreakerVisual() {
+  const [cbState, setCbState] = useState<CBState>('CLOSED')
+  const [cbFail, setCbFail] = useState(0)
+  const [cbInfo, setCbInfo] = useState('Use os botões pra simular: 3 falhas seguidas <strong>abrem</strong> o circuito. Depois do timeout vai pra HALF-OPEN. Um request OK lá fecha de volta.')
+
+  function simulate(action: 'ok' | 'fail' | 'timeout') {
+    if (cbState === 'CLOSED') {
+      if (action === 'ok') { setCbFail(0); setCbInfo('<strong>OK em CLOSED.</strong> Resetou contador de falhas.') }
+      else if (action === 'fail') {
+        const nf = cbFail + 1
+        if (nf >= 3) { setCbState('OPEN'); setCbFail(3); setCbInfo('<strong>3 falhas — abriu o circuito!</strong> Todos requests são rejeitados.') }
+        else { setCbFail(nf); setCbInfo(`<strong>Falha em CLOSED.</strong> Falhas: ${nf}/3.`) }
+      } else { setCbInfo('Timeout não se aplica em CLOSED.') }
+    } else if (cbState === 'OPEN') {
+      if (action === 'timeout') { setCbState('HALF-OPEN'); setCbInfo('<strong>Timeout passou — vai pra HALF-OPEN.</strong> Vai deixar 1 trial passar.') }
+      else { setCbInfo('<strong>OPEN — request rejeitado sem chamar o serviço.</strong> Avance timeout pra tentar half-open.') }
+    } else if (cbState === 'HALF-OPEN') {
+      if (action === 'ok') { setCbState('CLOSED'); setCbFail(0); setCbInfo('<strong>Trial OK — fecha o circuito!</strong>') }
+      else if (action === 'fail') { setCbState('OPEN'); setCbInfo('<strong>Trial falhou — volta pra OPEN.</strong>') }
+      else { setCbInfo('Em HALF-OPEN espera um trial.') }
+    }
+  }
+
+  function reset() { setCbState('CLOSED'); setCbFail(0); setCbInfo('Use os botões pra simular: 3 falhas seguidas <strong>abrem</strong> o circuito. Depois do timeout vai pra HALF-OPEN. Um request OK lá fecha de volta.') }
+
+  const stateColor: Record<CBState, string> = { 'CLOSED': GRN, 'OPEN': RED, 'HALF-OPEN': AMB }
+  const states: CBState[] = ['CLOSED', 'HALF-OPEN', 'OPEN']
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        {states.map((s, i) => (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 120, height: 120, borderRadius: '50%', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 4,
+              border: `3px solid ${cbState === s ? stateColor[s] : LINE}`,
+              background: cbState === s ? `${stateColor[s]}20` : CARD,
+              transition: 'all .3s',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: cbState === s ? stateColor[s] : FGMUTE }}>{s}</div>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: cbState === s ? stateColor[s] : LINE }} />
+            </div>
+            {i < states.length - 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                {i === 0 ? (
+                  <>
+                    <div style={{ fontSize: 10, color: FGMUTE, textAlign: 'center', maxWidth: 90 }}>N falhas em janela</div>
+                    <div style={{ fontSize: 16, color: FGMUTE }}>{'→'}</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 10, color: FGMUTE, textAlign: 'center', maxWidth: 90 }}>timeout passou</div>
+                    <div style={{ fontSize: 16, color: FGMUTE }}>{'←'}</div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {[
+          { label: 'request OK', action: 'ok' as const, color: GRN },
+          { label: 'request FALHA', action: 'fail' as const, color: RED },
+          { label: 'avançar timeout', action: 'timeout' as const, color: AMB },
+        ].map(btn => (
+          <button key={btn.action} onClick={() => simulate(btn.action)} style={{
+            padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${btn.color}`,
+            background: `${btn.color}15`, color: btn.color, cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 600, transition: 'all .15s',
+          }}>{btn.label}</button>
+        ))}
+        <button onClick={reset} style={{
+          padding: '8px 16px', borderRadius: 8, border: `1.5px solid ${LINE}`,
+          background: CARD, color: FGMUTE, cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: 13, transition: 'all .15s',
+        }}>reset</button>
+      </div>
+
+      <div style={{ padding: '8px 16px', borderRadius: 8, background: CARD, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, textAlign: 'center' }}>
+        estado: <strong style={{ color: stateColor[cbState] }}>{cbState}</strong> · falhas: <strong style={{ color: cbFail >= 3 ? RED : FG }}>{cbFail}/3</strong>
+      </div>
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: `${stateColor[cbState]}10`, border: `1px solid ${stateColor[cbState]}30`, fontSize: 13, color: FG, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: cbInfo }}
+      />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        {[
+          { s: 'CLOSED', items: ['Chamadas passam normalmente', 'Monitora taxa de erros', 'Abre se erros > threshold'], c: GRN },
+          { s: 'HALF-OPEN', items: ['Permite 1 trial request', 'OK → volta pra CLOSED', 'Falha → volta pra OPEN'], c: AMB },
+          { s: 'OPEN', items: ['Rejeita imediatamente (fail-fast)', 'Retorna fallback', 'Aguarda waitDuration'], c: RED },
+        ].map(item => (
+          <div key={item.s} style={{ padding: '10px 12px', borderRadius: 8, background: CARD, border: `1px solid ${item.c}30` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: item.c, marginBottom: 6 }}>{item.s}</div>
+            {item.items.map((t, i) => (
+              <div key={i} style={{ fontSize: 11, color: FGMUTE, marginBottom: 3 }}>• {t}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: 'Circuit breaker evita o cenário clássico de cascading failure: serviço downstream caiu, cada request trava no timeout, sua thread pool esgota. A máquina de 3 estados — <code>CLOSED → OPEN → HALF-OPEN → CLOSED</code> — desacopla o caller do callee. Combinado com <strong>bulkheads</strong>, <strong>timeout</strong> agressivo e <strong>fallback</strong> sensato, te dá resiliência.' }}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 3 — Circuit Breaker: máquina de estados
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -600,6 +717,13 @@ export default function MicroservicesVisuais() {
           bgColor={BG}
         />
       ),
+    },
+    {
+      id: 'circuit-breaker-sim',
+      title: 'Circuit Breaker',
+      subtitle: 'Simulação da máquina de estados — CLOSED, OPEN e HALF-OPEN',
+      accent: C,
+      component: <CircuitBreakerVisual />,
     },
     {
       id: 'api-gateway-flow',

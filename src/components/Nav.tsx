@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { href: '/skills',   label: 'skills',     ico: '◇' },
   { href: '/coverage', label: 'cobertura',  ico: '▣' },
   { href: '/graph',    label: 'grafo',      ico: '○' },
-  { href: '/concepts', label: 'conceitos',  ico: '◐' },
   { href: '/routine',  label: 'rotina',     ico: '◑' },
 ]
 

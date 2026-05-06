@@ -34,6 +34,7 @@ const AMB    = '#f59e0b'
 const PRP    = '#a78bfa'
 const TEAL   = '#2dd4bf'
 const ORG    = '#fb923c'
+const SKY    = '#38bdf8'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 1 — Fluxo CQRS básico (SequenceDiagram)
@@ -815,6 +816,113 @@ const CQRS_PROGRESSION: ProgressionLevel[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 11 — CQRS + Event Sourcing: diagrama SVG estático do fluxo completo
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CQRSFlowVisual() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ overflowX: 'auto' }}>
+        <svg viewBox="0 0 880 400" style={{ width: '100%', minWidth: 600, display: 'block' }}>
+          {/* Client box */}
+          <rect x={30} y={170} width={100} height={60} rx={8} fill={`${CARD}`} stroke={LINE} strokeWidth={1.5} />
+          <text x={80} y={194} textAnchor="middle" fill={FGMUTE} fontSize={10} fontWeight={700}>Client / UI</text>
+          <text x={80} y={208} textAnchor="middle" fill={FGMUTE} fontSize={10}>/ API</text>
+
+          {/* Arrow Client → Command Side */}
+          <line x1={130} y1={190} x2={248} y2={105} stroke={RED} strokeWidth={1.5} markerEnd="url(#arr-red)" />
+          <text x={168} y={138} textAnchor="middle" fill={RED} fontSize={10} fontWeight={700}>Command</text>
+
+          {/* Arrow Query Side → Client */}
+          <line x1={249} y1={295} x2={131} y2={218} stroke={GRN} strokeWidth={1.5} markerEnd="url(#arr-grn)" />
+          <text x={168} y={272} textAnchor="middle" fill={GRN} fontSize={10} fontWeight={700}>Query response</text>
+
+          {/* COMMAND SIDE box */}
+          <rect x={250} y={60} width={170} height={80} rx={8} fill={`${RED}15`} stroke={RED} strokeWidth={1.5} />
+          <text x={335} y={82} textAnchor="middle" fill={RED} fontSize={11} fontWeight={700}>COMMAND SIDE</text>
+          <text x={335} y={98} textAnchor="middle" fill={FGMUTE} fontSize={9}>aggregate valida</text>
+          <text x={335} y={112} textAnchor="middle" fill={FGMUTE} fontSize={9}>aplica regras de negócio</text>
+          <text x={335} y={126} textAnchor="middle" fill={FGMUTE} fontSize={9}>emite event</text>
+
+          {/* Arrow Command Side → Event Store */}
+          <line x1={420} y1={100} x2={468} y2={100} stroke={FGMUTE} strokeWidth={1.5} markerEnd="url(#arr-mute)" />
+
+          {/* EVENT STORE box */}
+          <rect x={470} y={60} width={180} height={80} rx={8} fill={`${PRP}15`} stroke={PRP} strokeWidth={1.5} />
+          <text x={560} y={82} textAnchor="middle" fill={PRP} fontSize={11} fontWeight={700}>EVENT STORE</text>
+          <text x={560} y={98} textAnchor="middle" fill={FGMUTE} fontSize={9}>[Created, Renamed, Activated...]</text>
+          <text x={560} y={112} textAnchor="middle" fill={FGMUTE} fontSize={9}>append-only • imutável</text>
+
+          {/* Dashed arrow Event Store → Command Side (replay) */}
+          <line x1={470} y1={118} x2={422} y2={118} stroke={PRP} strokeWidth={1} strokeDasharray="4,3" markerEnd="url(#arr-prp)" />
+          <text x={446} y={134} textAnchor="middle" fill={PRP} fontSize={8}>replay → aggregate state</text>
+
+          {/* Arrow Event Store → Projector */}
+          <line x1={650} y1={100} x2={698} y2={100} stroke={FGMUTE} strokeWidth={1.5} markerEnd="url(#arr-mute)" />
+
+          {/* PROJECTOR box */}
+          <rect x={700} y={60} width={160} height={80} rx={8} fill={`${SKY}15`} stroke={SKY} strokeWidth={1.5} />
+          <text x={780} y={82} textAnchor="middle" fill={SKY} fontSize={11} fontWeight={700}>PROJECTOR</text>
+          <text x={780} y={98} textAnchor="middle" fill={FGMUTE} fontSize={9}>consome eventos</text>
+          <text x={780} y={112} textAnchor="middle" fill={FGMUTE} fontSize={9}>atualiza read models</text>
+          <text x={780} y={126} textAnchor="middle" fill={FGMUTE} fontSize={9}>async, eventually consistent</text>
+
+          {/* Arrow Projector → Read Model 1 */}
+          <line x1={750} y1={140} x2={685} y2={196} stroke={GRN} strokeWidth={1.5} markerEnd="url(#arr-grn)" />
+
+          {/* Arrow Projector → Read Model 2 */}
+          <line x1={800} y1={140} x2={800} y2={196} stroke={GRN} strokeWidth={1.5} markerEnd="url(#arr-grn)" />
+
+          {/* Read Model 1 */}
+          <rect x={630} y={200} width={120} height={44} rx={6} fill={`${GRN}15`} stroke={GRN} strokeWidth={1.5} />
+          <text x={690} y={218} textAnchor="middle" fill={GRN} fontSize={10} fontWeight={700}>Read Model</text>
+          <text x={690} y={232} textAnchor="middle" fill={FGMUTE} fontSize={9}>Postgres view</text>
+
+          {/* Read Model 2 */}
+          <rect x={755} y={200} width={120} height={44} rx={6} fill={`${GRN}15`} stroke={GRN} strokeWidth={1.5} />
+          <text x={815} y={218} textAnchor="middle" fill={GRN} fontSize={10} fontWeight={700}>Read Model</text>
+          <text x={815} y={232} textAnchor="middle" fill={FGMUTE} fontSize={9}>Elasticsearch</text>
+
+          {/* Arrow Read Models → Query Side */}
+          <line x1={700} y1={244} x2={476} y2={295} stroke={GRN} strokeWidth={1.5} markerEnd="url(#arr-grn)" />
+
+          {/* QUERY SIDE box */}
+          <rect x={250} y={270} width={220} height={80} rx={8} fill={`${GRN}15`} stroke={GRN} strokeWidth={1.5} />
+          <text x={360} y={292} textAnchor="middle" fill={GRN} fontSize={11} fontWeight={700}>QUERY SIDE</text>
+          <text x={360} y={308} textAnchor="middle" fill={FGMUTE} fontSize={9}>lê do read model otimizado</text>
+          <text x={360} y={322} textAnchor="middle" fill={FGMUTE} fontSize={9}>scaling independente</text>
+          <text x={360} y={336} textAnchor="middle" fill={FGMUTE} fontSize={9}>denormalizado, rapidão</text>
+
+          {/* Arrow defs */}
+          <defs>
+            <marker id="arr-red" markerWidth={8} markerHeight={6} refX={8} refY={3} orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill={RED} />
+            </marker>
+            <marker id="arr-grn" markerWidth={8} markerHeight={6} refX={8} refY={3} orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill={GRN} />
+            </marker>
+            <marker id="arr-mute" markerWidth={8} markerHeight={6} refX={8} refY={3} orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill={FGMUTE} />
+            </marker>
+            <marker id="arr-prp" markerWidth={8} markerHeight={6} refX={8} refY={3} orient="auto">
+              <polygon points="0 0, 8 3, 0 6" fill={PRP} />
+            </marker>
+          </defs>
+        </svg>
+      </div>
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: CARD, border: `1px solid ${LINE}`, fontSize: 13, color: FG, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: '<strong>Event Sourcing</strong> = source of truth é o log de eventos. <strong>CQRS</strong> = comandos vão num modelo, queries em outro. Frequentemente usados juntos, mas são independentes.' }}
+      />
+
+      <div style={{ padding: '12px 16px', borderRadius: 8, background: BG, border: `1px solid ${LINE}`, fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: '<strong>CQRS</strong> separa o lado de escrita do lado de leitura. Você pode usar Postgres pra command, Elasticsearch + Redis pra query, atualizando via eventos. <strong>Event Sourcing</strong> vai mais fundo: em vez de gravar o <em>estado atual</em>, você grava cada <em>evento</em> que mudou o estado. Benefício brutal: <strong>auditoria total</strong>, <strong>time travel</strong>. Custo: complexidade real, eventually consistent, schema evolution dos eventos é dor.' }}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -958,6 +1066,13 @@ export default function CqrsVisuais() {
           cardColor={CARD}
         />
       ),
+    },
+    {
+      id: 'cqrs-es-flow',
+      title: 'CQRS + Event Sourcing — Fluxo Completo',
+      subtitle: 'Command side, Event Store, Projector e Read Models em ação',
+      accent: C,
+      component: <CQRSFlowVisual />,
     },
   ]
 

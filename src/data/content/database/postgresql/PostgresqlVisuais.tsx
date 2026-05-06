@@ -518,6 +518,235 @@ const POOLING_LAYERS: Layer[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — MVCC Transaction Diagram
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MVCC_INFO = [
+  'Começo do tempo. Linha id=1 tem versão v1: name=Ana, criada pela transação xmin=100.',
+  'v1 já existe. Nada acontece.',
+  'Tx A começa, pega snapshot t1. Vai poder ler só o que foi commitado antes.',
+  'Tx B começa DEPOIS. Faz UPDATE: cria v2 (name=Bia, xmin=101). v1 fica marcada com xmax=101 mas continua ali — não é overwrite.',
+  'Tx A faz SELECT. Decide qual versão ler: v1 é visível (xmin=100, comitada antes do snapshot). v2 não (xmin=101, ainda não commitou). Lê <strong>Ana</strong>.',
+  'Tx B dá COMMIT. v2 agora é oficial pra futuras transações — mas A já tem seu snapshot.',
+  'Tx A repete o SELECT. Snapshot dela não mudou! Continua vendo v1 = <strong>Ana</strong>. Isso é <strong>repeatable read</strong> de graça pelo MVCC.',
+]
+
+function MVCCVisual() {
+  const [mvccStep, setMvccStep] = useState(0)
+
+  const TXA = C2
+  const TXB = PRP
+  const ROW = RED
+
+  return (
+    <div style={{ background: '#0f172a', borderRadius: 12, padding: 24, fontFamily: "'Space Grotesk', sans-serif" }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: FG, marginBottom: 4 }}>MVCC — Passo a Passo</div>
+        <div style={{ fontSize: 11, color: FGMUTE }}>Como o PostgreSQL mantém versões de linhas para isolamento de transações</div>
+      </div>
+
+      <svg viewBox="0 0 880 360" style={{ width: '100%', display: 'block', background: '#1e293b', borderRadius: 10, marginBottom: 14 }}>
+        <text x="440" y="20" textAnchor="middle" fontSize="13" fill={FGMUTE} fontWeight="700">
+          {`passo ${mvccStep} / ${MVCC_INFO.length - 1}`}
+        </text>
+
+        <line x1="80" y1="60" x2="820" y2="60" stroke={FGMUTE} strokeWidth="1.5" />
+        <text x="826" y="65" fontSize="11" fill={FGMUTE}>tempo →</text>
+
+        <text x="60" y="124" fontSize="11" fill={TXA} fontWeight="700" textAnchor="end">Tx A</text>
+        <line x1="80" y1="120" x2="820" y2="120" stroke={TXA} strokeWidth="1" strokeDasharray="6 4" opacity="0.4" />
+
+        <text x="60" y="204" fontSize="11" fill={TXB} fontWeight="700" textAnchor="end">Tx B</text>
+        <line x1="80" y1="200" x2="820" y2="200" stroke={TXB} strokeWidth="1" strokeDasharray="6 4" opacity="0.4" />
+
+        <text x="60" y="294" fontSize="11" fill={ROW} fontWeight="700" textAnchor="end">linha id=1</text>
+        <line x1="80" y1="290" x2="820" y2="290" stroke={ROW} strokeWidth="1" strokeDasharray="6 4" opacity="0.4" />
+
+        {mvccStep >= 1 && (
+          <g>
+            <circle cx="150" cy="290" r="8" fill={ROW} opacity="0.9" />
+            <text x="150" y="310" textAnchor="middle" fontSize="10" fill={ROW}>name=Ana</text>
+            <text x="150" y="323" textAnchor="middle" fontSize="10" fill={FGMUTE}>xmin=100</text>
+          </g>
+        )}
+
+        {mvccStep >= 2 && (
+          <g>
+            <circle cx="270" cy="120" r="8" fill={TXA} opacity="0.9" />
+            <text x="270" y="108" textAnchor="middle" fontSize="10" fill={TXA} fontWeight="700">BEGIN A</text>
+            <text x="270" y="96" textAnchor="middle" fontSize="10" fill={FGMUTE}>(snap=t1)</text>
+            <line x1="270" y1="128" x2="270" y2="282" stroke={TXA} strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
+          </g>
+        )}
+
+        {mvccStep >= 3 && (
+          <g>
+            <circle cx="380" cy="200" r="8" fill={TXB} opacity="0.9" />
+            <text x="380" y="188" textAnchor="middle" fontSize="10" fill={TXB} fontWeight="700">BEGIN B</text>
+            <text x="380" y="176" textAnchor="middle" fontSize="10" fill={FGMUTE}>UPDATE name=Bia</text>
+            <circle cx="380" cy="290" r="8" fill={TXB} opacity="0.7" />
+            <text x="380" y="310" textAnchor="middle" fontSize="10" fill={TXB}>name=Bia</text>
+            <text x="380" y="323" textAnchor="middle" fontSize="10" fill={FGMUTE}>xmin=101</text>
+          </g>
+        )}
+
+        {mvccStep >= 4 && (
+          <g>
+            <circle cx="500" cy="120" r="8" fill={TXA} opacity="0.9" />
+            <text x="500" y="108" textAnchor="middle" fontSize="10" fill={TXA} fontWeight="700">SELECT por A</text>
+            <text x="500" y="96" textAnchor="middle" fontSize="10" fill={GRN}>lê v1: Ana ✓</text>
+          </g>
+        )}
+
+        {mvccStep >= 5 && (
+          <g>
+            <circle cx="620" cy="200" r="8" fill={GRN} opacity="0.9" />
+            <text x="620" y="188" textAnchor="middle" fontSize="10" fill={GRN} fontWeight="700">COMMIT B</text>
+            <text x="620" y="176" textAnchor="middle" fontSize="10" fill={FGMUTE}>v2 visível pra futuras</text>
+          </g>
+        )}
+
+        {mvccStep >= 6 && (
+          <g>
+            <circle cx="730" cy="120" r="8" fill={TXA} opacity="0.9" />
+            <text x="730" y="108" textAnchor="middle" fontSize="10" fill={TXA} fontWeight="700">SELECT por A novamente</text>
+            <text x="730" y="96" textAnchor="middle" fontSize="10" fill={GRN}>ainda Ana ✓ (snapshot)</text>
+          </g>
+        )}
+      </svg>
+
+      <div style={{ background: '#1e293b', border: `1px solid ${LINE}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: FG, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: MVCC_INFO[mvccStep] }} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => setMvccStep(p => Math.min(MVCC_INFO.length - 1, p + 1))}
+          disabled={mvccStep === MVCC_INFO.length - 1}
+          style={{
+            background: mvccStep < MVCC_INFO.length - 1 ? `${C}20` : '#1e293b',
+            border: `1.5px solid ${mvccStep < MVCC_INFO.length - 1 ? C : LINE}`,
+            borderRadius: 6, color: mvccStep < MVCC_INFO.length - 1 ? C : FGMUTE,
+            fontSize: 11, padding: '6px 16px',
+            cursor: mvccStep === MVCC_INFO.length - 1 ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', opacity: mvccStep === MVCC_INFO.length - 1 ? 0.4 : 1,
+          }}
+        >
+          {'próximo passo →'}
+        </button>
+        <button
+          onClick={() => setMvccStep(0)}
+          style={{
+            background: 'transparent', border: `1.5px solid ${LINE}`,
+            borderRadius: 6, color: FGMUTE, fontSize: 11, padding: '6px 14px',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          resetar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — B-Tree vs LSM-Tree
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function BTreeLsmVisual() {
+  return (
+    <div style={{ background: '#0f172a', borderRadius: 12, padding: 24, fontFamily: "'Space Grotesk', sans-serif" }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: FG, marginBottom: 4 }}>B-Tree vs LSM-Tree</div>
+        <div style={{ fontSize: 11, color: FGMUTE }}>Estruturas de indexação: trade-offs de leitura e escrita</div>
+      </div>
+
+      <svg viewBox="0 0 880 380" style={{ width: '100%', display: 'block', background: '#1e293b', borderRadius: 10, marginBottom: 14 }}>
+        <text x="160" y="30" textAnchor="middle" fontSize="13" fill={C2} fontWeight="700">B-TREE</text>
+        <text x="160" y="46" textAnchor="middle" fontSize="10" fill={FGMUTE}>Postgres, MySQL, SQLite</text>
+
+        <rect x="90" y="55" width="140" height="28" rx="5" fill="none" stroke={C2} strokeWidth="1.5" />
+        <text x="160" y="74" textAnchor="middle" fontSize="11" fill={C2} fontFamily="'JetBrains Mono', monospace">[ 25 | 50 | 75 ]</text>
+
+        <line x1="120" y1="83" x2="85" y2="125" stroke={C2} strokeWidth="1" opacity="0.6" />
+        <line x1="160" y1="83" x2="175" y2="125" stroke={C2} strokeWidth="1" opacity="0.6" />
+        <line x1="200" y1="83" x2="285" y2="125" stroke={C2} strokeWidth="1" opacity="0.6" />
+
+        <rect x="40" y="125" width="90" height="24" rx="4" fill="none" stroke={C2} strokeWidth="1.2" />
+        <text x="85" y="141" textAnchor="middle" fontSize="10" fill={C2} fontFamily="'JetBrains Mono', monospace">[10|20]</text>
+
+        <rect x="140" y="125" width="90" height="24" rx="4" fill="none" stroke={C2} strokeWidth="1.2" />
+        <text x="185" y="141" textAnchor="middle" fontSize="10" fill={C2} fontFamily="'JetBrains Mono', monospace">[30|40]</text>
+
+        <rect x="240" y="125" width="90" height="24" rx="4" fill="none" stroke={C2} strokeWidth="1.2" />
+        <text x="285" y="141" textAnchor="middle" fontSize="10" fill={C2} fontFamily="'JetBrains Mono', monospace">[60|70]</text>
+
+        <rect x="20" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="50" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">5, 8</text>
+
+        <rect x="90" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="120" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">15, 18</text>
+
+        <rect x="155" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="185" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">28, 29</text>
+
+        <rect x="220" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="250" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">45, 48</text>
+
+        <rect x="285" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="315" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">65, 68</text>
+
+        <rect x="350" y="195" width="60" height="22" rx="3" fill={`${C2}20`} stroke={C2} strokeWidth="1" />
+        <text x="380" y="210" textAnchor="middle" fontSize="9" fill={C2} fontFamily="'JetBrains Mono', monospace">80, 95</text>
+
+        <text x="30" y="250" fontSize="10" fill={AMB}>INSERT em página cheia → page split</text>
+        <text x="30" y="268" fontSize="10" fill={GRN}>leitura: 3 page reads (O(log n)) ✓</text>
+
+        <line x1="450" y1="20" x2="450" y2="360" stroke={LINE} strokeWidth="1.5" strokeDasharray="4 3" />
+
+        <text x="670" y="30" textAnchor="middle" fontSize="13" fill={GRN} fontWeight="700">LSM-TREE</text>
+        <text x="670" y="46" textAnchor="middle" fontSize="10" fill={FGMUTE}>Cassandra, RocksDB</text>
+
+        <rect x="490" y="55" width="200" height="40" rx="5" fill={`${GRN}15`} stroke={GRN} strokeWidth="1.5" />
+        <text x="590" y="71" textAnchor="middle" fontSize="11" fill={GRN} fontWeight="700">MEMTABLE</text>
+        <text x="590" y="86" textAnchor="middle" fontSize="10" fill={FGMUTE} fontFamily="'JetBrains Mono', monospace">sorted · [10,25,30,47,60]</text>
+
+        <text x="590" y="112" textAnchor="middle" fontSize="10" fill={FGMUTE}>flush ↓</text>
+
+        <rect x="470" y="120" width="80" height="22" rx="3" fill={`${GRN}20`} stroke={GRN} strokeWidth="1" />
+        <text x="510" y="135" textAnchor="middle" fontSize="9" fill={GRN}>SST L0a</text>
+
+        <rect x="560" y="120" width="80" height="22" rx="3" fill={`${GRN}20`} stroke={GRN} strokeWidth="1" />
+        <text x="600" y="135" textAnchor="middle" fontSize="9" fill={GRN}>SST L0b</text>
+
+        <rect x="650" y="120" width="80" height="22" rx="3" fill={`${GRN}20`} stroke={GRN} strokeWidth="1" />
+        <text x="690" y="135" textAnchor="middle" fontSize="9" fill={GRN}>SST L0c</text>
+
+        <text x="590" y="165" textAnchor="middle" fontSize="10" fill={FGMUTE}>compaction ↓</text>
+
+        <rect x="490" y="175" width="240" height="22" rx="3" fill={`${GRN}15`} stroke={GRN} strokeWidth="1.2" />
+        <text x="610" y="190" textAnchor="middle" fontSize="9" fill={GRN}>SST L1 (merged + dedup)</text>
+
+        <rect x="490" y="208" width="240" height="22" rx="3" fill={`${GRN}10`} stroke={GRN} strokeWidth="1" opacity="0.7" />
+        <text x="610" y="223" textAnchor="middle" fontSize="9" fill={GRN} opacity="0.7">SST L2</text>
+
+        <text x="470" y="255" fontSize="10" fill={RED}>write amp ALTA (compaction)</text>
+        <text x="470" y="273" fontSize="10" fill={GRN}>writes sequenciais (rapidíssimo) ✓</text>
+        <text x="470" y="291" fontSize="10" fill={FGMUTE}>bloom filter mitiga leitura</text>
+      </svg>
+
+      <div style={{ background: '#1e293b', border: `1px solid ${LINE}`, borderRadius: 8, padding: '10px 14px', marginBottom: 10, fontSize: 12, color: FG, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: '<strong>Regra de bolso:</strong> read-heavy + dados que mudam em lugares aleatórios → B-tree. Write-heavy + time-séries ou logs → LSM.' }}
+      />
+
+      <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.7 }}
+        dangerouslySetInnerHTML={{ __html: '<strong>B-tree</strong> é in-place: cada UPDATE reescreve a página onde a chave mora. Bom pra leitura (3-4 IOs até o leaf). <strong>LSM</strong> nunca escreve in-place: tudo vai pra um <code>memtable</code> em RAM e, quando enche, flusha pra um SSTable imutável. Isso dá escritas <strong>sequenciais</strong>. O preço é <strong>write amplification</strong> durante compaction. Bloom filters ajudam a pular SSTables sem a chave.' }}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Componente principal
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -642,6 +871,20 @@ export default function PostgresqlVisuais() {
           bgColor={BG}
         />
       ),
+    },
+    {
+      id: 'mvcc-step-by-step',
+      title: 'MVCC Passo a Passo',
+      subtitle: 'Como versões de linha garantem isolamento sem locks de leitura',
+      accent: C,
+      component: <MVCCVisual />,
+    },
+    {
+      id: 'btree-vs-lsm',
+      title: 'B-Tree vs LSM-Tree',
+      subtitle: 'Trade-offs de leitura e escrita entre as duas estruturas de indexação',
+      accent: GRN,
+      component: <BTreeLsmVisual />,
     },
   ]
 

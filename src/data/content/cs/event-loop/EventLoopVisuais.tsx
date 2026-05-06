@@ -1000,6 +1000,136 @@ function PriorityVisual() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — Passo a Passo do Event Loop
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const EL_STEPS_DATA = [
+  { info: 'Código: <code>console.log(1); setTimeout(()=&gt;log(4),0); Promise.resolve().then(()=&gt;log(3)); console.log(2)</code>. Clique pra começar.', stack:[] as string[], micro:[] as string[], macro:[] as string[], note:'aguardando' },
+  { info: '<strong>console.log(1)</strong> entra na stack, executa, imprime <code>1</code>, sai.', stack:['log(1)'], micro:[], macro:[], note:'log(1) ✓ saiu' },
+  { info: '<strong>setTimeout(cb, 0)</strong> agenda callback. Web API gerencia. Quando termina, vai pra macrotask queue.', stack:['setTimeout(cb,0)'], micro:[], macro:['log(4)'], note:'agendou cb em macro' },
+  { info: '<strong>Promise.resolve().then(cb)</strong> resolve imediato e adiciona <code>cb</code> na microtask queue.', stack:['Promise.then(cb)'], micro:['log(3)'], macro:['log(4)'], note:'agendou cb em micro' },
+  { info: '<strong>console.log(2)</strong> entra, imprime <code>2</code>, sai. Stack vai zerar.', stack:['log(2)'], micro:['log(3)'], macro:['log(4)'], note:'log(2) ✓' },
+  { info: 'Stack vazia! Event loop drena <strong>toda</strong> a microtask queue antes de tocar em macro.', stack:[], micro:['log(3)'], macro:['log(4)'], note:'stack vazia, vai pra micro' },
+  { info: 'Microtask <code>log(3)</code> roda. Imprime <code>3</code>. Continua drenando até microtask queue vazia.', stack:['log(3)'], micro:[], macro:['log(4)'], note:'log(3) ✓ — microtask' },
+  { info: 'Microtasks zeradas. Agora pega 1 (só 1!) macrotask.', stack:[], micro:[], macro:['log(4)'], note:'pega 1 macrotask' },
+  { info: 'Macrotask <code>log(4)</code> roda. Imprime <code>4</code>. Saída final: <code>1 2 3 4</code>.', stack:['log(4)'], micro:[], macro:[], note:'log(4) ✓ — concluído' },
+]
+
+function EventLoopSteps() {
+  const [step, setStep] = useState(0)
+  const s = EL_STEPS_DATA[step]
+
+  const printed: string[] = []
+  if (step >= 2) printed.push('1')
+  if (step >= 5) printed.push('2')
+  if (step >= 7) printed.push('3')
+  if (step >= 9) printed.push('4')
+
+  function QueueBox({ label, color, items }: { label: string; color: string; items: string[] }) {
+    return (
+      <div style={{ background: CARD, border: `1.5px solid ${LINE}`, borderRadius: 10, padding: 12, flex: 1 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color, marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${LINE}` }}>
+          {label}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 4, minHeight: 36 }}>
+          {items.length === 0 ? (
+            <div style={{ fontSize: 10, color: LINE, textAlign: 'center' as const, padding: '6px 0' }}>(vazia)</div>
+          ) : items.map((item, i) => (
+            <div key={i} style={{
+              background: `${color}15`, border: `1px solid ${color}`,
+              borderRadius: 6, padding: '5px 10px',
+              fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: FG,
+            }}>
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: BG, borderRadius: 12, padding: 24, fontFamily: "'Space Grotesk', sans-serif" }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: FG, marginBottom: 4 }}>Passo a Passo do Event Loop</div>
+        <div style={{ fontSize: 11, color: FGMUTE }}>Execute código síncrono, Promises e setTimeout — veja a ordem exata</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+        <QueueBox label="Call Stack" color={C} items={s.stack} />
+        <QueueBox label="Microtask Queue" color={PRP} items={s.micro} />
+        <QueueBox label="Macrotask Queue" color={SKY} items={s.macro} />
+      </div>
+
+      <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: FG, lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: s.info }} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <span style={{ background: `${C}20`, border: `1px solid ${C}`, borderRadius: 6, padding: '3px 10px', fontSize: 11, color: C, fontWeight: 700 }}>
+          {s.note}
+        </span>
+        <span style={{ fontSize: 10, color: FGMUTE }}>passo {step + 1} / {EL_STEPS_DATA.length}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <button
+          onClick={() => setStep(p => Math.max(0, p - 1))}
+          disabled={step === 0}
+          style={{
+            background: CARD, border: `1.5px solid ${LINE}`, borderRadius: 6,
+            color: FGMUTE, fontSize: 11, padding: '6px 16px',
+            cursor: step === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            opacity: step === 0 ? 0.4 : 1,
+          }}
+        >
+          {'⟵ voltar'}
+        </button>
+        <button
+          onClick={() => setStep(p => Math.min(EL_STEPS_DATA.length - 1, p + 1))}
+          disabled={step === EL_STEPS_DATA.length - 1}
+          style={{
+            background: step < EL_STEPS_DATA.length - 1 ? `${C}20` : CARD,
+            border: `1.5px solid ${step < EL_STEPS_DATA.length - 1 ? C : LINE}`,
+            borderRadius: 6, color: step < EL_STEPS_DATA.length - 1 ? C : FGMUTE,
+            fontSize: 11, padding: '6px 16px',
+            cursor: step === EL_STEPS_DATA.length - 1 ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', opacity: step === EL_STEPS_DATA.length - 1 ? 0.4 : 1,
+          }}
+        >
+          {'próximo passo →'}
+        </button>
+        <button
+          onClick={() => setStep(0)}
+          style={{
+            background: 'transparent', border: `1.5px solid ${LINE}`,
+            borderRadius: 6, color: FGMUTE, fontSize: 11, padding: '6px 14px',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          resetar
+        </button>
+      </div>
+
+      <div style={{ background: CARD, borderRadius: 8, padding: '10px 14px' }}>
+        <div style={{ fontSize: 9, color: FGMUTE, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 8 }}>Output impresso até agora</div>
+        <div style={{ display: 'flex', gap: 8, minHeight: 28 }}>
+          {printed.length === 0 ? (
+            <span style={{ fontSize: 10, color: LINE }}>(nada ainda)</span>
+          ) : printed.map((v, i) => (
+            <span key={i} style={{
+              background: `${GRN}20`, border: `1px solid ${GRN}`, borderRadius: 4,
+              padding: '2px 10px', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
+              color: GRN, fontWeight: 700,
+            }}>{v}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1100,6 +1230,13 @@ export default function EventLoopVisuais() {
       subtitle: 'Do código síncrono ao setTimeout — quem executa primeiro?',
       accent: C,
       component: <PriorityVisual />,
+    },
+    {
+      id: 'el-step-by-step',
+      title: 'Passo a Passo do Loop',
+      subtitle: 'Execute código síncrono, Promises e setTimeout — veja a ordem exata',
+      accent: C,
+      component: <EventLoopSteps />,
     },
   ]
 
