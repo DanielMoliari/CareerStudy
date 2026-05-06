@@ -1,7 +1,7 @@
 import type { SkillContentMap } from '@/types'
 import systemDesign from './system-design'
 import solid from './solid'
-import cleanArchitecture from './clean-architecture'
+import cleanArchitecture from './clean-architecture/clean-architecture'
 import ddd from './ddd'
 import microservices from './microservices'
 import cqrs from './cqrs'

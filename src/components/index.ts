@@ -34,7 +34,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'active: number',
       'onChange: (i: number) => void',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs', 'docker', 'vue', 'react-query', 'tailwind-css'],
   },
 
   ConceptCarousel: {
@@ -48,7 +48,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs'],
   },
 
   TreeExplorer: {
@@ -94,7 +94,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typeorm', 'nestjs', 'docker', 'vue'],
   },
 
   CardCarousel: {
@@ -108,7 +108,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'html', 'typeorm', 'react-query', 'tailwind-css'],
   },
 
   AntiPatternsGallery: {
@@ -122,7 +122,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css'],
   },
 
   PriorityPanel: {
@@ -150,7 +150,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'react-query'],
   },
 
   FeaturesCarousel: {
@@ -164,7 +164,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'css', 'vue', 'tailwind-css'],
   },
 
   // ── Novos visuais genéricos ────────────────────────────────────────────────
@@ -193,7 +193,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css'],
   },
 
   RequestResponseFlow: {
@@ -220,7 +220,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'react-query'],
   },
 
   ArchitectureDiagram: {
@@ -248,7 +248,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['css', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css'],
   },
 
   DecisionTree: {
@@ -261,7 +261,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'html', 'vue', 'react-query', 'tailwind-css'],
   },
 
   ProConMatrix: {
@@ -274,7 +274,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['css'],
   },
 
   Speedometer: {
@@ -317,7 +317,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'docker', 'vue', 'react-query', 'tailwind-css'],
   },
 
   QueryVisualizer: {
@@ -358,7 +358,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typeorm', 'clean-architecture'],
   },
 
   RegexPlayground: {
@@ -411,7 +411,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript'],
   },
 
   MemoryDiagram: {
@@ -614,6 +614,47 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
     ],
     usedBy: [],
   },
+
+  SequenceDiagram: {
+    module: 'visuals/SequenceDiagram',
+    description:
+      'Diagrama de sequência UML com atores, lifelines, activation bars e mensagens tipadas ' +
+      '(sync, async, return, create, destroy). Suporta grupos (loop, alt, opt, par, ref) e ' +
+      'seleção interativa de mensagem com painel de detalhes. ' +
+      'Ideal para GraphQL, WebSocket, autenticação OAuth, TCP/TLS, NestJS middleware.',
+    props: [
+      'actors: SeqActor[]',
+      'messages: SeqMessage[]',
+      'groups?: SeqGroup[]',
+      'accentColor: string',
+      'bgColor: string',
+      'title?: string',
+      'description?: string',
+    ],
+    usedBy: ['docker', 'aws'],
+  },
+
+  HeatMap: {
+    module: 'visuals/HeatMap',
+    description:
+      'Grid interativo onde cor = intensidade de valor. Interpolação linear entre lowColor e highColor. ' +
+      'Suporta hover (tooltip), click (painel de detalhes), células destacadas, rowGroups e legenda de gradiente. ' +
+      'Ideal para complexidade por operação (algoritmos), custo de query (PostgreSQL/explain-analyze), ' +
+      'distribuição de métricas (Prometheus/Grafana).',
+    props: [
+      'rows: string[]',
+      'cols: string[]',
+      'data: HeatCell[][]',
+      'accentColor: string',
+      'bgColor: string',
+      'lowColor?: string',
+      'highColor?: string',
+      'highlighted?: { row: number; col: number }[]',
+      'rowGroups?: HeatRowGroup[]',
+      'valueFormatter?: (v: number) => string',
+    ],
+    usedBy: ['aws'],
+  },
 }
 
 // ── PDFs ──────────────────────────────────────────────────────────────────────
@@ -630,7 +671,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture'],
   },
 
   CheatsheetPdf: {
@@ -644,7 +685,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'stackLabel: string',
       'sections: { hooks, depRows, rules, performanceTips, patterns, mentalModels }',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture'],
   },
 
   MnemonicsPdf: {
@@ -658,7 +699,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture'],
   },
 
   AntipatternsPdf: {
@@ -672,7 +713,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture'],
   },
 
   MindmapPdf: {
@@ -687,7 +728,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react'],
+    usedBy: ['react', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture'],
   },
 
   CommandRefPdf: {
@@ -701,7 +742,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'typeorm'],
   },
 
   RecipeBookPdf: {
@@ -715,7 +756,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['css', 'typeorm'],
   },
 
   GlossaryPdf: {
@@ -771,7 +812,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript'],
   },
 
   PatternsPdf: {
@@ -785,7 +826,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript'],
   },
 
   ComparativeRefPdf: {
@@ -800,7 +841,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['typescript', 'aws'],
   },
 
   SecurityChecklistPdf: {
@@ -815,6 +856,24 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'stackLabel: string',
     ],
     usedBy: [],
+  },
+
+  QuickRefPdf: {
+    module: 'pdfs/QuickRefPdf',
+    description:
+      'Cartão de referência ultra-compacto em A4 landscape com 2–3 colunas densas. ' +
+      'Cada coluna tem seções com entradas key/value em monospace, badge opcional por entrada ' +
+      '(ex: "⚠ destrutivo", "★ essencial") e footer com nome da skill. ' +
+      'Ideal para skills de ferramenta/CLI: terraform, docker, git, kubectl.',
+    props: [
+      'columns: QuickRefColumn[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+      'tagline?: string',
+      'version?: string',
+    ],
+    usedBy: ['docker'],
   },
 }
 
@@ -883,3 +942,6 @@ export type { PipelineStage, Pipeline } from './visuals/PipelineVisualizer'
 export type { Container, ContainerNetwork, ContainerVolume } from './visuals/ContainerDiagram'
 export type { IndexNode, IndexExample } from './visuals/IndexExplorer'
 export type { BurndownSeries, BurndownAnnotation } from './visuals/BurndownChart'
+export type { SeqActor, SeqMessage, SeqGroup } from './visuals/SequenceDiagram'
+export type { HeatCell, HeatRowGroup } from './visuals/HeatMap'
+export type { QuickRefEntry, QuickRefSection, QuickRefColumn, QuickRefPdfOpts } from './pdfs/QuickRefPdf'

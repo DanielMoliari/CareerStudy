@@ -1,5 +1,5 @@
 import type { SkillContentMap } from '@/types'
-import aws from './aws'
+import aws from './aws/aws'
 import ec2 from './ec2'
 import s3 from './s3'
 import lambda from './lambda'
