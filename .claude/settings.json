@@ -13,7 +13,8 @@
       "WebFetch(domain:www.classcentral.com)",
       "WebFetch(domain:remix.guide)",
       "WebFetch(domain:cookbook.openai.com)",
-      "WebFetch(domain:developers.openai.com)"
+      "WebFetch(domain:developers.openai.com)",
+      "Read(//Users/daniel-moliari/Library/Application Support/rtk/tee/**)"
     ],
     "additionalDirectories": [
       "/Users/daniel-moliari/CareerStudy/src/app/skill",
