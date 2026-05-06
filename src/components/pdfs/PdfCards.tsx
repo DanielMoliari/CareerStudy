@@ -3,22 +3,16 @@ import { useState } from 'react'
 import type { PdfCard, PdfType } from './types'
 
 // Paleta — duplicada intencionalmente (cada arquivo mantém sua própria cópia)
-const C      = '#61DAFB'
-const C_DEEP = '#21b8e3'
-const BG     = '#0f172a'
+const BG      = '#0f172a'
 const BG_DEEP = '#0a1220'
-const CARD   = '#1e293b'
-const LINE   = '#334155'
-const MUTE   = '#475569'
-const FG     = '#e2e8f0'
-const FGMUTE = '#94a3b8'
+const CARD    = '#1e293b'
+const LINE    = '#334155'
+const FG      = '#e2e8f0'
+const FGMUTE  = '#94a3b8'
 
 // ─── Document Preview Mockup ─────────────────────────────────────────────────────
-// Representação visual abstrata do conteúdo de cada tipo de PDF — usado nos cards.
 
 export function PreviewMockup({ type, color, size = 'large' }: { type: PdfType; color: string; size?: 'large' | 'small' }) {
-  // color é mantido na assinatura para compatibilidade — internamente todas as previews usam React cyan.
-  void color
   void type
   const w = size === 'large' ? 220 : 130
   const h = size === 'large' ? 170 : 100
@@ -26,8 +20,6 @@ export function PreviewMockup({ type, color, size = 'large' }: { type: PdfType; 
   const gap = size === 'large' ? 7 : 4
   const lineH = size === 'large' ? 5 : 3
 
-  // Padrão único: linhas de diferentes alturas/larguras com opacidade variada.
-  // Sem cores diferentes — apenas variações de #61DAFB.
   const rows: Array<{ w: string; o: number; h?: number }> = [
     { w: '38%',  o: 0.40, h: lineH + 2 },
     { w: '92%',  o: 0.25 },
@@ -55,7 +47,7 @@ export function PreviewMockup({ type, color, size = 'large' }: { type: PdfType; 
           style={{
             width: r.w,
             height: r.h ?? lineH,
-            background: C,
+            background: color,
             opacity: r.o,
             borderRadius: 1,
           }}
@@ -67,8 +59,11 @@ export function PreviewMockup({ type, color, size = 'large' }: { type: PdfType; 
 
 // ─── Featured Hero Card ─────────────────────────────────────────────────────────
 
-export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }) {
+export function HeroCard({ card, onOpen, accent = '#61DAFB' }: { card: PdfCard; onOpen: () => void; accent?: string }) {
   const [hover, setHover] = useState(false)
+
+  // Versão ligeiramente mais escura do accent para hover
+  const accentHover = accent
 
   return (
     <div
@@ -80,7 +75,7 @@ export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }
         background: CARD,
         borderStyle: 'solid',
         borderWidth: '2px 1px 1px 1px',
-        borderColor: `${C} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE}`,
+        borderColor: `${accent} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE}`,
         borderRadius: 8,
         padding: 28,
         cursor: 'pointer',
@@ -93,10 +88,10 @@ export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }
         transform: hover ? 'translateY(-2px)' : 'translateY(0)',
       }}
     >
-      {/* Badge "DESTAQUE" — texto simples sem pill */}
+      {/* Badge "DESTAQUE" */}
       <div style={{
         position: 'absolute', top: 14, right: 20,
-        color: C, fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
+        color: accent, fontSize: 9, fontFamily: "'JetBrains Mono',monospace",
         letterSpacing: 2, fontWeight: 700,
       }}>DESTAQUE</div>
 
@@ -105,7 +100,7 @@ export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }
         {/* Número ordinal grande */}
         <div style={{
           fontSize: 40,
-          color: C,
+          color: accent,
           fontFamily: "'JetBrains Mono',monospace",
           fontWeight: 700,
           lineHeight: 1,
@@ -171,23 +166,23 @@ export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }
             alignSelf: 'flex-start',
             padding: '10px 20px',
             borderRadius: 6,
-            background: C,
+            background: hover ? accentHover : accent,
             color: BG,
             fontSize: 13,
             fontFamily: "'Space Grotesk',sans-serif",
             fontWeight: 700,
             letterSpacing: 0.2,
-            transition: 'background .2s',
-            ...(hover ? { background: C_DEEP } : {}),
+            transition: 'opacity .2s',
+            opacity: hover ? 0.85 : 1,
           }}>
             Abrir PDF →
           </div>
         </div>
       </div>
 
-      {/* Lado direito: preview mockup com tons de React cyan */}
+      {/* Lado direito: preview mockup */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <PreviewMockup type={card.type} color={C} size="large" />
+        <PreviewMockup type={card.type} color={accent} size="large" />
       </div>
     </div>
   )
@@ -195,7 +190,7 @@ export function HeroCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }
 
 // ─── Collection Card ────────────────────────────────────────────────────────────
 
-export function CollectionCard({ card, onOpen }: { card: PdfCard; onOpen: () => void }) {
+export function CollectionCard({ card, onOpen, accent = '#61DAFB' }: { card: PdfCard; onOpen: () => void; accent?: string }) {
   const [hover, setHover] = useState(false)
 
   return (
@@ -208,7 +203,7 @@ export function CollectionCard({ card, onOpen }: { card: PdfCard; onOpen: () => 
         background: CARD,
         borderStyle: 'solid',
         borderWidth: '2px 1px 1px 1px',
-        borderColor: `${C} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE}`,
+        borderColor: `${accent} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE} ${hover ? '#475569' : LINE}`,
         borderRadius: 8,
         padding: 24,
         cursor: 'pointer',
@@ -224,7 +219,7 @@ export function CollectionCard({ card, onOpen }: { card: PdfCard; onOpen: () => 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 36,
-          color: C,
+          color: accent,
           fontFamily: "'JetBrains Mono',monospace",
           fontWeight: 700,
           lineHeight: 1,
@@ -268,11 +263,12 @@ export function CollectionCard({ card, onOpen }: { card: PdfCard; onOpen: () => 
           <div style={{
             marginTop: 18, alignSelf: 'flex-start',
             padding: '9px 18px', borderRadius: 6,
-            background: hover ? C_DEEP : C,
+            background: accent,
             color: BG, fontSize: 12,
             fontFamily: "'Space Grotesk',sans-serif",
             fontWeight: 700, letterSpacing: 0.2,
-            transition: 'background .2s',
+            transition: 'opacity .2s',
+            opacity: hover ? 0.85 : 1,
           }}>
             Abrir PDF →
           </div>
@@ -281,7 +277,7 @@ export function CollectionCard({ card, onOpen }: { card: PdfCard; onOpen: () => 
 
       {/* Lado direito: preview mockup */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <PreviewMockup type={card.type} color={C} size="large" />
+        <PreviewMockup type={card.type} color={accent} size="large" />
       </div>
     </div>
   )

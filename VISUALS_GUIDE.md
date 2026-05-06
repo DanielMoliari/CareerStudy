@@ -1,339 +1,1085 @@
-# VISUALS_GUIDE — Guia para Agentes de Conteúdo
+# VISUALS_GUIDE — Processo Completo de Criação de Skill
 
-Este arquivo é a fonte de verdade para qualquer agente que for criar ou enriquecer conteúdo de skills.
-Leia antes de fazer qualquer coisa em `src/data/content/`.
+Leia este arquivo **inteiro** antes de tocar em qualquer arquivo.
+É a fonte de verdade do processo — do zero à entrega verificada.
 
 ---
 
 ## Filosofia central
 
-O objetivo do projeto é: **do zero ao perito, ou do zero à entrevista pleno/senior, só com esse conteúdo**.
+**Objetivo:** do zero ao perito, ou do zero à entrevista pleno/sênior, só com esse conteúdo.
+
 Antes de entregar qualquer skill, responda mentalmente:
 - "Alguém aprendendo do zero ficaria perito nisto só com esse conteúdo?" → deve ser SIM
-- "Alguém aprendendo do zero passaria numa entrevista pleno/senior só com esse conteúdo?" → deve ser SIM
+- "Alguém aprendendo do zero passaria numa entrevista pleno/sênior só com esse conteúdo?" → deve ser SIM
+
+**Não existem números certos.** Uma skill pode ter 3 visuais ou 15. Um PDF pode não existir ou ser o ponto alto da skill. O que define a quantidade é o que a tecnologia precisa — não um template.
+
+### ⚠️ Anti-padrão crítico: âncora numérica
+
+O erro mais comum ao criar visuais e PDFs é **deixar o número anterior ou o número sugerido ancorar a decisão**. Se você viu "mínimo 6 visuais" ou a skill anterior tinha 8, seu cérebro vai tender a criar 6-8 — independente do que a skill precisa.
+
+**Isso é errado.** O número correto é uma consequência da análise, não uma meta.
+
+- AWS tem dezenas de serviços com comportamentos não-óbvios → pode precisar de 12-15 visuais
+- Clean Architecture tem 5 conceitos centrais profundos → pode precisar de 4-5 visuais muito densos
+- Docker é ferramenta CLI com muita superfície → pode precisar de 10 visuais E 6 PDFs de referência
+- Um conceito abstrato de CS pode precisar de 2 visuais perfeitos
+
+**Como evitar a âncora:** enumere os conceitos da skill que visuais ajudariam, crie um visual para cada um que mereça — e pare. Não olhe para o total até terminar.
+
+### Decisão editorial por visual
+
+Para cada visual potencial, pergunte: **"isso ensina algo que texto não ensina?"**
+
+Se a resposta não for um "sim" claro, não crie.
+
+- Um diagrama de estados de container Docker *ensina* — ver transições é melhor que ler sobre elas
+- Um CarouselCard de "o que é ref()" repetindo o texto *não ensina* — é redundância com estilo
+- Um CodeStepper de optimistic update *ensina* — o estado mutando em tempo real não existe em texto
+- Um SequenceDiagram de fluxo OAuth *ensina* — a sequência temporal entre atores não é óbvia em texto
+
+**Sinais de visual desnecessário:**
+- Repete o que já está nos `diagrams` do .ts
+- É uma lista com ícones — texto com estilo, não visualização
+- Poderia ser substituído por um parágrafo sem perda de compreensão
+- Existe só para "ter um visual de X" sem que X precise de visualização
+
+**Sinais de visual essencial:**
+- Mostra fluxo temporal (ciclo de vida, sequência, estados e transições)
+- Compara opções em múltiplas dimensões simultaneamente
+- Permite exploração interativa que revela detalhes progressivamente
+- Mostra algo que só existe em hierarquia, rede ou espaço
+
+**Perguntas para calibrar quantidade:**
+- Quantos conceitos desta skill são genuinamente difíceis de entender em texto?
+- Para quais desses conceitos um visual interativo faria diferença real na compreensão?
+- Quantos desses conceitos já estão cobertos pelos `diagrams` do .ts?
+- O número que sobrar é o número certo — pode ser 3, pode ser 14.
+
+### Decisão editorial por PDF
+
+Para cada PDF potencial, pergunte: **"alguém tiraria isso para estudar no papel ou revisar antes de entrevista?"**
+
+Se a resposta não for um "sim" claro, não crie.
+
+- Q&A Review: sempre faz sentido se o conteúdo tem ≥15 Q&As boas
+- Cheatsheet: faz sentido para ferramentas com sintaxe extensa (Docker, kubectl, git, SQL)
+- Quick Ref: faz sentido para CLIs com muitos subcomandos (aws, docker, terraform) — é o PDF mais valioso para ferramentas
+- Mnemonics: faz sentido se a skill tem conceitos abstratos difíceis de memorizar (Vue reatividade, Clean Arch camadas)
+- Antipatterns: faz sentido se os erros são frequentes e têm consequências graves
+- Comparative: faz sentido se há trade-offs reais entre opções que o dev vai precisar defender em entrevista
+- Mindmap: faz sentido como revisão de ecossistema para skills **muito amplas** (AWS, React) — não para ferramentas
+
+**Sinais de PDF desnecessário:**
+- É uma cópia do conteúdo da skill page com outra formatação
+- O tipo não encaixa na natureza da skill (Mnemonics para Docker que é prática, Mindmap para biblioteca pequena)
+- Outro PDF da mesma skill já cobre o mesmo terreno
+- Seria substituído por uma busca no Google em 5 segundos
+
+**A pergunta final:** *"Se eu fosse estudar essa skill do zero até a entrevista, eu usaria isso?"* Se a resposta for "talvez", corte.
 
 ---
 
-## Fluxo obrigatório ao implementar uma skill
+## Visão geral do processo
 
-1. Ler `src/data/content/meta.ts` — entender o estado atual de todas as skills (score, campos)
-2. Ler `src/data/skills.ts` — nome, categoria, prioridade da skill
-3. Ler `src/data/tech-identity.ts` — cor primária, personalidade visual, estilo visual da tech
-4. Ler este arquivo (`VISUALS_GUIDE.md`) — critérios e padrões
-5. Ler o arquivo de conteúdo da skill (`content/{domain}/{slug}.ts`) — o que já existe
-6. Criar/enriquecer tudo de uma vez: conteúdo + PDFs + visuais
-7. Rodar `node scripts/generate-meta.js` para atualizar `meta.ts`
-8. Rodar `npx tsc --noEmit` para confirmar zero erros TypeScript
+O processo tem 5 fases sequenciais. Não pule nenhuma:
+
+```
+1. LEITURA       → entender o estado atual antes de escrever qualquer linha
+2. CONTEÚDO      → enriquecer o .ts da skill (Q&As, diagramas, exercícios…)
+3. VISUAIS       → criar *Visuais.tsx com os visuais interativos premium
+4. PDFs          → criar *Pdfs.tsx com os guias de bolso offline
+5. VERIFICAÇÃO   → TypeScript + Playwright + browser + atualização de registros
+```
 
 ---
 
-## Estrutura de arquivos por skill
+## FASE 1 — Leitura obrigatória antes de qualquer código
 
-Existem dois padrões atualmente em uso:
+Leia nesta ordem, sem pular:
 
-### Skills com visuais/PDFs — pasta própria
-
-Skills que já possuem visuais e PDFs são reestruturadas em uma pasta:
-
+### 1.1 — meta.ts
 ```
-src/data/content/{domain}/{slug}/
-  {slug}.ts          ← conteúdo textual (Q&As, mnemonics, cheatsheet, etc.)
-  {Slug}Visuais.tsx  ← visuais premium específicos desta skill
-  {Slug}Pdfs.tsx     ← PDFs específicos desta skill
+src/data/content/meta.ts
+```
+Entenda o estado atual da skill: `score`, `qaCount`, `diagrams`, `mnemonics`, `hasCheatsheet`, `hasMindmap`, `exercises`, `videos`, `resources`, `codeExamples`, `hasVisuais`, `visualsCount`, `hasPdfs`, `pdfsCount`.
+
+Isso diz o que já existe e o que falta.
+
+### 1.2 — skills.ts
+```
+src/data/skills.ts
+```
+Verifique: nome exato da skill, domínio, prioridade (P1/P2/P3), ícone CDN, cor. Se a skill não tiver entrada, adicione antes de prosseguir (ver seção "Adicionar skill ao skills.ts").
+
+### 1.3 — tech-identity.ts
+```
+src/data/tech-identity.ts
+```
+Leia `primaryColor`, `secondaryColor`, `bgTint`, `personality`, `visualStyle` da skill. Esses valores definem a paleta de cores de todos os visuais e PDFs.
+
+### 1.4 — Este arquivo inteiro
+Você está fazendo isso agora.
+
+### 1.5 — Arquivo de conteúdo atual da skill
+```
+src/data/content/{domain}/{slug}.ts          ← skill flat
+src/data/content/{domain}/{slug}/{slug}.ts   ← skill em pasta
+```
+Leia o que já existe. Entenda o que está incompleto.
+
+### 1.6 — src/types/index.ts
+Leia os tipos TypeScript do projeto. Especialmente `SkillContent`, `InterviewQA`, `Exercise`, `AntiPatternItem`, `MnemonicItem`. Isso evita erros de tipo que travam o build.
+
+---
+
+## FASE 2 — Conteúdo da skill (.ts)
+
+### Padrão de completude (score 10/10)
+
+Todos os campos abaixo são obrigatórios para score máximo:
+
+| Campo | Mínimo | Observação |
+|-------|--------|------------|
+| `interview` | ≥20 Q&As | `level: 'pleno' \| 'senior'`, campo `a` em HTML rico, campo `tip` obrigatório |
+| `diagrams` | ≥3 itens | HTML/CSS inline; usar prefix CSS único por skill (ex: `.ts-` para TypeScript) para não vazar estilos globais |
+| `mnemonics` | ≥3 itens | `{ label, trick, explanation }` |
+| `cheatsheet` | presente | `DiagramBlock` com HTML/CSS denso e escaneável |
+| `mindmap` | presente | `DiagramBlock` com HTML/CSS mostrando o ecossistema da skill |
+| `exercises` | ≥3 itens | `{ level: 'iniciante' \| 'intermediario' \| 'senior', concepts: string[] }` |
+| `videos` | ≥4 itens | `{ title, channel, url }` — URLs reais e verificadas |
+| `resources` | ≥5 itens | `{ title, url, kind }` — docs oficiais, artigos, repos |
+| `codeExamples` | ≥3 itens | `{ title, code, language }` — exemplos reais e úteis |
+
+### Qualidade esperada dos Q&As
+
+- Resposta no campo `a` em HTML rico: use `<strong>`, `<code>`, `<ul><li>`, `<br>` conforme necessário
+- **`InterviewQA` NÃO tem campo `bullets`** — todo conteúdo vai dentro do `a` como HTML
+- Profundidade pleno/sênior real: não responda "hooks são funções que…", responda com trade-offs, edge cases, comportamento interno
+- `tip` deve ser acionável: "Comece pelo problema X, depois explique Y, mencione Z para mostrar profundidade"
+- Pelo menos metade das perguntas no nível `senior`
+
+### Armadilhas de tipo comuns
+
+```ts
+// ❌ InterviewQA não tem bullets
+{ q: '...', a: '...', bullets: ['...'] }
+
+// ✅ correto — bullets como HTML dentro de a
+{ q: '...', a: '<p>...</p><ul><li>...</li></ul>', tip: '...' }
+
+// ❌ Exercise sem concepts
+{ title: '...', description: '...', level: 'senior' }
+
+// ✅ correto
+{ title: '...', description: '...', level: 'senior', concepts: ['hooks', 'closure'] }
+
+// ❌ AntiPatternItem com string
+{ name: '...', badCode: 'const x = 1', goodCode: 'const x = 1' }
+
+// ✅ correto — CodeToken[]
+{ name: '...', badCode: [{ text: 'const x = 1', color: '#ef4444' }], goodCode: [...] }
 ```
 
-**Exemplo real:** `src/data/content/frontend/react/` contém `react.ts`, `ReactVisuais.tsx` e `ReactPdfs.tsx`.
+### Adicionar skill ao skills.ts
 
-### Skills ainda flat — arquivo único
+Se a skill ainda não tem entrada em `src/data/skills.ts`:
+- Definir `slug`, `name`, `domain`, `priority` (P1/P2/P3)
+- Definir `icon`: `[slugSimpleIcons, hexColor]` — o slug **deve existir** no Simple Icons CDN (`https://cdn.simpleicons.org/{slug}`)
+- Verificar o slug antes: slugs que não existem causam 404 silencioso. Alternativas comuns: `nodedotjs` (não `nodejs`), `sonar` (não `sonarqube`), `testinglibrary` (não `playwright`)
+- Colocar `onError` em toda `<img>` de ícone para esconder 404s
 
-A grande maioria das 218 skills ainda é um arquivo `.ts` único sem visuais nem PDFs:
+### Estrutura de arquivos por skill
 
+**Skill flat** (sem visuais/PDFs ainda):
 ```
 src/data/content/{domain}/{slug}.ts
 ```
 
-**Exemplo:** `src/data/content/frontend/vue.ts`, `src/data/content/backend/node-js.ts`, etc.
-
-Ao adicionar visuais/PDFs a uma skill flat, o primeiro passo é converter para o formato de pasta (ver seção "Como adicionar visuais/PDFs a uma nova skill").
-
----
-
-## Padrão de completude de conteúdo (score 10/10)
-
-Campos obrigatórios no arquivo `.ts` da skill:
-- `interview`: ≥20 Q&As com `level: 'pleno' | 'senior'`, resposta em HTML rico, `tip`
-- `diagrams`: ≥3 itens HTML/CSS com prefix CSS único por skill
-- `mnemonics`: ≥3 itens (`{label, trick, explanation}`)
-- `cheatsheet`: presente (DiagramBlock com HTML/CSS)
-- `mindmap`: presente (DiagramBlock com HTML/CSS)
-- `exercises`: ≥3 itens (`level: iniciante | intermediario | senior`)
-- `videos`: ≥4 itens (`{title, channel, url}`)
-- `resources`: ≥5 itens (`{title, url, kind}`)
-- `codeExamples`: ≥3 itens (`{title, code, language}`)
+**Skill com visuais/PDFs** — converter para pasta:
+```bash
+mkdir src/data/content/{domain}/{slug}
+mv src/data/content/{domain}/{slug}.ts src/data/content/{domain}/{slug}/{slug}.ts
+```
+Atualizar import em `src/data/content/{domain}/index.ts`:
+```ts
+// antes:
+export { skill } from './{slug}'
+// depois:
+export { skill } from './{slug}/{slug}'
+```
 
 ---
 
-## PDFs — Guias de bolso para revisão offline
+## FASE 3 — Visuais (*Visuais.tsx)
 
-### Princípio
-PDFs **não são cópia da skill page**. São artefatos de revisão cognitiva — pensados para estudo espaçado, memorização e revisão rápida fora do computador.
+### O que são os visuais
 
-### Tipos disponíveis
+São peças premium de aprendizado visual na rota `/skill/{slug}/visuais`. São **diferentes** dos `diagrams` da skill page — não são HTML/CSS estático, são componentes React interativos com hover, click, animação, estado local.
 
-| Tipo | Propósito cognitivo | Conteúdo |
-|------|---------------------|----------|
-| **Q&A Review** | Recuperação ativa | Os melhores Q&As da entrevista, bem estilizados — não como flashcard, mas como grade de perguntas com resposta estruturada visualmente |
-| **CheatSheet** | Referência rápida | Comandos, padrões, sintaxes — tudo numa página densa e escaneável |
-| **Mnemonics** | Não-esquecimento | Os truques e macetes com reforço visual — associações que grudam |
-| **Anti-patterns** | Consolidação pelo negativo | O que não fazer, por quê, e o correto ao lado |
-| **Mindmap** | Conexão de conceitos | O mapa mental da skill em alta qualidade visual |
-
-### Critério de quais PDFs incluir
-Não é automático por threshold. O agente decide com base em:
-- O conteúdo disponível na skill (se tem mnemonics ricos, inclui Mnemonics PDF)
-- A complexidade da skill (React tem todos; uma lib pequena pode ter só CheatSheet)
-- O que faria mais diferença para quem está revisando aquela skill específica
-
-### Implementação
-- Renderizado via `@react-pdf/renderer` para download como `.pdf` real
-- Acessado via página `/skill/[slug]/pdfs` — cards de PDFs disponíveis
-- Clicar num card abre modal com preview do PDF + botão de download
-- Visual rico, com identidade visual da tech (cores do `tech-identity.ts`)
-- Amigável, característico, completo — não só texto corrido
-
----
-
-## Visuais — Conteúdo premium de aprendizado
-
-### Princípio
-Os visuais da página `/skill/[slug]/visuais` são **diferentes** dos `diagrams` da skill page.
-São peças premium de aprendizado visual — didáticas, interativas, com tooltips e explicações inline.
 Desktop only — sem preocupação com mobile.
 
-### Tipos possíveis (use o que fizer mais sentido para cada skill)
-- **Grafo interativo** — conexões entre conceitos com pan/zoom
-- **Árvore de componentes** — hierarquia visual (ótimo para React, Vue)
-- **Diagrama de fluxo** — sequências, pipelines, ciclos de vida
-- **Mapa mental** — conexões radiais entre conceitos
-- **Camadas/stack** — arquitetura em camadas (ótimo para infra, auth)
-- **Timeline** — evolução, lifecycle, sequência de eventos
-- **Carrossel de slides** — passo a passo de um conceito
-- **Comparação lado a lado** — bom vs ruim, antes vs depois
-- **Animação de conceito** — CSS animation ou React state para mostrar algo acontecendo (ex: Event Loop)
+### Estrutura do arquivo
 
-### Componentes shared
+```tsx
+'use client'
+import { useState } from 'react'
+import { VisuaisShell } from '@/components/visuals/VisuaisShell'
+import type { VisualDef } from '@/components/visuals/VisuaisNav'
+import { ConceptCarousel } from '@/components/visuals/ConceptCarousel'
+import type { Slide } from '@/components/visuals/ConceptCarousel'
+// ... outros imports
 
-Todos os componentes genéricos e reutilizáveis ficam diretamente em:
+// ── Paleta da tech ─────────────────────────────────────────────────────────────
+const C      = '#HEXCOR'   // cor primária — puxar de tech-identity.ts
+const BG     = '#0f172a'
+const CARD   = '#1e293b'
+const LINE   = '#334155'
+const FG     = '#e2e8f0'
+const FGMUTE = '#94a3b8'
+
+export default function NomeSkillVisuais() {
+  const [active, setActive] = useState(0)
+
+  const visuals: VisualDef[] = [
+    {
+      id: 'visual-1',
+      title: 'Título',
+      subtitle: 'Subtítulo descritivo',
+      accent: C,
+      component: (
+        <ConceptCarousel slides={SLIDES} accentColor={C} bgColor={BG} cardColor={CARD} />
+      ),
+    },
+    // ...
+  ]
+
+  return (
+    <VisuaisShell
+      visuals={visuals}
+      active={active}
+      onChange={setActive}
+      currentAccent={visuals[active].accent}
+      currentSubtitle={visuals[active].subtitle}
+    />
+  )
+}
 ```
-src/components/visuals/   ← componentes de visuais
-src/components/pdfs/      ← builders de PDF
-src/components/index.ts   ← COMPONENT_CATALOG com descrição, props e usedBy de cada componente
+
+### Visuais 100% custom
+
+Quando nenhum componente genérico serve, criar funções internas no próprio arquivo:
+
+```tsx
+function AccessibilityTreeVisual() {
+  const [selected, setSelected] = useState<string | null>(null)
+  // implementação local, sem exportar
+  return <div>...</div>
+}
 ```
 
-#### Componentes de visuais disponíveis hoje
+Ver `HtmlVisuais.tsx` como referência — usa vários componentes locais custom.
 
-| Componente | Arquivo | Descrição |
-|------------|---------|-----------|
-| `VisuaisShell` | `visuals/VisuaisShell.tsx` | Wrapper principal: renderiza a nav lateral e o painel de conteúdo ativo. Todo `*Visuais.tsx` deve usar este componente como raiz. |
-| `VisuaisNav` | `visuals/VisuaisNav.tsx` | Navegação por tabs entre os visuais da skill. Usado internamente pelo `VisuaisShell`. |
-| `ConceptCarousel` | `visuals/ConceptCarousel.tsx` | Carrossel de slides com ilustração `ReactNode` à direita e texto estruturado à esquerda. Ideal para introduzir conceitos encadeados. |
-| `TreeExplorer` | `visuals/TreeExplorer.tsx` | Explorador de árvore interativa com seleção de nó e painel de detalhes. Ideal para hierarquias como Fiber tree, DOM ou AST. |
-| `ReRenderSimulator` | `visuals/ReRenderSimulator.tsx` | Grafo com propagação animada de re-renders por cenário. Útil para demonstrar `memo`, `useMemo`, `useCallback` e prop drilling. |
-| `HookTimeline` | `visuals/HookTimeline.tsx` | Timeline horizontal de fases/estações com código de exemplo por fase. Ideal para lifecycles, pipelines e fases de build. |
-| `CardCarousel` | `visuals/CardCarousel.tsx` | Carrossel de cards com nome, assinatura, emoji, casos de uso e quando não usar. Ideal para comparar APIs similares lado a lado. |
-| `AntiPatternsGallery` | `visuals/AntiPatternsGallery.tsx` | Galeria com diff visual (errado × correto) e explicação técnica. Use para code review, boas práticas e armadilhas. |
-| `PriorityPanel` | `visuals/PriorityPanel.tsx` | Painel de filas com conceitos agrupados por nível (essencial/importante/bônus) e animação. Ideal para planos de estudo e guias pré-entrevista. |
-| `ProgressionMap` | `visuals/ProgressionMap.tsx` | Mapa de progressão em níveis (junior → especialista) com conceitos por nível e tooltip. |
-| `FeaturesCarousel` | `visuals/FeaturesCarousel.tsx` | Carrossel de novidades/features com diff before/after. Use para versões, migrações e comparações de API. |
+### Critério de qualidade por visual
 
-#### Builders de PDF disponíveis hoje
+Cada visual deve:
+- Ter interatividade (hover, click, seleção) — visuais puramente estáticos não valem
+- Ser auto-explicativo — tooltip ou painel de detalhes que explica o que o usuário vê
+- Usar exclusivamente as cores da paleta da tech (`C`, `BG`, `CARD`, etc.) — nunca importar cores de outra skill
+- Ser didático antes de ser bonito — o aprendizado vem primeiro
+- Ter `id` único dentro da skill (string sem espaços, estilo kebab-case)
 
-| Componente | Arquivo | Descrição |
-|------------|---------|-----------|
-| `QAReviewPdf` | `pdfs/QAReviewPdf.tsx` | PDF de Q&A para recuperação ativa — perguntas com nível, resposta em HTML rico e dica. |
-| `CheatsheetPdf` | `pdfs/CheatsheetPdf.tsx` | PDF de referência rápida com seções densas e escaneáveis. |
-| `MnemonicsPdf` | `pdfs/MnemonicsPdf.tsx` | PDF de mnemônicos com cartões de memorização: truque verbal, expansão e âncora cognitiva. |
-| `AntipatternsPdf` | `pdfs/AntipatternsPdf.tsx` | PDF de anti-patterns com código errado × correto usando `CodeToken[]` para highlight. |
-| `MindmapPdf` | `pdfs/MindmapPdf.tsx` | PDF de mind map com categorias (tags essencial/avançado/normal) e página de checklist. |
-| `CoverPage` | `pdfs/CoverPage.tsx` | Capa genérica de PDF com identidade visual da tech. Usada internamente pelos builders. |
-| `PdfModal` | `pdfs/PdfModal.tsx` | Modal de preview + download. Renderiza o PDF via `@react-pdf/renderer`. |
-| `PdfCards` | `pdfs/PdfCards.tsx` | `HeroCard` e `CollectionCard` — cards de entrada para a página `/pdfs` da skill. |
-| `types.ts` | `pdfs/types.ts` | Tipos compartilhados: `PdfType`, `PdfCard`, `PdfBuilderFn`. |
+### Componentes de visuais disponíveis
 
-#### Registry de visuais e PDFs por skill
+Todos em `src/components/visuals/`. Catálogo completo com props em `src/components/index.ts`.
 
-O arquivo `src/data/skill-components.ts` é o registry central que mapeia slug → componente:
+**Mais usados (battle-tested):**
+
+| Componente | Melhor para |
+|-----------|-------------|
+| `VisuaisShell` | Wrapper obrigatório — nav de tabs + painel ativo |
+| `ConceptCarousel` | Conceitos encadeados com ilustração ReactNode + texto estruturado |
+| `LayerStack` | Arquitetura em camadas, cascade, hierarquias verticais |
+| `StateMachineExplorer` | Estados e transições interativas (lifecycle, conexões, flexbox) |
+| `CardCarousel` | Comparar APIs: nome, assinatura, quando usar / não usar |
+| `CodeStepper` | Execução passo a passo com estado de variáveis visível |
+| `AntiPatternsGallery` | Diff visual errado × correto com explicação técnica |
+| `DecisionTree` | "Qual opção usar?" — árvore sim/não com recomendação final |
+| `VersionTimeline` | Evolução de versões com mudanças por release |
+| `ComparisonTable` | Tabela X vs Y com destaque de vencedor por critério |
+| `ProConMatrix` | Prós e contras ponderados com pontuação final |
+| `FeaturesCarousel` | Novidades before/after, migrações, comparações de API |
+| `HookTimeline` | Timeline horizontal de fases com código por fase |
+| `DiffViewer` | Diff lado a lado com highlight de linhas +/- |
+| `TreeExplorer` | Árvore clicável com painel de detalhes (Fiber, DOM, AST) |
+| `ReRenderSimulator` | Propagação animada de re-renders por cenário |
+| `PriorityPanel` | Conceitos agrupados por prioridade (essencial/importante/bônus) |
+| `ProgressionMap` | Jornada em níveis (junior → especialista) com conceitos por nível |
+
+**Disponíveis e não usados ainda — prontos para usar:**
+
+| Componente | Melhor para |
+|-----------|-------------|
+| `SequenceDiagram` | Trocas de mensagens entre atores no tempo — UML sequence (GraphQL, WebSocket, auth flows, TCP) |
+| `HeatMap` | Grid de intensidade — complexidade por operação, custo de query, distribuição de métricas |
+| `FlowDiagram` | Processos, pipelines, sequências de decisão com nós e arestas |
+| `RequestResponseFlow` | HTTP/REST simples — request/response animado entre cliente/servidor |
+| `ArchitectureDiagram` | Microservices, monolitos, sistemas distribuídos |
+| `Speedometer` | Métricas de performance, benchmarks, limites de SLO |
+| `DataFlowSankey` | Transformações de dados, ETL, volume entre nós |
+| `QueryVisualizer` | Plano de execução SQL/NoSQL com custo por nó |
+| `CommandPalette` | Referência de CLI estilo VS Code com busca e categorias |
+| `RegexPlayground` | Regex interativo com highlight de matches em tempo real |
+| `GanttTimeline` | Planos de projeto, releases, roadmaps |
+| `EventTimeline` | Histórico cronológico com cards de detalhes |
+| `MemoryDiagram` | Heap e stack animados, garbage collection, closures |
+| `DataStructureAnimator` | Array, linked list, stack, queue, tree, graph animados |
+| `BigOChart` | Curvas de complexidade Big-O com algoritmos marcados |
+| `MindMap` | Mind map interativo com pan/zoom e nós expansíveis |
+| `ConceptWeb` | Grafo force-directed de dependências entre conceitos |
+| `WordCloud` | Nuvem de termos por importância/frequência |
+| `AttackVectorDiagram` | Vetores de ataque, CVSS, fluxo de exploração |
+| `AuthFlowAnimator` | OAuth2, JWT, SAML — fluxo de autenticação passo a passo |
+| `NetworkTopology` | VPCs, firewalls, zonas de rede, topologia de infra |
+| `CloudArchitecture` | Serviços AWS/GCP/Azure com regiões e conexões |
+| `ScalingSimulator` | Escalonamento horizontal vs vertical com gráficos |
+| `PipelineVisualizer` | CI/CD com estágios, jobs, artefatos e tempo de execução |
+| `ContainerDiagram` | Docker Compose, Kubernetes — containers, volumes, redes |
+| `IndexExplorer` | B-tree animado com busca para índices de banco |
+| `BurndownChart` | Progresso de estudo: linha ideal vs real |
+
+**Se nenhum serve:** criar novo componente em `src/components/visuals/`, parametrizar completamente (sem hardcode da skill), adicionar no `VISUAL_CATALOG` de `src/components/index.ts`. Fica disponível para todas as skills a partir daí.
+
+---
+
+## FASE 4 — PDFs (*Pdfs.tsx)
+
+### O que são os PDFs
+
+São guias de bolso offline na rota `/skill/{slug}/pdfs`. Não são cópia da skill page — são artefatos de revisão cognitiva pensados para estudo espaçado, memorização e revisão rápida fora do computador.
+
+Gerados via `@react-pdf/renderer` para download real como `.pdf`.
+
+### Estrutura do arquivo
+
+```tsx
+'use client'
+import { useState } from 'react'
+import type { PdfType, PdfCard, PdfBuilderFn } from '@/components/pdfs/types'
+import { PdfModal } from '@/components/pdfs/PdfModal'
+import { HeroCard, CollectionCard } from '@/components/pdfs/PdfCards'
+import { buildQAReviewPdf } from '@/components/pdfs/QAReviewPdf'
+import type { QAItem } from '@/components/pdfs/QAReviewPdf'
+// ... outros builders
+
+const C = '#HEXCOR'  // cor da tech — NUNCA omitir, o default é cyan React
+
+const PDF_CARDS: PdfCard[] = [
+  {
+    id: 'qa',
+    title: 'Q&A Review',
+    subtitle: 'As N perguntas mais cobradas em entrevista',
+    type: 'qa',
+    pages: 9,
+    description: 'Descrição do que o PDF cobre...',
+    icon: '01',
+    goal: 'Recuperação ativa',
+    featured: true,
+  },
+  // ... outros cards
+]
+
+const QAS: QAItem[] = [ /* dados das perguntas */ ]
+
+const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
+  qa: () => buildQAReviewPdf({ qa: QAS, accentColor: C, skillName: 'Nome', stackLabel: 'Domínio' }),
+  // ...
+}
+
+export default function NomeSkillPdfs() {
+  const [open, setOpen] = useState<PdfCard | null>(null)
+  const hero = PDF_CARDS[0]
+  const rest = PDF_CARDS.slice(1)
+  return (
+    <>
+      <HeroCard card={hero} accent={C} onClick={() => setOpen(hero)} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
+        {rest.map(c => <CollectionCard key={c.id} card={c} accent={C} onClick={() => setOpen(c)} />)}
+      </div>
+      {open && <PdfModal card={open} onClose={() => setOpen(null)} builders={PDF_BUILDERS} />}
+    </>
+  )
+}
+```
+
+### Regra crítica de cores
+
+**Sempre** passe `accent={C}` explicitamente. O default `'#61DAFB'` (cyan React) vaza para qualquer skill que omitir:
+
+```tsx
+// ❌ errado — herda cyan do React
+<HeroCard card={hero} onClick={() => setOpen(hero)} />
+
+// ✅ correto
+<HeroCard card={hero} accent={C} onClick={() => setOpen(hero)} />
+```
+
+### Builders de PDF disponíveis
+
+**Usados nas skills de referência:**
+
+| Builder | `PdfType` | Melhor para |
+|---------|-----------|-------------|
+| `buildQAReviewPdf` | `'qa'` | Q&As de entrevista: nível pleno/sênior, HTML rico, dica |
+| `buildCheatsheetPdf` | `'cheatsheet'` | Referência densa — sintaxes, comandos, patterns numa página |
+| `buildMnemonicsPdf` | `'mnemonics'` | Cartões: truque verbal + expansão + âncora cognitiva |
+| `buildAntipatternsPdf` | `'antipatterns'` | Diff errado × correto com `CodeToken[]` para highlight |
+| `buildMindmapPdf` | `'mindmap'` | Mind map com categorias (essencial/avançado) + checklist |
+| `buildComparativeRefPdf` | `'comparative'` | Tabela X vs Y com critérios e cenários recomendados |
+| `buildPatternsPdf` | `'patterns'` | Catálogo de design patterns: intent, quando usar, código |
+| `buildCommandRefPdf` | `'commands'` | Referência de CLI por categoria com flags e exemplos |
+| `buildErrorRefPdf` | `'errors'` | Erros comuns: mensagem, causa, solução, diff |
+| `buildRecipeBookPdf` | `'recipe'` | Cookbook: receitas práticas com passos e variações |
+| `buildQuickRefPdf` | `'quick-ref'` | Cartão de bolso ultra-compacto — A4 landscape, 2-3 colunas (ótimo para CLIs e ferramentas) |
+
+**Disponíveis e não usados ainda:**
+
+| Builder | `PdfType` | Melhor para |
+|---------|-----------|-------------|
+| `buildGlossaryPdf` | `'glossary'` | Termos A-Z com pronúncia, definição e relacionados |
+| `buildInterviewSimPdf` | `'interview-sim'` | Simulado sem resposta visível — espaço para escrever à mão |
+| `buildStudyPlanPdf` | `'study-plan'` | Plano de estudos por semanas com checkpoints |
+| `buildSecurityChecklistPdf` | `'security'` | Checklist CWE/OWASP com severidade e testabilidade |
+
+### Critério de quais PDFs incluir
+
+Não é automático — decidir com base em:
+- O conteúdo da skill justifica? (se `mnemonics` são fracos, não inclua Mnemônicos PDF)
+- A complexidade da skill pede? (skill simples pode ter só CheatSheet + Q&A)
+- O que faria mais diferença pra quem está revisando aquela skill especificamente?
+
+---
+
+## FASE 5 — Verificação completa
+
+Esta fase é **obrigatória e não pode ser abreviada**. Cada passo deve passar antes de considerar a skill entregue.
+
+### 5.1 — TypeScript
+
+```bash
+npx tsc --noEmit
+```
+
+Zero erros. Qualquer erro deve ser corrigido antes de prosseguir. Erros mais comuns:
+- `bullets` em `InterviewQA` — não existe, mover para `a` como HTML
+- `concepts` faltando em `Exercise`
+- `badCode`/`goodCode` como string em `AntiPatternItem` — deve ser `CodeToken[]`
+- Tipos de PDF inexistentes na union `PdfType` — adicionar em `src/components/pdfs/types.ts`
+
+### 5.2 — Atualizar registros (OBRIGATÓRIO)
+
+Após criar os arquivos, atualizar **todos** os registros abaixo. Nenhum é opcional:
+
+#### src/data/skill-components.ts
+Adicionar a skill nos dois registries:
+```ts
+export const VISUAL_REGISTRY = {
+  // ...existentes...
+  'nome-skill': dynamic(() => import('@/data/content/{domain}/{slug}/{Slug}Visuais'), { ssr: false }),
+}
+export const PDF_REGISTRY = {
+  // ...existentes...
+  'nome-skill': dynamic(() => import('@/data/content/{domain}/{slug}/{Slug}Pdfs'), { ssr: false }),
+}
+```
+
+#### src/components/index.ts
+Para cada componente genérico usado nos `*Visuais.tsx` e `*Pdfs.tsx`, adicionar o slug da skill no array `usedBy`:
+```ts
+ConceptCarousel: {
+  // ...
+  usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'nome-skill'],  // ← adicionar aqui
+},
+```
+
+#### src/data/content/meta.ts (via script)
+```bash
+node scripts/generate-meta.js
+```
+Verificar que a skill aparece com `hasVisuais: true`, `hasPdfs: true`, `visualsCount` e `pdfsCount` corretos.
+
+### 5.3 — Playwright (testes automatizados)
+
+Criar (ou atualizar) o arquivo de testes em `tests/skill-{slug}.spec.ts`.
+
+**Estrutura base:**
 
 ```ts
-// src/data/skill-components.ts
-export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactVisuais')),
-  // adicionar novas skills aqui
-}
+import { test, expect } from '@playwright/test'
 
-export const PDF_REGISTRY: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs')),
-  // adicionar novas skills aqui
-}
+const BASE = 'http://localhost:3000'
+const SLUG = 'nome-skill'
+
+test.describe('skill/{slug}', () => {
+
+  // ── Página principal ───────────────────────────────────────────────────────
+  test('página principal carrega', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}`)
+    await expect(page).not.toHaveURL(/error/)
+    await expect(page.locator('h1')).toBeVisible()
+  })
+
+  test('aba Interview tem Q&As', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}`)
+    await page.getByRole('button', { name: /interview/i }).click()
+    const questions = page.locator('[data-qa-item]')
+    await expect(questions.first()).toBeVisible()
+  })
+
+  test('aba Diagrams tem itens', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}`)
+    await page.getByRole('button', { name: /diagram/i }).click()
+    await expect(page.locator('[data-diagram]').first()).toBeVisible()
+  })
+
+  test('aba Exercises tem exercícios', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}`)
+    await page.getByRole('button', { name: /exerc/i }).click()
+    await expect(page.locator('[data-exercise]').first()).toBeVisible()
+  })
+
+  // ── Visuais ────────────────────────────────────────────────────────────────
+  test('página /visuais carrega sem erro', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/visuais`)
+    await expect(page).not.toHaveURL(/error/)
+    await expect(page.locator('[data-visuais-shell]')).toBeVisible()
+  })
+
+  test('todos os visuais navegam sem erro', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/visuais`)
+    const tabs = page.locator('[data-visual-tab]')
+    const count = await tabs.count()
+    expect(count).toBeGreaterThan(0)
+    for (let i = 0; i < count; i++) {
+      await tabs.nth(i).click()
+      await expect(page.locator('[data-visual-panel]')).toBeVisible()
+      // sem console errors críticos
+    }
+  })
+
+  test('visuais não têm overflow visível', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/visuais`)
+    const panel = page.locator('[data-visual-panel]')
+    const box = await panel.boundingBox()
+    expect(box).not.toBeNull()
+    // painel tem altura razoável (não colapsou)
+    expect(box!.height).toBeGreaterThan(100)
+  })
+
+  // ── PDFs ───────────────────────────────────────────────────────────────────
+  test('página /pdfs carrega sem erro', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/pdfs`)
+    await expect(page).not.toHaveURL(/error/)
+    await expect(page.locator('[data-hero-card]')).toBeVisible()
+  })
+
+  test('abrir modal de PDF não quebra', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/pdfs`)
+    await page.locator('[data-hero-card]').click()
+    await expect(page.locator('[data-pdf-modal]')).toBeVisible()
+    // modal fecha
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[data-pdf-modal]')).not.toBeVisible()
+  })
+
+  test('todos os PDF cards abrem modal', async ({ page }) => {
+    await page.goto(`${BASE}/skill/${SLUG}/pdfs`)
+    const cards = page.locator('[data-collection-card]')
+    const count = await cards.count()
+    for (let i = 0; i < count; i++) {
+      await cards.nth(i).click()
+      await expect(page.locator('[data-pdf-modal]')).toBeVisible()
+      await page.keyboard.press('Escape')
+    }
+  })
+
+})
 ```
 
-As rotas `/skill/[slug]/visuais` e `/skill/[slug]/pdfs` consomem esses registries para carregar o componente correto da skill.
+**Rodar os testes:**
+```bash
+# garantir que o dev server está rodando
+npm run dev &
 
-**Regra fundamental:** os componentes existentes são ponto de partida, não limite.
-Ao implementar uma nova skill, se ela precisar de um visual ou PDF que ainda não existe:
-1. Crie o novo componente genérico (parametrizado, sem hardcode da skill) em `src/components/visuals/` ou `src/components/pdfs/`
-2. Documente-o no `COMPONENT_CATALOG` em `src/components/index.ts`
-3. Use-o na skill nova
-4. Retroativamente, qualquer skill que se beneficiar pode reutilizá-lo
+# rodar os testes da skill
+npx playwright test tests/skill-{slug}.spec.ts
 
-A lista de componentes cresce organicamente conforme novas skills são implementadas.
-Nunca force uma skill a usar um componente que não se encaixa naturalmente no seu conteúdo.
+# se houver falhas, corrigir o código e re-rodar até passar
+npx playwright test tests/skill-{slug}.spec.ts --reporter=list
+```
 
-### Critério de qualidade
-Cada visual deve:
-- Ter tooltips explicativos ao hover
-- Ser auto-explicativo — alguém que não sabe o conceito deve entender olhando
-- Usar as cores da identidade visual da tech (`tech-identity.ts`)
-- Ser didático antes de ser bonito
+**Ciclo de correção Playwright:**
+1. Rodar os testes
+2. Para cada falha, identificar a causa (elemento não encontrado, overflow, erro de JS, etc.)
+3. Corrigir no código-fonte
+4. Re-rodar **todos** os testes da skill (não só o que falhou — uma correção pode quebrar outro)
+5. Repetir até zero falhas
+
+**Não entregue com testes falhando.** Se um teste for impossível de fazer passar por limitação do ambiente (ex: PDF rendering só funciona em browser real), documente com `test.skip()` e comentário explicando.
+
+### 5.4 — Verificação visual no browser
+
+Com o dev server rodando (`npm run dev`), verificar manualmente:
+
+**Página principal** (`/skill/{slug}`):
+- [ ] Título e subtítulo corretos, sem texto truncado
+- [ ] Ícone da tech aparece (ou está escondido corretamente via `onError`)
+- [ ] Aba Interview: Q&As expandem, nível (pleno/sênior) aparece, tip visível
+- [ ] Aba Diagrams: diagramas renderizam sem overflow, CSS não vaza para outros elementos
+- [ ] Aba Cheatsheet: conteúdo denso e legível
+- [ ] Aba Mindmap: mapa mental renderiza corretamente
+- [ ] Aba Exercises: exercícios listados com nível visível
+- [ ] Aba Resources: links abrem corretamente
+- [ ] Aba Code Examples: código com syntax highlight
+
+**Página de visuais** (`/skill/{slug}/visuais`):
+- [ ] Nav de tabs carrega com todos os títulos
+- [ ] Cada visual renderiza sem overflow ou layout quebrado
+- [ ] Interatividade funciona (hover, click, seleção)
+- [ ] Scrollbar fino e discreto (não ocupa espaço visual)
+- [ ] Cores da tech usadas — não há cyan React `#61DAFB` ou vermelho React em skills que não são React
+- [ ] Tooltips aparecem no hover quando aplicável
+
+**Página de PDFs** (`/skill/{slug}/pdfs`):
+- [ ] HeroCard aparece com cor correta da tech
+- [ ] CollectionCards aparecem com cor correta
+- [ ] Clicar no HeroCard abre modal
+- [ ] Clicar nos CollectionCards abre modal
+- [ ] Modal renderiza o PDF (pode demorar alguns segundos — é normal)
+- [ ] Botão de download funciona
+- [ ] Fechar modal (ESC ou X) funciona sem deixar overlay preso
+
+### 5.5 — Checklist final de arquivos atualizados
+
+Antes de considerar entregue, confirmar que **todos** estes arquivos foram atualizados:
+
+```
+[ ] src/data/content/{domain}/{slug}/{slug}.ts       ← conteúdo enriquecido, score 10/10
+[ ] src/data/content/{domain}/{slug}/{Slug}Visuais.tsx  ← visuais criados
+[ ] src/data/content/{domain}/{slug}/{Slug}Pdfs.tsx     ← PDFs criados
+[ ] src/data/content/{domain}/index.ts               ← import atualizado se skill virou pasta
+[ ] src/data/skill-components.ts                     ← VISUAL_REGISTRY e PDF_REGISTRY
+[ ] src/components/index.ts                          ← usedBy de cada componente genérico usado
+[ ] src/data/content/meta.ts                         ← regenerado via node scripts/generate-meta.js
+[ ] tests/skill-{slug}.spec.ts                       ← testes Playwright passando
+```
+
+---
+
+## Skills de referência — calibrar o nível
+
+Cinco skills estão completamente implementadas. Use-as para entender o nível esperado:
+
+| Skill | Visuais | PDFs | Conteúdo |
+|-------|---------|------|----------|
+| React | 9 | 5 | 141KB |
+| TypeScript | 11 | 8 | 73KB |
+| CSS | 12 | 6 | 82KB |
+| HTML | 11 | 5 | 71KB |
+| TypeORM | 9 | 7 | 87KB |
+
+**React** (`src/data/content/frontend/react/`) — referência de visuais de componente/runtime  
+**TypeScript** — referência de visuais de linguagem/tipos com CodeStepper intensivo  
+**CSS** — referência de skill com muitos visuais de conceitos abstratos  
+**HTML** — referência de visuais custom (componentes locais, sem genérico)  
+**TypeORM** — referência de skill de ferramenta/ORM com Recipe Book e CLI ref  
 
 ---
 
 ## Identidade visual por tech
 
-Cada skill tem uma identidade visual definida em `src/data/tech-identity.ts`:
-- `primaryColor` — cor principal da tech
-- `secondaryColor` — cor de suporte
-- `bgTint` — tint de fundo sutil
-- `textOnPrimary` — cor de texto sobre o fundo primário
-- `personality` — tipo de tech (component, server, data, infra, language, protocol, tool, concept)
-- `visualStyle` — estilo visual sugerido (cards, flow, tree, graph, layers, timeline, grid)
+Definida em `src/data/tech-identity.ts`. Sempre consultar antes de criar visuais/PDFs.
 
-Use sempre ao criar visuais e PDFs para que cada skill tenha sua identidade visual própria.
+- `primaryColor` → usar como `C` e `accent` em todos os componentes
+- `secondaryColor` → cor de suporte para destaques secundários
+- `bgTint` → tint de fundo sutil
+- `personality` → tipo: `component | server | data | infra | language | protocol | tool | concept`
+- `visualStyle` → estilo sugerido: `cards | flow | tree | graph | layers | timeline | grid`
 
----
-
-## Nota sobre ChatGPT Image Generator
-
-Possibilidade documentada mas não implementada:
-- A OpenAI Images API (`gpt-image-1` / `dall-e-3`) poderia gerar ilustrações conceituais/metafóricas
-- Fluxo: script Node local → chama API → salva PNGs em `public/visuals/{slug}/`
-- Uso: apenas para ilustrações artísticas/metafóricas, NÃO para diagramas técnicos
-- Diagramas técnicos (fluxos, grafos, arquitetura) devem ser feitos em SVG/HTML/React
-- Implementar só se necessário após a estrutura manual estar madura
+Cada skill deve ter paleta própria. Nunca copiar as constantes de cor de outra skill.
 
 ---
 
-## Como adicionar visuais/PDFs a uma nova skill
+## Regras críticas — bugs que já aconteceram
 
-Passo a passo para reestruturar uma skill flat e adicionar visuais e PDFs:
+- **`InterviewQA` não tem `bullets`** — conteúdo vai em `a` como HTML
+- **`Exercise` exige `concepts: string[]`** — nunca omitir
+- **`AntiPattern.wrong/right` são `CodeLine[][]`** (array de linhas, cada linha é `{text, color?}[]`) — não strings simples
+- **`HeroCard`/`CollectionCard` exigem `accent={C}` explícito** — default é `#61DAFB` (cyan React)
+- **`PdfType` union completa:** `'qa' | 'cheatsheet' | 'mnemonics' | 'antipatterns' | 'mindmap' | 'comparative' | 'patterns' | 'commands' | 'errors' | 'recipe' | 'quick-ref' | 'glossary' | 'interview-sim' | 'study-plan' | 'security'`
+- **Ícones CDN** `https://cdn.simpleicons.org/{slug}/{hex}` — verificar slug antes; `onError` obrigatório em toda `<img>` de ícone
+- **Pan/zoom SVG** — usar refs mutáveis + `setAttribute` direto no DOM, nunca React state para transform
+- **CSS em diagrams** — usar prefixo único por skill (`.ts-`, `.css-`, `.html-`) para não vazar estilos globais
+- **`'use client'`** em todo arquivo de visuais e PDFs — usam `useState`
+- **Português com acentuação completa** — "não" nunca "nao", "você" nunca "voce", "função" nunca "funcao"
+- **Layout de páginas** — `<Nav />` deve ficar FORA do div `.shell` ou `.shell-wide`
+- **Caracteres especiais em JSX** — `<`, `>`, `{`, `}` dentro de texto JSX devem ser escapados: `&lt;`, `&gt;`, `{'{'}`, `{'}'}`. Nunca escrever `=>` literal em JSX — usar `=&gt;` ou mover para string fora do JSX
+- **`unknown` em JSX** — a palavra reservada `unknown` do TypeScript não pode aparecer como texto JSX direto — usar `{'unknown'}`
 
-### 1. Converter a skill para o formato de pasta
+---
 
-```bash
-# Exemplo para a skill "vue" no domínio "frontend"
-mkdir src/data/content/frontend/vue
-mv src/data/content/frontend/vue.ts src/data/content/frontend/vue/vue.ts
-```
+## Referência de tipos — shapes exatos de cada componente visual
 
-Atualizar o import em `src/data/content/frontend/index.ts`:
-```ts
-// antes:
-import { vue } from './vue'
-// depois:
-import { vue } from './vue/vue'
-```
+Leia esta seção antes de usar qualquer componente. Os erros de TypeScript mais comuns vêm de shapes errados.
 
-### 2. Criar o arquivo de visuais
-
-Criar `src/data/content/{domain}/{slug}/{Slug}Visuais.tsx` seguindo o padrão do React:
-
-```tsx
-'use client'
-import React, { useState } from 'react'
-import VisuaisShell from '@/components/visuals/VisuaisShell'
-import ConceptCarousel from '@/components/visuals/ConceptCarousel'
-// importar outros componentes conforme necessário
-
-export default function VueVisuais() {
-  const [active, setActive] = useState(0)
-
-  const visuals = [
-    {
-      label: 'Fundamentos',
-      content: <ConceptCarousel slides={[...]} accentColor="#42b883" bgColor="#1a1a2e" cardColor="#16213e" />,
-    },
-    // adicionar outros visuais
-  ]
-
-  return <VisuaisShell visuals={visuals} active={active} onChange={setActive} />
-}
-```
-
-Usar as cores de `src/data/tech-identity.ts` para a skill em questão.
-
-### 3. Criar o arquivo de PDFs
-
-Criar `src/data/content/{domain}/{slug}/{Slug}Pdfs.tsx` seguindo o padrão do React:
-
-```tsx
-'use client'
-import React from 'react'
-import { PdfCards, HeroCard, CollectionCard } from '@/components/pdfs/PdfCards'
-import PdfModal from '@/components/pdfs/PdfModal'
-import QAReviewPdf from '@/components/pdfs/QAReviewPdf'
-// importar outros builders conforme necessário
-
-export default function VuePdfs() {
-  // montar os dados dos PDFs com base no conteúdo da skill
-  return (
-    <PdfCards>
-      <HeroCard
-        title="Q&A Review"
-        description="..."
-        pdfComponent={<QAReviewPdf qa={[...]} accentColor="#42b883" skillName="Vue.js" stackLabel="Frontend" />}
-      />
-      {/* adicionar outros cards */}
-    </PdfCards>
-  )
-}
-```
-
-### 4. Registrar no registry central
-
-Adicionar as entradas em `src/data/skill-components.ts`:
+### AntiPatternsGallery
 
 ```ts
-export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactVisuais'), { ssr: false }),
-  vue: dynamic(() => import('@/data/content/frontend/vue/VueVisuais'), { ssr: false }),  // ← novo
+import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
+import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
+// CodeLine = { text: string; color?: string }[]   (uma linha = array de tokens)
+
+type AntiPattern = {
+  title: string
+  wrong: CodeLine[]   // array de linhas; cada linha é array de tokens coloridos
+  right: CodeLine[]
+  why: string
 }
 
-export const PDF_REGISTRY: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs'), { ssr: false }),
-  vue: dynamic(() => import('@/data/content/frontend/vue/VuePdfs'), { ssr: false }),  // ← novo
+// Exemplo correto:
+const PATTERNS: AntiPattern[] = [{
+  title: 'Não usar índice como key',
+  wrong: [
+    [{ text: 'items.map((item, i) =&gt; &lt;Li key={i} /&gt;)', color: '#ef4444' }],
+  ],
+  right: [
+    [{ text: 'items.map(item =&gt; &lt;Li key={item.id} /&gt;)', color: '#22c55e' }],
+  ],
+  why: 'Índice como key quebra reconciliação quando a lista muda de ordem.',
+}]
+```
+
+> **ATENÇÃO:** `wrong` e `right` são `CodeLine[][]` — não strings, não `CodeToken[]`. Cada item do array externo é uma linha; cada linha é um array de `{text, color?}`.
+
+### ComparisonTable
+
+```ts
+import { ComparisonTable } from '@/components/visuals/ComparisonTable'
+import type { ComparisonOption, ComparisonCriterion } from '@/components/visuals/ComparisonTable'
+
+type ComparisonOption = {
+  id: string
+  label: string       // ← LABEL, não "name"
+  sublabel?: string
+  color?: string
+  icon?: string
+}
+
+type ComparisonCriterion = {
+  id: string
+  label: string
+  category?: string
+  description?: string
+  values: Record<string, {
+    rating: 'excellent' | 'good' | 'fair' | 'poor' | 'na'
+    note?: string
+  }>
+}
+
+// Exemplo correto:
+const OPTIONS: ComparisonOption[] = [
+  { id: 'a', label: 'Opção A', color: '#3b82f6' },
+  { id: 'b', label: 'Opção B', color: '#f59e0b' },
+]
+const CRITERIA: ComparisonCriterion[] = [{
+  id: 'perf', label: 'Performance',
+  values: {
+    a: { rating: 'excellent', note: 'Zero overhead' },
+    b: { rating: 'fair', note: 'Overhead de serialização' },
+  },
+}]
+```
+
+> **ATENÇÃO:** `ComparisonOption` usa `label` — nunca `name`. `values` é `Record<string, {rating, note?}>` — nunca string simples.
+
+### HookTimeline (e CodeToken)
+
+```ts
+import { HookTimeline } from '@/components/visuals/HookTimeline'
+import type { TimelinePhase, CodeToken } from '@/components/visuals/HookTimeline'
+
+type CodeToken = { text: string; color?: string }
+
+type TimelinePhase = {
+  id: string
+  emoji: string
+  name: string
+  color: string
+  short: string
+  detail: string
+  code: CodeToken[][]   // array de linhas; cada linha é array de tokens
 }
 ```
 
-### 5. Verificar
+### ConceptCarousel
 
-```bash
-node scripts/generate-meta.js   # atualiza meta.ts
-npx tsc --noEmit                # confirma zero erros TypeScript
+```ts
+import { ConceptCarousel } from '@/components/visuals/ConceptCarousel'
+import type { Slide } from '@/components/visuals/ConceptCarousel'
+
+type Slide = {
+  title: string
+  paragraphs: string[]
+  gradient: [string, string]
+  illustration: React.ReactNode
+}
 ```
 
-Acessar `http://localhost:3000/skill/{slug}/visuais` e `/skill/{slug}/pdfs` para confirmar que tudo carrega.
+### CardCarousel
 
----
+```ts
+import { CardCarousel } from '@/components/visuals/CardCarousel'
+import type { CarouselCard } from '@/components/visuals/CardCarousel'
 
-## React como skill de referência
+type CarouselCard = {
+  name: string
+  signature: string
+  emoji: string
+  color: string
+  use: string[]
+  dontUse: string
+  difficulty?: 1 | 2 | 3
+}
+```
 
-React foi escolhido como a primeira skill a ter PDFs e visuais completos.
-A estrutura e os padrões criados para o React servem de referência — não de limite.
+### LayerStack
 
-Cada skill nova pode e deve:
-- Criar novos tipos de visual que façam sentido para ela (não existe "apenas os tipos do React")
-- Criar novos componentes shared que outras skills poderão reutilizar
-- Ter uma quantidade diferente de PDFs (uma lib simples pode ter só 1, uma plataforma complexa pode ter 8)
-- Ter um layout de página `/visuais` completamente diferente do React se o conteúdo pedir
+```ts
+import { LayerStack } from '@/components/visuals/LayerStack'
+import type { Layer } from '@/components/visuals/LayerStack'
 
-O React é referência de **qualidade e profundidade**, não de estrutura rígida.
+type Layer = {
+  id: string
+  label: string
+  sublabel?: string
+  description: string
+  code?: string
+  color: string
+  icon?: string
+  examples?: string[]
+}
+```
+
+### StateMachineExplorer
+
+```ts
+import { StateMachineExplorer } from '@/components/visuals/StateMachineExplorer'
+import type { SMState, SMTransition } from '@/components/visuals/StateMachineExplorer'
+
+type SMState = {
+  id: string
+  label: string
+  description?: string
+  color?: string
+  isInitial?: boolean
+  isFinal?: boolean
+}
+type SMTransition = {
+  from: string
+  to: string
+  event: string
+  guard?: string
+  code?: string
+}
+```
+
+### DecisionTree
+
+```ts
+import { DecisionTree } from '@/components/visuals/DecisionTree'
+import type { DTNode } from '@/components/visuals/DecisionTree'
+
+type DTNode = {
+  id: string
+  question?: string
+  recommendation?: string
+  detail?: string
+  children?: Array<{ label: string; nodeId: string; color?: string }>
+  color?: string
+  icon?: string
+}
+// uso: <DecisionTree root={ROOT_NODE} nodes={NODE_MAP} accentColor={C} ... />
+// NODE_MAP é Record<string, DTNode> — inclui TODOS os nós exceto o root
+```
+
+### FeaturesCarousel
+
+```ts
+import { FeaturesCarousel } from '@/components/visuals/FeaturesCarousel'
+import type { Feature } from '@/components/visuals/FeaturesCarousel'
+
+type Feature = {
+  tag: string
+  name: string
+  color: string
+  before: string
+  after: string
+  desc: string
+  beforeLabel?: string
+  afterLabel?: string
+}
+```
+
+### CodeStepper
+
+```ts
+import { CodeStepper } from '@/components/visuals/CodeStepper'
+import type { CodeStepperScenario, CodeStep } from '@/components/visuals/CodeStepper'
+
+type CodeStep = {
+  lineStart: number
+  lineEnd?: number
+  title: string
+  explanation: string
+  output?: string
+  callStack?: string[]
+  memory?: Record<string, string>
+}
+type CodeStepperScenario = {
+  id: string
+  label: string
+  code: string
+  language?: string
+  steps: CodeStep[]
+}
+```
+
+### VersionTimeline
+
+```ts
+import { VersionTimeline } from '@/components/visuals/VersionTimeline'
+import type { VersionMilestone } from '@/components/visuals/VersionTimeline'
+
+type VersionMilestone = {
+  id: string
+  version: string
+  year: string
+  title: string
+  description: string
+  highlights: string[]
+  breakingChanges?: string[]
+  color?: string
+  isLTS?: boolean
+  isCurrent?: boolean
+}
+```
+
+### DiffViewer
+
+```ts
+import { DiffViewer } from '@/components/visuals/DiffViewer'
+import type { DiffExample } from '@/components/visuals/DiffViewer'
+
+type DiffExample = {
+  id: string
+  label: string
+  description?: string
+  beforeLabel?: string
+  afterLabel?: string
+  before: string
+  after: string
+  explanation?: string
+  tags?: string[]
+}
+```
+
+### ProConMatrix
+
+```ts
+import { ProConMatrix } from '@/components/visuals/ProConMatrix'
+import type { ProConOption, ProConItem } from '@/components/visuals/ProConMatrix'
+
+type ProConItem = {
+  text: string
+  weight?: 'high' | 'medium' | 'low'
+  context?: string[]
+}
+type ProConOption = {
+  id: string
+  label: string
+  sublabel?: string
+  color: string
+  icon?: string
+  pros: ProConItem[]
+  cons: ProConItem[]
+  bestFor?: string[]
+  avoidWhen?: string[]
+}
+```
+
+### TreeExplorer
+
+```ts
+import { TreeExplorer } from '@/components/visuals/TreeExplorer'
+import type { TreeNode, TreeNodeTypeMeta } from '@/components/visuals/TreeExplorer'
+
+type TreeNode = {
+  id: string
+  name: string
+  type: string          // chave em typeMap
+  props?: string[]
+  state?: string[]
+  children?: TreeNode[]
+  tooltip: string
+  tip?: string
+}
+type TreeNodeTypeMeta = {
+  color: string
+  label: string
+  icon: string
+  desc: string
+}
+// uso: <TreeExplorer tree={ROOT} typeMap={TYPE_MAP} accentColor={C} bgColor={BG} cardColor={CARD} card2Color={CARD2} />
+```
+
+### ProgressionMap
+
+```ts
+import { ProgressionMap } from '@/components/visuals/ProgressionMap'
+import type { ProgressionLevel, Concept } from '@/components/visuals/ProgressionMap'
+
+type Concept = { name: string; tip: string }
+type ProgressionLevel = {
+  id: string
+  name: string
+  label: string
+  emoji: string
+  concepts: Concept[]
+}
+```
+
+### SequenceDiagram
+
+```ts
+import { SequenceDiagram } from '@/components/visuals/SequenceDiagram'
+import type { SeqActor, SeqMessage, SeqGroup } from '@/components/visuals/SequenceDiagram'
+
+type SeqActor  = { id: string; label: string; color?: string; icon?: string }
+type SeqMessage = {
+  from: string; to: string; label: string; note?: string
+  type?: 'sync' | 'async' | 'return' | 'create' | 'destroy'
+}
+type SeqGroup  = { label: string; kind?: 'loop'|'alt'|'opt'|'par'|'ref'; fromMsg: number; toMsg: number; color?: string }
+```
+
+### HeatMap
+
+```ts
+import { HeatMap } from '@/components/visuals/HeatMap'
+import type { HeatCell, HeatRowGroup } from '@/components/visuals/HeatMap'
+
+type HeatCell    = { value: number; note?: string }
+type HeatRowGroup = { label: string; rows: string[] }
+// data[rowIndex][colIndex] = HeatCell
+```

@@ -1,6 +1,19 @@
 'use client'
 
-export type PdfType = 'qa' | 'cheatsheet' | 'mnemonics' | 'antipatterns' | 'mindmap'
+export type PdfType =
+  | 'qa'
+  | 'cheatsheet'
+  | 'mnemonics'
+  | 'antipatterns'
+  | 'mindmap'
+  | 'recipes'
+  | 'migrations-cli'
+  | 'comparative'
+  | 'patterns'
+  | 'commands'
+  | 'errors'
+  | 'quick-ref'
+  | 'security'
 
 export type PdfCard = {
   id: string

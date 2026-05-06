@@ -24,7 +24,7 @@ export interface VisuaisNavProps {
 
 export function VisuaisNav({ visuals, active, onChange }: VisuaisNavProps) {
   return (
-    <div style={{
+    <div className="scrollbar-thin" style={{
       display: 'flex', gap: 2, marginBottom: 28,
       borderBottom: `1px solid ${LINE}`,
       overflowX: 'auto', paddingBottom: 0,

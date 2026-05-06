@@ -34,7 +34,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'active: number',
       'onChange: (i: number) => void',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs', 'docker', 'vue', 'react-query', 'tailwind-css', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs', 'docker', 'vue', 'react-query', 'tailwind-css', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid', 'algoritmos-ds', 'dynamic-programming', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   ConceptCarousel: {
@@ -122,7 +122,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid', 'owasp-api-top-10', 'system-design', 'cqrs'],
   },
 
   PriorityPanel: {
@@ -150,7 +150,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react', 'docker', 'agentic-workflows', 'microservices', 'solid'],
+    usedBy: ['react', 'docker', 'agentic-workflows', 'microservices', 'solid', 'algoritmos-ds', 'dynamic-programming', 'system-design', 'cqrs'],
   },
 
   FeaturesCarousel: {
@@ -164,7 +164,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react', 'css', 'vue', 'tailwind-css'],
+    usedBy: ['react', 'css', 'vue', 'tailwind-css', 'dynamic-programming'],
   },
 
   // ── Novos visuais genéricos ────────────────────────────────────────────────
@@ -193,7 +193,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd'],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   RequestResponseFlow: {
@@ -220,7 +220,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'css', 'docker', 'vue', 'react-query', 'agentic-workflows', 'microservices'],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'react-query', 'agentic-workflows', 'microservices', 'cqrs'],
   },
 
   ArchitectureDiagram: {
@@ -248,7 +248,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['css', 'typeorm', 'docker', 'react-query', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid'],
+    usedBy: ['css', 'typeorm', 'docker', 'react-query', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'solid', 'algoritmos-ds', 'dynamic-programming', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   DecisionTree: {
@@ -261,7 +261,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'html', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture', 'agentic-workflows', 'microservices', 'ddd', 'solid'],
+    usedBy: ['typescript', 'html', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture', 'agentic-workflows', 'microservices', 'ddd', 'solid', 'algoritmos-ds', 'dynamic-programming', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   ProConMatrix: {
@@ -274,7 +274,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['css', 'microservices'],
+    usedBy: ['css', 'microservices', 'system-design'],
   },
 
   Speedometer: {
@@ -317,7 +317,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'docker', 'vue', 'react-query', 'tailwind-css', 'clean-architecture', 'terraform', 'playwright'],
+    usedBy: ['typescript', 'docker', 'vue', 'react-query', 'tailwind-css', 'clean-architecture', 'terraform', 'playwright', 'algoritmos-ds', 'dynamic-programming'],
   },
 
   QueryVisualizer: {
@@ -358,7 +358,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typeorm', 'clean-architecture', 'tailwind-css', 'ddd', 'solid'],
+    usedBy: ['typeorm', 'clean-architecture', 'tailwind-css', 'ddd', 'solid', 'cqrs'],
   },
 
   RegexPlayground: {
@@ -438,7 +438,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['algoritmos-ds'],
   },
 
   BigOChart: {
@@ -451,7 +451,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: [],
+    usedBy: ['algoritmos-ds'],
   },
 
   MindMap: {
@@ -631,7 +631,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'title?: string',
       'description?: string',
     ],
-    usedBy: ['docker', 'aws', 'react-query', 'playwright', 'agentic-workflows', 'microservices'],
+    usedBy: ['docker', 'aws', 'react-query', 'playwright', 'agentic-workflows', 'microservices', 'owasp-api-top-10', 'system-design', 'cqrs'],
   },
 
   HeatMap: {
@@ -653,7 +653,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'rowGroups?: HeatRowGroup[]',
       'valueFormatter?: (v: number) => string',
     ],
-    usedBy: ['aws'],
+    usedBy: ['aws', 'algoritmos-ds', 'dynamic-programming'],
   },
 }
 
@@ -671,7 +671,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture', 'ddd', 'solid'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture', 'ddd', 'solid', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   CheatsheetPdf: {
@@ -685,7 +685,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'stackLabel: string',
       'sections: { hooks, depRows, rules, performanceTips, patterns, mentalModels }',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   MnemonicsPdf: {
@@ -699,7 +699,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture', 'ddd', 'solid'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture', 'ddd', 'solid', 'owasp-api-top-10', 'slis-slos-slas'],
   },
 
   AntipatternsPdf: {
@@ -713,7 +713,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture', 'ddd', 'solid'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'clean-architecture', 'ddd', 'solid', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   MindmapPdf: {
@@ -728,7 +728,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react', 'css', 'html', 'typeorm', 'aws', 'clean-architecture'],
+    usedBy: ['react', 'css', 'html', 'typeorm', 'aws', 'clean-architecture', 'system-design', 'cqrs'],
   },
 
   CommandRefPdf: {
@@ -841,7 +841,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: ['typescript', 'aws', 'vue', 'react-query', 'tailwind-css', 'ddd', 'solid'],
+    usedBy: ['typescript', 'aws', 'vue', 'react-query', 'tailwind-css', 'ddd', 'solid', 'slis-slos-slas', 'system-design', 'cqrs'],
   },
 
   SecurityChecklistPdf: {
@@ -855,7 +855,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: ['aws'],
+    usedBy: ['aws', 'owasp-api-top-10'],
   },
 
   QuickRefPdf: {

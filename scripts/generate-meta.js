@@ -51,6 +51,32 @@ function slugToPascal(slug) {
     .join('');
 }
 
+function countVisuais(content) {
+  // Conta VisualDef entries — component: é sempre seguido de ( ou < (JSX)
+  return (content.match(/\bcomponent\s*:\s*[(<]/g) || []).length;
+}
+
+function countPdfs(content) {
+  // Encontra o array literal após PDF_CARDS: ... = [
+  const arrStart = content.indexOf('PDF_CARDS');
+  if (arrStart < 0) return 0;
+  // Pular até `= [` (o array literal, não o `PdfCard[]` do tipo)
+  const eqBracket = content.indexOf('= [', arrStart);
+  if (eqBracket < 0) return 0;
+  const bracketOpen = eqBracket + 2; // posição do '['
+  // Walk forward tracking bracket depth to find closing ]
+  let depth = 0;
+  let bracketClose = -1;
+  for (let i = bracketOpen; i < content.length; i++) {
+    if (content[i] === '[') depth++;
+    else if (content[i] === ']') { depth--; if (depth === 0) { bracketClose = i; break; } }
+  }
+  if (bracketClose < 0) return 0;
+  const chunk = content.slice(bracketOpen, bracketClose);
+  // Each PdfCard has an `id:` field — count those
+  return (chunk.match(/\bid\s*:\s*['"]/g) || []).length;
+}
+
 const entries = [];
 
 for (const domain of DOMAINS) {
@@ -76,9 +102,13 @@ for (const domain of DOMAINS) {
     const sizeKb    = Math.round(fs.statSync(skillPath).size / 1024);
     const metrics   = audit(content);
     const pascal    = slugToPascal(slug);
-    const hasVisuais = fs.existsSync(path.join(skillDir, `${pascal}Visuais.tsx`));
-    const hasPdfs    = fs.existsSync(path.join(skillDir, `${pascal}Pdfs.tsx`));
-    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, ...metrics });
+    const visualsPath = path.join(skillDir, `${pascal}Visuais.tsx`);
+    const pdfsPath    = path.join(skillDir, `${pascal}Pdfs.tsx`);
+    const hasVisuais  = fs.existsSync(visualsPath);
+    const hasPdfs     = fs.existsSync(pdfsPath);
+    const visualsCount = hasVisuais ? countVisuais(fs.readFileSync(visualsPath, 'utf8')) : 0;
+    const pdfsCount    = hasPdfs    ? countPdfs(fs.readFileSync(pdfsPath, 'utf8'))       : 0;
+    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, visualsCount, pdfsCount, ...metrics });
   }
 
   // Processar skills em pasta ({slug}/{slug}.ts)
@@ -92,9 +122,13 @@ for (const domain of DOMAINS) {
     const sizeKb    = Math.round(fs.statSync(skillPath).size / 1024);
     const metrics   = audit(content);
     const pascal    = slugToPascal(slug);
-    const hasVisuais = fs.existsSync(path.join(skillDir, `${pascal}Visuais.tsx`));
-    const hasPdfs    = fs.existsSync(path.join(skillDir, `${pascal}Pdfs.tsx`));
-    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, ...metrics });
+    const visualsPath = path.join(skillDir, `${pascal}Visuais.tsx`);
+    const pdfsPath    = path.join(skillDir, `${pascal}Pdfs.tsx`);
+    const hasVisuais  = fs.existsSync(visualsPath);
+    const hasPdfs     = fs.existsSync(pdfsPath);
+    const visualsCount = hasVisuais ? countVisuais(fs.readFileSync(visualsPath, 'utf8')) : 0;
+    const pdfsCount    = hasPdfs    ? countPdfs(fs.readFileSync(pdfsPath, 'utf8'))       : 0;
+    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, visualsCount, pdfsCount, ...metrics });
   }
 }
 
@@ -119,6 +153,8 @@ const lines = [
   `  codeExamples: number`,
   `  hasVisuais: boolean`,
   `  hasPdfs: boolean`,
+  `  visualsCount: number`,
+  `  pdfsCount: number`,
   `}`,
   ``,
   `export const SKILL_META: Record<string, SkillMeta> = {`,
@@ -126,7 +162,7 @@ const lines = [
 
 for (const e of entries) {
   lines.push(
-    `  '${e.slug}': { domain: '${e.domain}', file: '${e.file}', sizeKb: ${e.sizeKb}, score: ${e.score}, qaCount: ${e.qaCount}, diagrams: ${e.diagrams}, mnemonics: ${e.mnemonics}, hasCheatsheet: ${e.hasCheatsheet}, hasMindmap: ${e.hasMindmap}, exercises: ${e.exercises}, videos: ${e.videos}, resources: ${e.resources}, codeExamples: ${e.codeExamples}, hasVisuais: ${e.hasVisuais}, hasPdfs: ${e.hasPdfs} },`
+    `  '${e.slug}': { domain: '${e.domain}', file: '${e.file}', sizeKb: ${e.sizeKb}, score: ${e.score}, qaCount: ${e.qaCount}, diagrams: ${e.diagrams}, mnemonics: ${e.mnemonics}, hasCheatsheet: ${e.hasCheatsheet}, hasMindmap: ${e.hasMindmap}, exercises: ${e.exercises}, videos: ${e.videos}, resources: ${e.resources}, codeExamples: ${e.codeExamples}, hasVisuais: ${e.hasVisuais}, hasPdfs: ${e.hasPdfs}, visualsCount: ${e.visualsCount}, pdfsCount: ${e.pdfsCount} },`
   );
 }
 

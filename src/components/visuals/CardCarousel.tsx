@@ -93,7 +93,7 @@ export function CardCarousel({
         </button>
 
         <div style={{
-          width: 420, height: 360,
+          width: 420, minHeight: 360,
           background: `linear-gradient(160deg, ${card.color}18 0%, ${bgColor} 70%)`,
           border: `2px solid ${card.color}60`,
           borderRadius: 18, padding: 28,
