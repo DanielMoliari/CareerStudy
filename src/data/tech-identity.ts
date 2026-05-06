@@ -51,7 +51,7 @@ export const TECH_IDENTITY: Record<string, TechIdentity> = {
   'rust':                { primaryColor: '#CE422B', secondaryColor: '#a43320', bgTint: 'rgba(206,66,43,.08)', textOnPrimary: '#fff', personality: 'language', visualStyle: 'layers' },
   'php':                 { primaryColor: '#777BB4', secondaryColor: '#5a5e8e', bgTint: 'rgba(119,123,180,.08)', textOnPrimary: '#fff', personality: 'language', visualStyle: 'flow' },
   'laravel':             { primaryColor: '#FF2D20', secondaryColor: '#cc1e14', bgTint: 'rgba(255,45,32,.08)', textOnPrimary: '#fff', personality: 'server', visualStyle: 'layers' },
-  'prisma':              { primaryColor: '#2D3748', secondaryColor: '#4a5568', bgTint: 'rgba(45,55,72,.09)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'graph' },
+  'prisma':              { primaryColor: '#5A67D8', secondaryColor: '#7C8EF0', bgTint: 'rgba(90,103,216,.10)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'graph' },
   'typeorm':             { primaryColor: '#E83524', secondaryColor: '#bc2519', bgTint: 'rgba(232,53,36,.08)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'graph' },
   'drizzle':             { primaryColor: '#C5F74F', secondaryColor: '#a3d134', bgTint: 'rgba(197,247,79,.08)', textOnPrimary: '#1a2600', personality: 'tool', visualStyle: 'graph' },
   'bullmq':              { primaryColor: '#D9534F', secondaryColor: '#b53d3a', bgTint: 'rgba(217,83,79,.08)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'flow' },

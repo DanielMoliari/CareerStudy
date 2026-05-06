@@ -32,6 +32,12 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignVisuais'), { ssr: false }),
   'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsVisuais'), { ssr: false }),
   'rag': dynamic(() => import('@/data/content/ai/rag/RagVisuais'), { ssr: false }),
+  's3': dynamic(() => import('@/data/content/cloud/s3/S3Visuais'), { ssr: false }),
+  'langgraph': dynamic(() => import('@/data/content/ai/langgraph/LanggraphVisuais'), { ssr: false }),
+  'mcp': dynamic(() => import('@/data/content/ai/mcp/McpVisuais'), { ssr: false }),
+  'prisma': dynamic(() => import('@/data/content/backend/prisma/PrismaVisuais'), { ssr: false }),
+  'ec2': dynamic(() => import('@/data/content/cloud/ec2/EC2Visuais'), { ssr: false }),
+  'lambda': dynamic(() => import('@/data/content/cloud/lambda/LambdaVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -66,5 +72,11 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignPdfs'), { ssr: false }),
   'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsPdfs'), { ssr: false }),
   'rag': dynamic(() => import('@/data/content/ai/rag/RagPdfs'), { ssr: false }),
+  's3': dynamic(() => import('@/data/content/cloud/s3/S3Pdfs'), { ssr: false }),
+  'langgraph': dynamic(() => import('@/data/content/ai/langgraph/LanggraphPdfs'), { ssr: false }),
+  'mcp': dynamic(() => import('@/data/content/ai/mcp/McpPdfs'), { ssr: false }),
+  'prisma': dynamic(() => import('@/data/content/backend/prisma/PrismaPdfs'), { ssr: false }),
+  'ec2': dynamic(() => import('@/data/content/cloud/ec2/EC2Pdfs'), { ssr: false }),
+  'lambda': dynamic(() => import('@/data/content/cloud/lambda/LambdaPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
