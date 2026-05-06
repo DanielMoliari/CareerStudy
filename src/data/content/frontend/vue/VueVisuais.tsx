@@ -6,8 +6,6 @@ import { FeaturesCarousel } from '@/components/visuals/FeaturesCarousel'
 import type { Feature } from '@/components/visuals/FeaturesCarousel'
 import { HookTimeline } from '@/components/visuals/HookTimeline'
 import type { TimelinePhase } from '@/components/visuals/HookTimeline'
-import { ComparisonTable } from '@/components/visuals/ComparisonTable'
-import type { ComparisonOption, ComparisonCriterion } from '@/components/visuals/ComparisonTable'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
 import { LayerStack } from '@/components/visuals/LayerStack'
@@ -32,7 +30,6 @@ const RED    = '#ef4444'
 const AMB    = '#f59e0b'
 const PRP    = '#a78bfa'
 const SKY    = '#38bdf8'
-const GOLD   = '#fbbf24'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 1 — Composition API vs Options API (FeaturesCarousel)
@@ -515,99 +512,7 @@ console.log(store.double)  // reativo`,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — Vue 2 vs Vue 3 (ComparisonTable)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const VUE_VERSIONS: ComparisonOption[] = [
-  { id: 'vue2', label: 'Vue 2', sublabel: 'Options API / Legado', color: '#64748b' },
-  { id: 'vue3', label: 'Vue 3', sublabel: 'Composition API / Atual', color: C },
-]
-
-const VERSION_CRITERIA: ComparisonCriterion[] = [
-  {
-    id: 'reactivity',
-    label: 'Sistema de reatividade',
-    category: 'Core',
-    description: 'Mecanismo de detecção de mudanças',
-    values: {
-      vue2: { rating: 'fair',      note: 'Object.defineProperty — não detecta adição de propriedades' },
-      vue3: { rating: 'excellent', note: 'Proxy ES6 — detecta qualquer acesso/mutação' },
-    },
-  },
-  {
-    id: 'typescript',
-    label: 'Suporte a TypeScript',
-    category: 'DX',
-    description: 'Integração nativa com TypeScript',
-    values: {
-      vue2: { rating: 'fair',      note: 'Vue.extend() — inferência de tipos limitada' },
-      vue3: { rating: 'excellent', note: 'defineProps genérico, refs tipados, Volar' },
-    },
-  },
-  {
-    id: 'composition',
-    label: 'Reutilização de lógica',
-    category: 'DX',
-    description: 'Como encapsular e reutilizar lógica stateful',
-    values: {
-      vue2: { rating: 'fair',  note: 'Mixins — colisão de nomes, origem opaca' },
-      vue3: { rating: 'excellent', note: 'Composables — explícitos, composáveis, testáveis' },
-    },
-  },
-  {
-    id: 'performance',
-    label: 'Performance de renderização',
-    category: 'Performance',
-    description: 'Velocidade de re-render e tamanho do bundle',
-    values: {
-      vue2: { rating: 'good', note: 'Virtual DOM — OK para a maioria dos casos' },
-      vue3: { rating: 'excellent', note: 'VDOM otimizado + compiler hints + tree-shakable' },
-    },
-  },
-  {
-    id: 'bundle',
-    label: 'Tamanho do bundle',
-    category: 'Performance',
-    description: 'Tamanho mínimo do runtime',
-    values: {
-      vue2: { rating: 'good', note: '~23 KB min+gzip — monolítico' },
-      vue3: { rating: 'excellent', note: '~10 KB min+gzip — tree-shakable' },
-    },
-  },
-  {
-    id: 'fragments',
-    label: 'Múltiplos root elements',
-    category: 'Template',
-    description: 'Template pode ter mais de um elemento raiz',
-    values: {
-      vue2: { rating: 'poor',      note: 'Um elemento raiz obrigatório' },
-      vue3: { rating: 'excellent', note: 'Fragments — múltiplos roots nativos' },
-    },
-  },
-  {
-    id: 'teleport',
-    label: 'Teleport / Portal',
-    category: 'Template',
-    description: 'Renderizar em outro lugar do DOM',
-    values: {
-      vue2: { rating: 'poor', note: 'Não nativo — biblioteca externa' },
-      vue3: { rating: 'excellent', note: '<Teleport to="#modals"> — nativo' },
-    },
-  },
-  {
-    id: 'state',
-    label: 'Gerenciamento de estado',
-    category: 'Ecossistema',
-    description: 'Solução oficial recomendada',
-    values: {
-      vue2: { rating: 'fair',      note: 'Vuex 3 — boilerplate, módulos aninhados' },
-      vue3: { rating: 'excellent', note: 'Pinia — simples, tipado, sem mutations' },
-    },
-  },
-]
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — Anti-patterns Vue (AntiPatternsGallery)
+// VISUAL 7 — Anti-patterns Vue (AntiPatternsGallery)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const VUE_ANTIPATTERNS: AntiPattern[] = [
@@ -799,20 +704,6 @@ export default function VueVisuais() {
       ),
     },
     {
-      id: 'vue2-vs-vue3',
-      title: 'Vue 2 vs Vue 3',
-      subtitle: 'Reatividade, TypeScript, performance, Pinia vs Vuex e novos recursos',
-      accent: GOLD,
-      component: (
-        <ComparisonTable
-          options={VUE_VERSIONS}
-          criteria={VERSION_CRITERIA}
-          accentColor={C}
-          bgColor={BG}
-        />
-      ),
-    },
-    {
       id: 'antipatterns',
       title: 'Anti-patterns Vue',
       subtitle: 'Mutação de prop, v-if+v-for, reactive desestruturado, watch lazy, provide primitivo',
@@ -828,7 +719,7 @@ export default function VueVisuais() {
   ]
 
   // suppress unused warnings
-  void LINE; void FG; void FGMUTE; void PRP; void SKY; void AMB; void RED; void GRN; void SEC; void GOLD; void CARD
+  void LINE; void FG; void FGMUTE; void PRP; void SKY; void AMB; void RED; void GRN; void SEC; void CARD
 
   return (
     <VisuaisShell

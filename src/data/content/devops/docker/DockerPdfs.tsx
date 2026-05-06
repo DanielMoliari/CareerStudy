@@ -11,8 +11,6 @@ import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
-import { buildMindmapPdf } from '@/components/pdfs/MindmapPdf'
-import type { MindmapCategory } from '@/components/pdfs/MindmapPdf'
 import { buildQuickRefPdf } from '@/components/pdfs/QuickRefPdf'
 import type { QuickRefColumn } from '@/components/pdfs/QuickRefPdf'
 
@@ -62,16 +60,6 @@ const PDF_CARDS: PdfCard[] = [
     description: 'Os 8 anti-patterns mais perigosos: root no container, secrets em ENV, COPY . . antes de deps, latest em produção, PID 1 sem signals, sem .dockerignore, apt sem limpeza e sem HEALTHCHECK.',
     icon: '04',
     goal: 'Reconhecimento de padrão',
-  },
-  {
-    id: 'mindmap',
-    title: 'Mind Map',
-    subtitle: 'Docker do zero ao sênior em uma folha',
-    type: 'mindmap',
-    pages: 2,
-    description: 'Mapa mental completo: arquitetura interna, imagem, Dockerfile, segurança, BuildKit, rede, volumes, Compose, debug e runtime stack. Com checklist de entrevista.',
-    icon: '05',
-    goal: 'Mapeamento mental',
   },
 ]
 
@@ -417,51 +405,6 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
-// ── Dados: Mindmap ────────────────────────────────────────────────────────────
-
-const MINDMAP_CATEGORIES: MindmapCategory[] = [
-  {
-    label: 'Arquitetura',
-    color: C,
-    items: [{ t: 'dockerd → containerd → runc', k: true }, { t: 'namespaces (PID NET MNT UTS IPC USER)', k: true }, { t: 'cgroups (CPU mem I/O)' }, { t: 'overlay2 (copy-on-write)' }, { t: 'CRI para K8s (sem dockerd)', a: true }],
-  },
-  {
-    label: 'Imagem',
-    color: '#4ade80',
-    items: [{ t: 'layers read-only empilhadas', k: true }, { t: 'hash por instrução + contexto' }, { t: 'multi-stage (toolchain vs runtime)', k: true }, { t: 'alpine / slim / distroless / scratch' }, { t: 'OCI Image Spec', a: true }],
-  },
-  {
-    label: 'Dockerfile',
-    color: '#f59e0b',
-    items: [{ t: 'FROM (fixar versão)', k: true }, { t: 'COPY (preferível ao ADD)', k: true }, { t: 'RUN (combinar com &&)', k: true }, { t: 'ENTRYPOINT exec form (PID 1)', k: true }, { t: 'USER UID não-root', k: true }, { t: 'HEALTHCHECK com start_period' }],
-  },
-  {
-    label: 'Segurança',
-    color: '#ef4444',
-    items: [{ t: 'USER não-root (UID numérico)', k: true }, { t: '--mount=type=secret (BuildKit)', k: true }, { t: 'trivy / grype (CVE scan)' }, { t: 'hadolint (Dockerfile lint)' }, { t: 'SBOM (syft)', a: true }, { t: '--read-only + tmpfs', a: true }],
-  },
-  {
-    label: 'Rede',
-    color: '#38bdf8',
-    items: [{ t: 'bridge user-defined (DNS interno)', k: true }, { t: 'host (sem NAT)' }, { t: 'overlay (VXLAN multi-host)', a: true }, { t: 'none (isolamento total)' }, { t: 'DNS resolver 127.0.0.11' }],
-  },
-  {
-    label: 'Volumes',
-    color: '#a78bfa',
-    items: [{ t: 'named volume (prod, persistente)', k: true }, { t: 'bind mount (dev, hot-reload)', k: true }, { t: 'tmpfs (memória, sensível)' }, { t: 'bypass overlay2 para I/O intensivo', a: true }],
-  },
-  {
-    label: 'Docker Compose',
-    color: '#2496ED',
-    items: [{ t: 'healthcheck + depends_on condicional', k: true }, { t: 'restart: unless-stopped' }, { t: 'deploy.resources (CPU/mem)' }, { t: 'override files (dev/prod)' }, { t: 'profiles para subsets', a: true }],
-  },
-  {
-    label: 'BuildKit',
-    color: '#4ade80',
-    items: [{ t: '--mount=type=cache (npm/pip)', k: true }, { t: '--mount=type=secret (zero rastro)', k: true }, { t: '--mount=type=ssh', a: true }, { t: 'stages paralelos' }, { t: 'buildx multi-arch (manifest list)', a: true }],
-  },
-]
-
 // ── Dados: Quick Ref ──────────────────────────────────────────────────────────
 
 const QUICKREF_COLUMNS: QuickRefColumn[] = [
@@ -577,24 +520,6 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     accentColor: C,
     stackLabel: 'DevOps / Infraestrutura',
     antipatterns: ANTIPATTERNS,
-  }),
-  mindmap: () => buildMindmapPdf({
-    skillName: 'Docker',
-    accentColor: C,
-    stackLabel: 'DevOps / Infraestrutura',
-    categories: MINDMAP_CATEGORIES,
-    checklist: [
-      'Explicar namespaces e cgroups pelo nome',
-      'Descrever overlay2 copy-on-write (lower/upper/merged)',
-      'Diferença entre bridge padrão e user-defined (DNS)',
-      'Por que ENTRYPOINT exec form e não form shell',
-      'Multi-stage build: por que a imagem final fica menor',
-      'BuildKit --mount=type=secret: como funciona o zero rastro',
-      'Graceful shutdown: SIGTERM → PID 1 → app → conexões',
-      'Distroless vs alpine vs scratch: quando usar cada',
-      'depends_on condition: service_healthy vs simples',
-      'Rootless Docker: o que protege e quais as limitações',
-    ],
   }),
 }
 

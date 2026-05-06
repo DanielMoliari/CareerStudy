@@ -11,8 +11,8 @@ import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
-import { buildMindmapPdf } from '@/components/pdfs/MindmapPdf'
-import type { MindmapCategory } from '@/components/pdfs/MindmapPdf'
+import { buildComparativeRefPdf } from '@/components/pdfs/ComparativeRefPdf'
+import type { CompOption, CompCriterion, CompScenario } from '@/components/pdfs/ComparativeRefPdf'
 
 // ── Paleta Vue ─────────────────────────────────────────────────────────────────
 const C = '#4FC08D'
@@ -62,14 +62,14 @@ const PDF_CARDS: PdfCard[] = [
     goal: 'Reconhecimento de padrão',
   },
   {
-    id: 'mindmap',
-    title: 'Mind Map',
-    subtitle: 'Vue 3 do zero ao sênior em uma folha',
-    type: 'mindmap',
+    id: 'comparative',
+    title: 'Composition API vs Options API',
+    subtitle: 'Tabela de equivalências para migração e entrevista',
+    type: 'comparative',
     pages: 2,
-    description: 'Mapa mental completo: reatividade, Composition API, template, componentes, Pinia, Vue Router, ecossistema e comparação com React. Com checklist de entrevista de 20 perguntas.',
+    description: 'Tabela de equivalências completa: cada conceito do Options API (data, computed, watch, mounted, mixins, Vuex) com o equivalente em Composition API, pontuação por critério e cenários recomendados.',
     icon: '05',
-    goal: 'Mapeamento mental',
+    goal: 'Referência de migração',
   },
 ]
 
@@ -400,48 +400,131 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
-// ── Dados: Mindmap ────────────────────────────────────────────────────────────
+// ── Dados: Comparative — Composition API vs Options API ──────────────────────
 
-const MINDMAP_CATEGORIES: MindmapCategory[] = [
+const COMP_OPTIONS: CompOption[] = [
+  { name: 'Options API', color: '#64748b' },
+  { name: 'Composition API', color: C },
+]
+
+const COMP_CRITERIA: CompCriterion[] = [
   {
-    label: 'Reatividade',
-    color: C,
-    items: [{ t: 'ref() — .value, qualquer tipo', k: true }, { t: 'reactive() — Proxy, sem .value', k: true }, { t: 'computed() — derivado, cacheado', k: true }, { t: 'watch() — explícito, lazy, oldVal', k: true }, { t: 'watchEffect() — automático, imediato' }, { t: 'Proxy ES6 (track/trigger)', a: true }],
+    criterion: 'Estado reativo',
+    category: 'Reatividade',
+    values: {
+      'Options API': 'data() { return { count: 0 } }',
+      'Composition API': 'const count = ref(0)  // acessa: count.value',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Composition API',
-    color: '#4ade80',
-    items: [{ t: 'script setup (sem return)', k: true }, { t: 'defineProps genérico (TypeScript)', k: true }, { t: 'defineEmits tipado', k: true }, { t: 'defineExpose (para template refs)' }, { t: 'composables (prefixo use*)', k: true }, { t: 'lifecycle hooks (onMounted etc.)', k: true }],
+    criterion: 'Valor derivado',
+    category: 'Reatividade',
+    values: {
+      'Options API': 'computed: { double() { return this.count * 2 } }',
+      'Composition API': 'const double = computed(() => count.value * 2)',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Template',
-    color: '#f59e0b',
-    items: [{ t: 'v-if/v-else (remove DOM)', k: true }, { t: 'v-show (display:none)', k: true }, { t: 'v-for + :key estável obrigatório', k: true }, { t: 'v-model (two-way binding)', k: true }, { t: 'v-bind (:attr)', k: true }, { t: 'v-on (@event)', k: true }, { t: 'v-memo (memoizar subárvore)', a: true }],
+    criterion: 'Observar mudanças',
+    category: 'Reatividade',
+    values: {
+      'Options API': 'watch: { count(newVal) { ... } }',
+      'Composition API': 'watch(count, (n, o) => { ... })  // ou watchEffect',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Componentes',
-    color: '#38bdf8',
-    items: [{ t: 'props (readonly, fluxo ↓)', k: true }, { t: 'emits (fluxo ↑)', k: true }, { t: 'slots (padrão, named, scoped)' }, { t: 'provide / inject (qualquer profundidade)' }, { t: 'Teleport (renderizar em outro lugar)', a: true }, { t: 'Suspense (async component)', a: true }],
+    criterion: 'Hooks de lifecycle',
+    category: 'Lifecycle',
+    values: {
+      'Options API': 'mounted() { ... }  /  beforeUnmount() { ... }',
+      'Composition API': 'onMounted(() => { ... })  /  onUnmounted(() => { ... })',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Estado Global',
-    color: '#a78bfa',
-    items: [{ t: 'Pinia (substituiu Vuex)', k: true }, { t: 'defineStore() com Composition API', k: true }, { t: 'state (refs)', k: true }, { t: 'getters (computed)', k: true }, { t: 'actions (síncrono ou async)', k: true }, { t: 'storeToRefs() para desestruturar' }],
+    criterion: 'Reutilização de lógica',
+    category: 'Composição',
+    values: {
+      'Options API': 'Mixins — colisão de nomes, origem opaca, sem TypeScript',
+      'Composition API': 'Composables (use*) — explícitos, tipados, composáveis',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Vue Router',
-    color: C,
-    items: [{ t: 'beforeEach() (guard global)', k: true }, { t: 'beforeEnter (por rota)' }, { t: 'meta.requiresAuth', k: true }, { t: 'lazy loading (() => import())', k: true }, { t: 'rotas aninhadas (children)' }, { t: 'useRoute / useRouter', k: true }],
+    criterion: 'Tipagem de props',
+    category: 'TypeScript',
+    values: {
+      'Options API': 'props: { title: { type: String, required: true } }',
+      'Composition API': 'defineProps<{ title: string; count?: number }>()',
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Performance',
-    color: '#4ade80',
-    items: [{ t: 'v-memo (memoizar lista)', a: true }, { t: 'v-once (estático permanente)' }, { t: 'KeepAlive (preserva estado)' }, { t: 'Virtual scrolling (10k+ itens)', a: true }, { t: 'defineAsyncComponent (code split)', a: true }, { t: 'shallowRef / shallowReactive', a: true }],
+    criterion: 'Tipagem de emits',
+    category: 'TypeScript',
+    values: {
+      'Options API': "emits: ['update']  // sem tipo nos argumentos",
+      'Composition API': "defineEmits<{ update: [value: number] }>()",
+    },
+    winner: 'Composition API',
   },
   {
-    label: 'Ecossistema Vue 3',
-    color: '#f59e0b',
-    items: [{ t: 'Vite (build, dev server)', k: true }, { t: 'Nuxt 3 (meta-framework SSR)', k: true }, { t: 'Pinia (state management)', k: true }, { t: 'VueUse (composables utilities)' }, { t: 'Volar (VS Code LSP)' }, { t: 'Vitest (testes)', a: true }],
+    criterion: 'Estado global',
+    category: 'Ecossistema',
+    values: {
+      'Options API': 'Vuex — mutations, actions, modules aninhados',
+      'Composition API': 'Pinia — defineStore(), sem mutations, tipado',
+    },
+    winner: 'Composition API',
+  },
+  {
+    criterion: 'Legibilidade para iniciantes',
+    category: 'DX',
+    values: {
+      'Options API': 'Estrutura familiar (data/methods/computed separados)',
+      'Composition API': 'Lógica agrupada por funcionalidade — mais verboso no início',
+    },
+    winner: 'Options API',
+  },
+  {
+    criterion: 'Compatibilidade Vue 2',
+    category: 'Migração',
+    values: {
+      'Options API': 'Nativa — mesma sintaxe em Vue 2 e Vue 3',
+      'Composition API': 'Exclusiva do Vue 3 (exceto com @vue/composition-api plugin)',
+    },
+    winner: 'Options API',
+  },
+]
+
+const COMP_SCENARIOS: CompScenario[] = [
+  {
+    scenario: 'Projeto novo com TypeScript',
+    recommendation: 'Composition API',
+    reason: 'Inferência de tipos completa com defineProps/defineEmits genéricos. Composables são naturalmente tipados.',
+  },
+  {
+    scenario: 'Migração de Vue 2 incremental',
+    recommendation: 'Options API',
+    reason: 'Manter consistência com a base existente. Vue 3 suporta Options API 100% — não é deprecated.',
+  },
+  {
+    scenario: 'Lógica complexa reutilizável',
+    recommendation: 'Composition API',
+    reason: 'Composables agrupam toda a lógica relacionada (estado + lifecycle + cleanup) em um arquivo testável.',
+  },
+  {
+    scenario: 'Componente simples de UI (sem lógica)',
+    recommendation: 'Options API',
+    reason: 'Para componentes puramente de template sem estado complexo, Options API é mais concisa e legível.',
+  },
+  {
+    scenario: 'Equipe nova em Vue',
+    recommendation: 'Composition API',
+    reason: 'É o futuro do ecossistema Vue. A documentação oficial prioriza Composition API. Melhor investimento.',
   },
 ]
 
@@ -479,23 +562,14 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     stackLabel: 'Frontend / Framework',
     antipatterns: ANTIPATTERNS,
   }),
-  mindmap: () => buildMindmapPdf({
+  comparative: () => buildComparativeRefPdf({
     skillName: 'Vue 3',
     accentColor: C,
     stackLabel: 'Frontend / Framework',
-    categories: MINDMAP_CATEGORIES,
-    checklist: [
-      'Explicar ref() vs reactive() e o problema de desestruturação',
-      'Diferenciar watch() (lazy, oldVal) de watchEffect() (automático, imediato)',
-      'Como funciona o Proxy internamente (track/trigger)',
-      'Por que composables são melhores que mixins',
-      'Quando usar provide/inject vs Pinia',
-      'Como tipar props e emits com TypeScript (syntax genérica)',
-      'Diferença entre v-if (remove DOM) e v-show (display:none)',
-      'Como implementar v-model customizado em componente',
-      'Lifecycle hooks e cleanup adequado em composables',
-      'Vue 2 vs Vue 3: Proxy vs Object.defineProperty',
-    ],
+    coverTitle: 'Composition API vs Options API',
+    options: COMP_OPTIONS,
+    criteria: COMP_CRITERIA,
+    scenarios: COMP_SCENARIOS,
   }),
 }
 

@@ -10,8 +10,8 @@ import { ComparisonTable } from '@/components/visuals/ComparisonTable'
 import type { ComparisonOption, ComparisonCriterion } from '@/components/visuals/ComparisonTable'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
-import { HookTimeline } from '@/components/visuals/HookTimeline'
-import type { TimelinePhase } from '@/components/visuals/HookTimeline'
+import { ProgressionMap } from '@/components/visuals/ProgressionMap'
+import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
 import { SequenceDiagram } from '@/components/visuals/SequenceDiagram'
 import type { SeqActor, SeqMessage } from '@/components/visuals/SequenceDiagram'
 import { CodeStepper } from '@/components/visuals/CodeStepper'
@@ -438,87 +438,65 @@ const DOCKER_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — Ciclo de vida da imagem (HookTimeline)
+// VISUAL 8 — Jornada Docker: do iniciante ao sênior (ProgressionMap)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const IMAGE_PHASES: TimelinePhase[] = [
+const DOCKER_LEVELS: ProgressionLevel[] = [
   {
-    id: 'write',
-    emoji: '✍️',
-    name: 'Dockerfile',
-    color: C,
-    short: 'Escrever',
-    detail: 'O Dockerfile descreve como construir a imagem. Cada instrução vira uma layer. A ordem importa: coloque o que muda menos primeiro para maximizar o cache.',
-    code: [
-      [{ text: 'FROM', color: C }, { text: ' node:20-alpine', color: FG }],
-      [{ text: 'COPY', color: C }, { text: ' package*.json ./', color: FG }],
-      [{ text: 'RUN', color: C }, { text: ' npm ci', color: FG }],
-      [{ text: 'COPY', color: C }, { text: ' . .', color: FG }],
-      [{ text: 'CMD', color: C }, { text: ' ["node", "server.js"]', color: FG }],
+    id: 'iniciante',
+    name: 'Iniciante',
+    label: 'Fundamentos',
+    emoji: '🐣',
+    concepts: [
+      { name: 'docker run / stop / rm', tip: 'Os três comandos do ciclo básico de um container' },
+      { name: 'docker ps -a', tip: 'Lista todos os containers, inclusive os parados (exit code)' },
+      { name: 'docker logs -f', tip: 'Seguir logs em tempo real — --tail=100 para limitar' },
+      { name: 'Dockerfile básico', tip: 'FROM, COPY, RUN, CMD — as 4 instruções do dia a dia' },
+      { name: 'docker build -t', tip: 'Tag obrigatória — nunca construir sem nomear a imagem' },
+      { name: 'Volumes nomeados', tip: 'Dados que precisam sobreviver ao container vão em volume' },
     ],
   },
   {
-    id: 'build',
-    emoji: '🔨',
-    name: 'docker build',
-    color: AMB,
-    short: 'Construir',
-    detail: 'BuildKit processa o Dockerfile, executa cada instrução e cria layers. Cache é reutilizado quando o hash da instrução + contexto não mudou. Multi-stage descarta stages intermediários.',
-    code: [
-      [{ text: 'docker build', color: AMB }, { text: ' -t minha-app:1.0 .', color: FG }],
-      [{ text: '# BuildKit paralelize stages independentes', color: FGMUTE }],
-      [{ text: '# Cache hit:', color: FGMUTE }, { text: ' CACHED [2/5] RUN npm ci', color: GRN }],
+    id: 'pleno',
+    name: 'Pleno',
+    label: 'Operação real',
+    emoji: '⚙️',
+    concepts: [
+      { name: 'Multi-stage build', tip: 'Toolchain no stage de build, só runtime na imagem final' },
+      { name: 'USER não-root', tip: 'addgroup/adduser + USER antes do CMD — obrigatório em prod' },
+      { name: 'ENTRYPOINT exec form', tip: '["node", "server.js"] — PID 1 recebe SIGTERM diretamente' },
+      { name: 'Docker Compose + healthcheck', tip: 'depends_on com condition: service_healthy garante ordem de inicialização' },
+      { name: 'Redes user-defined', tip: 'bridge nomeada dá DNS automático por nome de serviço' },
+      { name: '.dockerignore', tip: 'node_modules, .env, .git — reduz contexto e evita vazamentos' },
+      { name: 'HEALTHCHECK com start_period', tip: 'Falhas durante start_period não contam como retries' },
     ],
   },
   {
-    id: 'push',
-    emoji: '📤',
-    name: 'docker push',
-    color: PRP,
-    short: 'Publicar',
-    detail: 'A imagem é enviada ao registry (Docker Hub, ECR, GCR, GHCR). Apenas as layers que não existem no registry são enviadas — layers compartilhadas são reutilizadas automaticamente.',
-    code: [
-      [{ text: 'docker tag', color: PRP }, { text: ' minha-app:1.0 org/minha-app:1.0', color: FG }],
-      [{ text: 'docker push', color: PRP }, { text: ' org/minha-app:1.0', color: FG }],
-      [{ text: '# Layers já no registry: LAYER ALREADY EXISTS', color: FGMUTE }],
+    id: 'senior',
+    name: 'Sênior',
+    label: 'Segurança e performance',
+    emoji: '🔐',
+    concepts: [
+      { name: 'BuildKit --mount=type=secret', tip: 'Segredos no build sem rastro em nenhuma layer' },
+      { name: 'BuildKit --mount=type=cache', tip: 'Cache de npm/pip persiste entre builds sem criar layer' },
+      { name: 'overlay2 copy-on-write', tip: 'lower (read-only) + upper (writable) + merged — containers não alteram imagem' },
+      { name: 'namespaces + cgroups', tip: 'Namespaces controlam visibilidade; cgroups controlam recursos' },
+      { name: 'Distroless / scratch', tip: 'Sem shell = sem execução arbitrária se comprometido' },
+      { name: 'buildx multi-arch', tip: 'Manifest list: uma tag para amd64 e arm64 — cliente escolhe automaticamente' },
     ],
   },
   {
-    id: 'pull',
-    emoji: '📥',
-    name: 'docker pull',
-    color: SKY,
-    short: 'Baixar',
-    detail: 'O runtime (containerd) baixa as layers que ainda não estão no host. Layers compartilhadas entre imagens são baixadas uma única vez. Em K8s, imagePullPolicy controla quando o pull acontece.',
-    code: [
-      [{ text: 'docker pull', color: SKY }, { text: ' org/minha-app:1.0', color: FG }],
-      [{ text: '# Layers locais: Pull complete / Already exists', color: FGMUTE }],
-      [{ text: '# K8s: imagePullPolicy: IfNotPresent', color: FGMUTE }],
-    ],
-  },
-  {
-    id: 'run',
-    emoji: '🚀',
-    name: 'docker run',
-    color: GRN,
-    short: 'Executar',
-    detail: 'O containerd cria um snapshot do filesystem (layers da imagem + writable layer). O runc configura namespaces e cgroups e inicia o processo. O container está running.',
-    code: [
-      [{ text: 'docker run', color: GRN }, { text: ' -d -p 3000:3000 org/minha-app:1.0', color: FG }],
-      [{ text: '# containerd:', color: FGMUTE }, { text: ' snapshot + runc create', color: GRN }],
-      [{ text: '# runc:', color: FGMUTE }, { text: ' namespaces + cgroups + PID 1', color: GRN }],
-    ],
-  },
-  {
-    id: 'scan',
-    emoji: '🔍',
-    name: 'Security Scan',
-    color: RED,
-    short: 'Escanear',
-    detail: 'trivy ou grype escaneiam a imagem em busca de CVEs em OS packages e dependências de linguagem. O SBOM (syft) documenta todos os componentes para compliance e rastreabilidade.',
-    code: [
-      [{ text: 'trivy image', color: RED }, { text: ' --exit-code 1 --severity CRITICAL org/minha-app:1.0', color: FG }],
-      [{ text: 'syft', color: RED }, { text: ' org/minha-app:1.0 -o spdx-json > sbom.json', color: FG }],
+    id: 'especialista',
+    name: 'Especialista',
+    label: 'Profundidade e K8s',
+    emoji: '🧠',
+    concepts: [
+      { name: 'Rootless Docker', tip: 'Daemon sem root — socket comprometido não vira root no host' },
+      { name: 'containerd direto (sem dockerd)', tip: 'K8s usa containerd via CRI — o dockershim foi removido no K8s 1.24' },
+      { name: 'OCI Runtime Spec (runc)', tip: 'runc cria namespaces + cgroups via chamadas de kernel — não é daemon' },
+      { name: 'gVisor / Kata Containers', tip: 'Isolamento mais forte: kernel em userspace ou VM por container' },
+      { name: 'SBOM + trivy no pipeline', tip: 'Documentar componentes (syft) + escanear CVEs antes do push' },
+      { name: 'Graceful shutdown + preStop hook K8s', tip: 'SIGTERM → PID 1 → server.close() → pool.end() — preStop hook evita 502 no LB' },
     ],
   },
 ]
@@ -627,15 +605,18 @@ export default function DockerVisuais() {
       ),
     },
     {
-      id: 'image-lifecycle',
-      title: 'Ciclo de vida da imagem',
-      subtitle: 'Dockerfile → build → push → pull → run → scan',
-      accent: PRP,
+      id: 'docker-progression',
+      title: 'Jornada Docker — do iniciante ao especialista',
+      subtitle: 'Fundamentos → operação real → segurança → profundidade e K8s',
+      accent: C,
       component: (
-        <HookTimeline
-          phases={IMAGE_PHASES}
+        <ProgressionMap
+          levels={DOCKER_LEVELS}
           accentColor={C}
           bgColor={BG}
+          cardColor={CARD}
+          heading="Domínio Docker"
+          description="Clique em qualquer conceito para ver a dica. Marque os que já domina."
         />
       ),
     },

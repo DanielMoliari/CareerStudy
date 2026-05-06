@@ -94,7 +94,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react', 'typeorm', 'nestjs', 'docker', 'vue'],
+    usedBy: ['react', 'typeorm', 'nestjs', 'vue'],
   },
 
   CardCarousel: {
@@ -150,7 +150,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react', 'react-query'],
+    usedBy: ['react', 'react-query', 'docker'],
   },
 
   FeaturesCarousel: {
@@ -248,7 +248,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['css', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css'],
+    usedBy: ['css', 'typeorm', 'docker', 'react-query', 'tailwind-css'],
   },
 
   DecisionTree: {
@@ -728,7 +728,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'skillName: string',
       'stackLabel: string',
     ],
-    usedBy: ['react', 'css', 'html', 'typeorm', 'docker', 'vue', 'aws', 'clean-architecture'],
+    usedBy: ['react', 'css', 'html', 'typeorm', 'aws', 'clean-architecture'],
   },
 
   CommandRefPdf: {
@@ -841,7 +841,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: ['typescript', 'aws'],
+    usedBy: ['typescript', 'aws', 'vue'],
   },
 
   SecurityChecklistPdf: {
