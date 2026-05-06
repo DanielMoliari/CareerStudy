@@ -19,6 +19,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'tailwind-css': dynamic(() => import('@/data/content/frontend/tailwind-css/TailwindCssVisuais'), { ssr: false }),
   'aws': dynamic(() => import('@/data/content/cloud/aws/AwsVisuais'), { ssr: false }),
   'clean-architecture': dynamic(() => import('@/data/content/arch/clean-architecture/CleanArchitectureVisuais'), { ssr: false }),
+  'terraform': dynamic(() => import('@/data/content/cloud/terraform/TerraformVisuais'), { ssr: false }),
+  'playwright': dynamic(() => import('@/data/content/devops/playwright/PlaywrightVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -40,5 +42,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'tailwind-css': dynamic(() => import('@/data/content/frontend/tailwind-css/TailwindCssPdfs'), { ssr: false }),
   'aws': dynamic(() => import('@/data/content/cloud/aws/AwsPdfs'), { ssr: false }),
   'clean-architecture': dynamic(() => import('@/data/content/arch/clean-architecture/CleanArchitecturePdfs'), { ssr: false }),
+  'terraform': dynamic(() => import('@/data/content/cloud/terraform/TerraformPdfs'), { ssr: false }),
+  'playwright': dynamic(() => import('@/data/content/devops/playwright/PlaywrightPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

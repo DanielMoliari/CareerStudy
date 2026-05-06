@@ -34,7 +34,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'active: number',
       'onChange: (i: number) => void',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs', 'docker', 'vue', 'react-query', 'tailwind-css'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'node-js', 'nestjs', 'docker', 'vue', 'react-query', 'tailwind-css', 'terraform', 'playwright'],
   },
 
   ConceptCarousel: {
@@ -94,7 +94,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react', 'typeorm', 'nestjs', 'vue'],
+    usedBy: ['react', 'typeorm', 'nestjs', 'vue', 'terraform'],
   },
 
   CardCarousel: {
@@ -108,7 +108,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react', 'typescript', 'html', 'typeorm', 'react-query', 'tailwind-css'],
+    usedBy: ['react', 'typescript', 'html', 'typeorm', 'tailwind-css', 'vue', 'playwright'],
   },
 
   AntiPatternsGallery: {
@@ -122,7 +122,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'bgColor: string',
       'cardColor: string',
     ],
-    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css'],
+    usedBy: ['react', 'typescript', 'css', 'html', 'typeorm', 'docker', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright'],
   },
 
   PriorityPanel: {
@@ -150,7 +150,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['react', 'react-query', 'docker'],
+    usedBy: ['react', 'docker'],
   },
 
   FeaturesCarousel: {
@@ -193,7 +193,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css'],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright'],
   },
 
   RequestResponseFlow: {
@@ -248,7 +248,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['css', 'typeorm', 'docker', 'react-query', 'tailwind-css'],
+    usedBy: ['css', 'typeorm', 'docker', 'react-query', 'aws', 'clean-architecture', 'terraform', 'playwright'],
   },
 
   DecisionTree: {
@@ -261,7 +261,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'html', 'vue', 'react-query', 'tailwind-css'],
+    usedBy: ['typescript', 'html', 'vue', 'react-query', 'tailwind-css', 'aws', 'clean-architecture'],
   },
 
   ProConMatrix: {
@@ -317,7 +317,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'docker', 'vue', 'react-query', 'tailwind-css'],
+    usedBy: ['typescript', 'docker', 'vue', 'react-query', 'tailwind-css', 'clean-architecture', 'terraform', 'playwright'],
   },
 
   QueryVisualizer: {
@@ -358,7 +358,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typeorm', 'clean-architecture'],
+    usedBy: ['typeorm', 'clean-architecture', 'tailwind-css'],
   },
 
   RegexPlayground: {
@@ -631,7 +631,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'title?: string',
       'description?: string',
     ],
-    usedBy: ['docker', 'aws'],
+    usedBy: ['docker', 'aws', 'react-query', 'playwright'],
   },
 
   HeatMap: {
@@ -841,7 +841,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: ['typescript', 'aws', 'vue'],
+    usedBy: ['typescript', 'aws', 'vue', 'react-query', 'tailwind-css'],
   },
 
   SecurityChecklistPdf: {
@@ -855,7 +855,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'stackLabel: string',
     ],
-    usedBy: [],
+    usedBy: ['aws'],
   },
 
   QuickRefPdf: {
@@ -873,7 +873,7 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
       'tagline?: string',
       'version?: string',
     ],
-    usedBy: ['docker'],
+    usedBy: ['docker', 'tailwind-css', 'aws'],
   },
 }
 

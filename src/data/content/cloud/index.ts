@@ -6,7 +6,7 @@ import lambda from './lambda'
 import rds from './rds'
 import iam from './iam'
 import vpc from './vpc'
-import terraform from './terraform'
+import terraform from './terraform/terraform'
 import pulumi from './pulumi'
 
 const cloud: SkillContentMap = {
