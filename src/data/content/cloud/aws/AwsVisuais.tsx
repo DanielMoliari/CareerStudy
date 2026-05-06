@@ -14,8 +14,6 @@ import { DecisionTree } from '@/components/visuals/DecisionTree'
 import type { DTNode } from '@/components/visuals/DecisionTree'
 import { HeatMap } from '@/components/visuals/HeatMap'
 import type { HeatCell } from '@/components/visuals/HeatMap'
-import { ProgressionMap } from '@/components/visuals/ProgressionMap'
-import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
 
 // ── Paleta AWS ─────────────────────────────────────────────────────────────────
 const C      = '#FF9900'   // AWS laranja
@@ -31,7 +29,9 @@ const SKY    = '#38bdf8'
 const PRP    = '#a78bfa'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 1 — IAM TreeExplorer custom
+// VISUAL 1 — IAM: Users, Groups, Roles e Policies (custom explorer)
+// Justificativa: hierarquia IAM é confusa sem diagrama interativo. Nenhum texto
+// explica bem a diferença entre identidade de pessoa vs identidade assumível.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const IAM_CATEGORIES = [
@@ -48,7 +48,7 @@ const IAM_CATEGORIES = [
     label: 'Groups',
     icon: '👥',
     color: GRN,
-    desc: 'Agrupam users para aplicar policies em conjunto. Um user pode estar em múltiplos grupos.',
+    desc: 'Agrupam users para aplicar policies em conjunto. Um user pode estar em múltiplos grupos. Groups não têm credenciais próprias.',
     items: ['Developers', 'Admins', 'ReadOnly', 'Billing'],
   },
   {
@@ -154,7 +154,254 @@ function IamExplorer() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 2 — LayerStack: serviços AWS por camada
+// VISUAL 2 — VPC Networking Explorer (custom)
+// Justificativa: subnets públicas vs privadas, IGW, NAT GW, SG, NACL são o
+// tema mais cobrado em entrevistas AWS e impossível de visualizar mentalmente
+// sem um diagrama interativo. Nenhum componente genérico serve aqui.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type VpcZone = {
+  id: string
+  label: string
+  sublabel: string
+  color: string
+  isPublic: boolean
+  components: Array<{ name: string; icon: string; desc: string }>
+  rule: string
+}
+
+const VPC_ZONES: VpcZone[] = [
+  {
+    id: 'public',
+    label: 'Subnet Pública',
+    sublabel: 'Tem rota para Internet Gateway',
+    color: SKY,
+    isPublic: true,
+    components: [
+      { name: 'Internet Gateway (IGW)', icon: '🌐', desc: 'Porta de entrada/saída da internet para a VPC. Altamente disponível, gerenciado pela AWS.' },
+      { name: 'Application Load Balancer', icon: '⚖️', desc: 'Distribui tráfego entre instâncias privadas. Termina TLS. Só fica em subnet pública.' },
+      { name: 'NAT Gateway', icon: '🔄', desc: 'Permite que instâncias privadas iniciem conexões para a internet (sem receber conexões entrantes). Cobra por hora + GB processado.' },
+      { name: 'Bastion Host', icon: '🔐', desc: 'SSH gateway para acessar instâncias privadas. Eliminar com Session Manager (SSM) — mais seguro.' },
+    ],
+    rule: 'Route table: 0.0.0.0/0 → Internet Gateway. Nunca coloque bancos de dados aqui.',
+  },
+  {
+    id: 'private-app',
+    label: 'Subnet Privada — App',
+    sublabel: 'Sem rota para IGW; saída via NAT GW',
+    color: PRP,
+    isPublic: false,
+    components: [
+      { name: 'EC2 / ECS Tasks', icon: '⚙️', desc: 'Instâncias de aplicação sem IP público. Recebem tráfego do ALB via Security Group.' },
+      { name: 'Lambda (VPC)', icon: 'λ', desc: 'Funções Lambda conectadas à VPC para acessar RDS ou ElastiCache. Cold start maior — mitigue com Provisioned Concurrency.' },
+      { name: 'EKS Worker Nodes', icon: '☸️', desc: 'Pods Kubernetes em subnet privada. Control plane gerenciado pela AWS.' },
+    ],
+    rule: 'Route table: 0.0.0.0/0 → NAT Gateway. Acesso à internet de saída apenas.',
+  },
+  {
+    id: 'private-data',
+    label: 'Subnet Privada — Dados',
+    sublabel: 'Sem rota para internet; isolada',
+    color: GRN,
+    isPublic: false,
+    components: [
+      { name: 'RDS Multi-AZ', icon: '🗄️', desc: 'Banco de dados relacional. Primary em uma AZ, standby síncrono em outra. Failover automático em menos de 60s. Nunca expor publicamente.' },
+      { name: 'ElastiCache', icon: '⚡', desc: 'Redis ou Memcached para cache de sessão, resultados de query, rate limiting. Subnet isolada impede acesso externo.' },
+      { name: 'DynamoDB (VPC Endpoint)', icon: '📊', desc: 'DynamoDB é regional — acesso via VPC Endpoint evita custo de NAT Gateway e mantém tráfego dentro da AWS.' },
+    ],
+    rule: 'Sem rota de saída. Security Group: permite apenas tráfego da subnet de app na porta do banco.',
+  },
+]
+
+type SgNaclInfo = {
+  id: string
+  label: string
+  icon: string
+  color: string
+  points: string[]
+  useCase: string
+}
+
+const SG_NACL: SgNaclInfo[] = [
+  {
+    id: 'sg',
+    label: 'Security Group',
+    icon: '🛡️',
+    color: C,
+    points: [
+      'Stateful: permite resposta automaticamente',
+      'Opera no nível da instância/ENI',
+      'Só regras de ALLOW (sem DENY explícito)',
+      'Avalia todas as regras antes de decidir',
+    ],
+    useCase: 'Controle granular por instância. Referência outro SG como source — elegante para tiered apps.',
+  },
+  {
+    id: 'nacl',
+    label: 'NACL (Network ACL)',
+    icon: '🚧',
+    color: RED,
+    points: [
+      'Stateless: precisa de regras de entrada E saída',
+      'Opera no nível da subnet',
+      'ALLOW e DENY explícitos',
+      'Regras numeradas — avaliadas em ordem crescente',
+    ],
+    useCase: 'Bloquear IP malicioso em toda a subnet de uma vez. Mais eficiente que Security Group para blocking em massa.',
+  },
+]
+
+function VpcExplorer() {
+  const [selZone, setSelZone] = useState<string>('public')
+  const [selSgNacl, setSelSgNacl] = useState<string>('sg')
+  const [view, setView] = useState<'subnets' | 'security'>('subnets')
+  const activeZone = VPC_ZONES.find(z => z.id === selZone)!
+  const activeSgNacl = SG_NACL.find(s => s.id === selSgNacl)!
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', minHeight: 400 }}>
+      {/* toggle view */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {(['subnets', 'security'] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            style={{
+              background: view === v ? `${C}25` : 'transparent',
+              border: `1px solid ${view === v ? C : LINE}`,
+              borderRadius: 8,
+              padding: '6px 16px',
+              fontSize: 12,
+              color: view === v ? C : FGMUTE,
+              cursor: 'pointer',
+              fontWeight: view === v ? 700 : 400,
+            }}
+          >
+            {v === 'subnets' ? 'Subnets Públicas vs Privadas' : 'Security Group vs NACL'}
+          </button>
+        ))}
+      </div>
+
+      {view === 'subnets' && (
+        <div style={{ display: 'flex', gap: 16, flex: 1 }}>
+          {/* zone selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 200, flexShrink: 0 }}>
+            {VPC_ZONES.map(zone => (
+              <div
+                key={zone.id}
+                onClick={() => setSelZone(zone.id)}
+                style={{
+                  background: selZone === zone.id ? `${zone.color}20` : CARD,
+                  border: `1.5px solid ${selZone === zone.id ? zone.color : LINE}`,
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  cursor: 'pointer',
+                  transition: 'all .2s',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: selZone === zone.id ? zone.color : FG }}>{zone.label}</div>
+                <div style={{ fontSize: 10, color: FGMUTE, marginTop: 3 }}>{zone.sublabel}</div>
+              </div>
+            ))}
+            {/* legend */}
+            <div style={{ marginTop: 8, padding: '10px 12px', background: `${C}10`, border: `1px solid ${C}30`, borderRadius: 8, fontSize: 10, color: FGMUTE, lineHeight: 1.6 }}>
+              <strong style={{ color: C, display: 'block', marginBottom: 4 }}>Padrão recomendado</strong>
+              2 AZs mínimo. Subnet pública em cada AZ (ALB, NAT GW). Subnet privada de app. Subnet privada de dados.
+            </div>
+          </div>
+
+          {/* zone detail */}
+          <div style={{ flex: 1, background: CARD, borderRadius: 12, padding: 20, border: `1.5px solid ${activeZone.color}50` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: activeZone.color }}>{activeZone.label}</div>
+              <span style={{
+                fontSize: 10,
+                padding: '2px 8px',
+                borderRadius: 20,
+                background: activeZone.isPublic ? `${SKY}20` : `${RED}20`,
+                color: activeZone.isPublic ? SKY : RED,
+                fontWeight: 700,
+              }}>
+                {activeZone.isPublic ? 'Pública' : 'Privada'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+              {activeZone.components.map((comp, i) => (
+                <div key={i} style={{ background: `${activeZone.color}08`, border: `1px solid ${activeZone.color}25`, borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 10 }}>
+                  <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.4 }}>{comp.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: activeZone.color, marginBottom: 2 }}>{comp.name}</div>
+                    <div style={{ fontSize: 11, color: FGMUTE, lineHeight: 1.5 }}>{comp.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '8px 12px', background: `${GRN}08`, border: `1px solid ${GRN}25`, borderLeft: `3px solid ${GRN}`, borderRadius: 6, fontSize: 11, color: FGMUTE, lineHeight: 1.6 }}>
+              <strong style={{ color: GRN }}>Route table: </strong>{activeZone.rule}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'security' && (
+        <div style={{ display: 'flex', gap: 16, flex: 1 }}>
+          {/* sg/nacl selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 160, flexShrink: 0 }}>
+            {SG_NACL.map(item => (
+              <div
+                key={item.id}
+                onClick={() => setSelSgNacl(item.id)}
+                style={{
+                  background: selSgNacl === item.id ? `${item.color}20` : CARD,
+                  border: `1.5px solid ${selSgNacl === item.id ? item.color : LINE}`,
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  transition: 'all .2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: selSgNacl === item.id ? item.color : FG }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* detail */}
+          <div style={{ flex: 1, background: CARD, borderRadius: 12, padding: 20, border: `1.5px solid ${activeSgNacl.color}50` }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: activeSgNacl.color, marginBottom: 14 }}>{activeSgNacl.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {activeSgNacl.points.map((pt, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: activeSgNacl.color, flexShrink: 0, marginTop: 5 }} />
+                  <div style={{ fontSize: 12, color: FG, lineHeight: 1.6 }}>{pt}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '10px 14px', background: `${activeSgNacl.color}10`, border: `1px solid ${activeSgNacl.color}30`, borderRadius: 8, fontSize: 11, color: FGMUTE, lineHeight: 1.6 }}>
+              <strong style={{ color: activeSgNacl.color }}>Quando usar: </strong>{activeSgNacl.useCase}
+            </div>
+
+            {/* comparison hint */}
+            <div style={{ marginTop: 14, padding: '10px 14px', background: `${C}08`, border: `1px solid ${C}25`, borderRadius: 8, fontSize: 11, color: FGMUTE, lineHeight: 1.6 }}>
+              <strong style={{ color: C }}>Diferença-chave: </strong>
+              Security Group é stateful (resposta automática) e opera por instância. NACL é stateless (precisa de regra de saída explícita) e opera por subnet. Use ambos em produção: SG como primary defense, NACL para blocking de IP em nível de subnet.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 3 — LayerStack: serviços AWS por camada
+// Justificativa: arquitetura AWS em camadas (Edge → Rede → Compute → Dados →
+// Segurança) é o mental model mais útil para planejar e defender em entrevista.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const AWS_LAYERS: Layer[] = [
@@ -164,7 +411,7 @@ const AWS_LAYERS: Layer[] = [
     sublabel: 'Camada 1 — Global',
     description: 'Primeira linha de contato com o usuário. Cache global, WAF, DNS com failover. Reduz latência em qualquer região do planeta.',
     code: 'Route53 → CloudFront (+ WAF) → origem',
-    color: '#38bdf8',
+    color: SKY,
     icon: '🌐',
     examples: ['Route 53', 'CloudFront', 'WAF', 'Shield'],
   },
@@ -221,7 +468,10 @@ const AWS_LAYERS: Layer[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 3 — SequenceDiagram: request flow em AWS 3-tier
+// VISUAL 4 — SequenceDiagram: request flow em AWS 3-tier
+// Justificativa: o fluxo Route53 → CloudFront → ALB → ECS → Cache → RDS é
+// o cenário de arquitetura mais cobrado em entrevistas. Ver a sequência com
+// notas em cada seta ensina o que texto não consegue.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SEQ_ACTORS: SeqActor[] = [
@@ -238,18 +488,21 @@ const SEQ_MESSAGES: SeqMessage[] = [
   { from: 'cf',    to: 'cf',    label: 'Cache miss → forward',       note: 'Cache-Control header decide TTL',                  type: 'sync' },
   { from: 'cf',    to: 'alb',   label: 'Forward request',            note: 'Origin request com headers X-Forwarded-For',       type: 'sync' },
   { from: 'alb',   to: 'ecs',   label: 'Route → target group',       note: 'Health check /health garante só instâncias OK',    type: 'sync' },
-  { from: 'ecs',   to: 'cache', label: 'GET orders:{userId}',        note: 'Redis lookup primeiro — latência <1ms',            type: 'async' },
+  { from: 'ecs',   to: 'cache', label: 'GET orders:{userId}',        note: 'Redis lookup primeiro — latência menor que 1ms',   type: 'async' },
   { from: 'cache', to: 'ecs',   label: 'Cache miss',                 note: 'TTL expirado ou primeira vez',                     type: 'return' },
   { from: 'ecs',   to: 'rds',   label: 'SELECT * FROM orders ...',   note: 'Conexão via Security Group privado. Multi-AZ.',    type: 'sync' },
   { from: 'rds',   to: 'ecs',   label: 'ResultSet',                  note: 'Leitura do standby RDS não bloqueia writes',       type: 'return' },
   { from: 'ecs',   to: 'cache', label: 'SET orders:{userId} TTL=60', note: 'Popula cache para próximas requests',              type: 'async' },
   { from: 'ecs',   to: 'alb',   label: '200 OK JSON',                note: 'Response com Cache-Control: max-age=60',           type: 'return' },
   { from: 'alb',   to: 'cf',    label: '200 OK',                     note: 'CloudFront armazena no edge cache',                type: 'return' },
-  { from: 'cf',    to: 'user',  label: '200 OK (do cache na 2ª req)',note: 'Próxima request = HIT → sub-10ms globalmente',     type: 'return' },
+  { from: 'cf',    to: 'user',  label: '200 OK (do cache na 2ª req)',note: 'Próxima request = HIT — sub-10ms globalmente',     type: 'return' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 4 — ComparisonTable: EC2 vs Lambda vs ECS vs EKS
+// VISUAL 5 — ComparisonTable: EC2 vs Lambda vs ECS vs EKS
+// Justificativa: a pergunta "qual serviço de computação usar" é a mais cobrada
+// em design system interviews. Comparar 4 opções em 6 critérios simultaneamente
+// é impossível de fazer em texto sem perder a visão comparativa.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const COMPUTE_OPTIONS: ComparisonOption[] = [
@@ -275,7 +528,7 @@ const COMPUTE_CRITERIA: ComparisonCriterion[] = [
     description: 'Capacidade de escalar automaticamente sob carga',
     values: {
       ec2:     { rating: 'good',      note: 'ASG escala em minutos' },
-      lambda:  { rating: 'excellent', note: 'Escala pra 1000+ invocações simultâneas em segundos' },
+      lambda:  { rating: 'excellent', note: 'Escala para 1000+ invocações simultâneas em segundos' },
       fargate: { rating: 'excellent', note: 'ECS Service Auto Scaling por CPU/memória/req' },
       eks:     { rating: 'excellent', note: 'HPA + Cluster Autoscaler ou Karpenter' },
     },
@@ -323,7 +576,10 @@ const COMPUTE_CRITERIA: ComparisonCriterion[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 5 — S3 Storage Classes HeatMap
+// VISUAL 6 — S3 Storage Classes HeatMap
+// Justificativa: 6 classes × 5 critérios = 30 células de decisão. Heatmap
+// permite scanear instantaneamente qual classe tem melhor custo vs latência
+// — impossível de absorver numa tabela textual.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const S3_ROWS = [
@@ -348,11 +604,11 @@ const S3_DATA: HeatCell[][] = [
   // Standard
   [{ value: 8, note: '$0.023/GB' }, { value: 0, note: 'Grátis' },        { value: 0, note: 'Milissegundos' }, { value: 10, note: '11 noves' }, { value: 10, note: 'Acesso frequente' }],
   // Standard-IA
-  [{ value: 4, note: '$0.0125/GB' }, { value: 4, note: '$0.01/GB' },     { value: 0, note: 'Milissegundos' }, { value: 10, note: '11 noves' }, { value: 7, note: 'Acesso < 1×/mês' }],
+  [{ value: 4, note: '$0.0125/GB' }, { value: 4, note: '$0.01/GB' },     { value: 0, note: 'Milissegundos' }, { value: 10, note: '11 noves' }, { value: 7, note: 'Acesso menos de 1×/mês' }],
   // One Zone-IA
   [{ value: 3, note: '$0.01/GB' },  { value: 4, note: '$0.01/GB' },      { value: 0, note: 'Milissegundos' }, { value: 7, note: '11 noves (1 AZ)' }, { value: 5, note: 'Dados reproduzíveis' }],
   // Glacier Instant
-  [{ value: 2, note: '$0.004/GB' }, { value: 5, note: '$0.03/GB' },      { value: 1, note: 'Milissegundos' }, { value: 10, note: '11 noves' }, { value: 6, note: 'Arq. acesso trimestral' }],
+  [{ value: 2, note: '$0.004/GB' }, { value: 5, note: '$0.03/GB' },      { value: 1, note: 'Milissegundos' }, { value: 10, note: '11 noves' }, { value: 6, note: 'Arquivo acesso trimestral' }],
   // Glacier Flexible
   [{ value: 1, note: '$0.0036/GB' },{ value: 6, note: '$0.01/GB' },      { value: 6, note: '1-12 horas' },   { value: 10, note: '11 noves' }, { value: 4, note: 'Backup anual' }],
   // Deep Archive
@@ -360,21 +616,24 @@ const S3_DATA: HeatCell[][] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 6 — AntiPatternsGallery: armadilhas comuns na AWS
+// VISUAL 7 — AntiPatternsGallery: armadilhas comuns na AWS
+// Justificativa: código errado vs correto com Terraform/SDK ensina padrões de
+// segurança (IAM, S3) e confiabilidade (Multi-AZ, tags) que só ficam na memória
+// quando vistos como diff real, não como regra abstrata.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const AWS_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Credenciais hardcoded no código',
     wrong: [
-      [{ text: '// ❌ NUNCA faça isso — vaza em git history', color: RED }],
+      [{ text: '// NUNCA faça isso — vaza em git history', color: RED }],
       [{ text: 'const s3 = new AWS.S3({', color: FG }],
       [{ text: '  accessKeyId: "AKIAIOSFODNN7EXAMPLE",', color: RED }],
       [{ text: '  secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"', color: RED }],
       [{ text: '})', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Use IAM Role — credenciais automáticas via STS', color: GRN }],
+      [{ text: '// Use IAM Role — credenciais automáticas via STS', color: GRN }],
       [{ text: '// EC2/ECS/Lambda assumem a role automaticamente', color: FGMUTE }],
       [{ text: 'const s3 = new S3Client({ region: "us-east-1" })', color: FG }],
       [{ text: '// SDK lê credenciais do instance metadata automaticamente', color: FGMUTE }],
@@ -384,14 +643,14 @@ const AWS_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'S3 bucket público por padrão',
     wrong: [
-      [{ text: '// ❌ Bucket com acesso público — dados expostos', color: RED }],
+      [{ text: '// Bucket com acesso público — dados expostos', color: RED }],
       [{ text: 'resource "aws_s3_bucket_public_access_block" "bad" {', color: FG }],
       [{ text: '  block_public_acls   = false', color: RED }],
       [{ text: '  block_public_policy = false', color: RED }],
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Block all public access + CloudFront OAC', color: GRN }],
+      [{ text: '// Block all public access + CloudFront OAC', color: GRN }],
       [{ text: 'resource "aws_s3_bucket_public_access_block" "ok" {', color: FG }],
       [{ text: '  block_public_acls       = true', color: GRN }],
       [{ text: '  block_public_policy     = true', color: GRN }],
@@ -404,7 +663,7 @@ const AWS_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Sem tags em recursos AWS',
     wrong: [
-      [{ text: '// ❌ Recursos sem tags — custo impossível de rastrear', color: RED }],
+      [{ text: '// Recursos sem tags — custo impossível de rastrear', color: RED }],
       [{ text: 'resource "aws_instance" "api" {', color: FG }],
       [{ text: '  ami           = "ami-0c02fb55956c7d316"', color: FG }],
       [{ text: '  instance_type = "t3.medium"', color: FG }],
@@ -412,7 +671,7 @@ const AWS_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Tags obrigatórias + AWS Cost Allocation Tags', color: GRN }],
+      [{ text: '// Tags obrigatórias + AWS Cost Allocation Tags', color: GRN }],
       [{ text: 'resource "aws_instance" "api" {', color: FG }],
       [{ text: '  ami           = "ami-0c02fb55956c7d316"', color: FG }],
       [{ text: '  instance_type = "t3.medium"', color: FG }],
@@ -429,29 +688,32 @@ const AWS_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Sem Multi-AZ em produção',
     wrong: [
-      [{ text: '// ❌ RDS single-AZ — ponto único de falha', color: RED }],
+      [{ text: '// RDS single-AZ — ponto único de falha', color: RED }],
       [{ text: 'resource "aws_db_instance" "db" {', color: FG }],
       [{ text: '  engine         = "postgres"', color: FG }],
       [{ text: '  instance_class = "db.t3.medium"', color: FG }],
-      [{ text: '  multi_az       = false  # ❌ downtime durante manutenção', color: RED }],
+      [{ text: '  multi_az       = false  // downtime durante manutenção', color: RED }],
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Multi-AZ com failover automático em <60s', color: GRN }],
+      [{ text: '// Multi-AZ com failover automático em menos de 60s', color: GRN }],
       [{ text: 'resource "aws_db_instance" "db" {', color: FG }],
       [{ text: '  engine         = "postgres"', color: FG }],
       [{ text: '  instance_class = "db.t3.medium"', color: FG }],
-      [{ text: '  multi_az       = true   # ✅ standby em outra AZ', color: GRN }],
+      [{ text: '  multi_az       = true   // standby em outra AZ', color: GRN }],
       [{ text: '  backup_retention_period = 7', color: GRN }],
       [{ text: '  deletion_protection     = true', color: GRN }],
       [{ text: '}', color: FG }],
     ],
-    why: 'Single-AZ significa downtime durante manutenção, patches e falhas de hardware. Multi-AZ mantém replica síncrona — failover automático em <60s sem intervenção manual.',
+    why: 'Single-AZ significa downtime durante manutenção, patches e falhas de hardware. Multi-AZ mantém replica síncrona — failover automático em menos de 60s sem intervenção manual.',
   },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — DecisionTree: qual serviço de computação usar?
+// VISUAL 8 — DecisionTree: qual serviço de computação usar?
+// Justificativa: árvore de decisão interativa torna o processo de escolha
+// explícito. O entrevistador quer ouvir esse raciocínio — este visual ensina
+// a estrutura mental correta para defender a escolha.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DT_ROOT: DTNode = {
@@ -550,63 +812,163 @@ const DT_NODES: Record<string, DTNode> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — ProgressionMap: jornada AWS
+// VISUAL 9 — ComparisonTable: banco de dados AWS
+// Justificativa: "qual banco usar?" é a pergunta de design mais cobrada em
+// entrevistas AWS depois de computação. 5 serviços × 6 critérios não existe
+// forma intuitiva de comparar em texto — a tabela torna a decisão defensável.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const AWS_LEVELS: ProgressionLevel[] = [
+const DB_OPTIONS: ComparisonOption[] = [
+  { id: 'rds',         label: 'RDS',           sublabel: 'Relacional gerenciado',         color: '#60a5fa' },
+  { id: 'aurora',      label: 'Aurora',         sublabel: 'Relacional cloud-native',       color: C },
+  { id: 'dynamodb',    label: 'DynamoDB',       sublabel: 'NoSQL chave-valor/documento',   color: GRN },
+  { id: 'elasticache', label: 'ElastiCache',    sublabel: 'Cache em memória',              color: RED },
+  { id: 'redshift',    label: 'Redshift',       sublabel: 'Data warehouse analítico',      color: PRP },
+]
+
+const DB_CRITERIA: ComparisonCriterion[] = [
   {
-    id: 'junior',
-    name: 'Iniciante',
-    label: 'Usuário de Console',
-    emoji: '🌱',
-    concepts: [
-      { name: 'IAM básico (users, MFA)', tip: 'Nunca use root user. Crie IAM user com MFA desde o início.' },
-      { name: 'EC2 (lançar instância, SSH)', tip: 'Pratique: lance um t3.micro, conecte via SSH, instale nginx.' },
-      { name: 'S3 (upload, permissões básicas)', tip: 'Entenda ACLs vs bucket policies vs Block Public Access.' },
-      { name: 'RDS (lançar Postgres gerenciado)', tip: 'Compare custo de RDS vs EC2+Postgres automanaged.' },
-      { name: 'Free tier e billing alerts', tip: 'Configure billing alarm em $5 para evitar surpresas.' },
-    ],
+    id: 'model', label: 'Modelo de dados', category: 'Estrutura',
+    description: 'Tipo de dado e forma de acesso',
+    values: {
+      rds:         { rating: 'excellent', note: 'SQL completo — JOINs, transações ACID, schema rígido' },
+      aurora:      { rating: 'excellent', note: 'SQL idêntico ao RDS com engine cloud-native' },
+      dynamodb:    { rating: 'good',      note: 'Chave primária + sort key. Sem JOINs — acesso por chave' },
+      elasticache: { rating: 'fair',      note: 'Estruturas em memória: string, hash, list, set, sorted set' },
+      redshift:    { rating: 'good',      note: 'SQL analítico com colunar — JOINs em bilhões de linhas' },
+    },
   },
   {
-    id: 'pleno',
-    name: 'Pleno',
-    label: 'Arquitetura 3-tier',
-    emoji: '⚡',
-    concepts: [
-      { name: 'VPC (subnets pub/priv, NAT GW, SG)', tip: 'Desenhe o diagrama de rede de cabeça: IGW → ALB → ECS → RDS.' },
-      { name: 'ECS/Fargate (containers gerenciados)', tip: 'Task definition, Service, ALB integration, Auto Scaling.' },
-      { name: 'CloudFront + S3 (CDN de assets)', tip: 'OAC vs OAI — prefira OAC (mais seguro e moderno).' },
-      { name: 'Route 53 (DNS + health checks)', tip: 'Weighted routing para blue/green sem downtime.' },
-      { name: 'CloudWatch (métricas, logs, alarmes)', tip: 'Configure alarme de CPU >80% e memória para todos os serviços.' },
-      { name: 'Secrets Manager (não env vars!)', tip: 'RDS auto-rotation funciona out of the box.' },
-    ],
+    id: 'scale', label: 'Escalabilidade', category: 'Performance',
+    description: 'Capacidade de escalar sob carga crescente',
+    values: {
+      rds:         { rating: 'good',      note: 'Read Replicas para leitura. Write é single-AZ primary' },
+      aurora:      { rating: 'excellent', note: 'Aurora Serverless v2 escala vCPU automaticamente. Até 15 read replicas' },
+      dynamodb:    { rating: 'excellent', note: 'Latência single-digit ms em qualquer escala. On-demand ou provisionado' },
+      elasticache: { rating: 'excellent', note: 'Cluster mode: sharding automático. Sub-milissegundo em qualquer escala' },
+      redshift:    { rating: 'good',      note: 'RA3 com Redshift Managed Storage — separa compute de storage' },
+    },
   },
   {
-    id: 'senior',
-    name: 'Sênior',
-    label: 'Arquitetura Distribuída',
-    emoji: '🚀',
-    concepts: [
-      { name: 'Lambda (event-driven, cold start, VPC)', tip: 'SnapStart para Java, Provisioned Concurrency para latência crítica.' },
-      { name: 'SQS + SNS + EventBridge (mensageria)', tip: 'Fan-out: SNS → SQS (uma fila por consumidor). DLQ para retry.' },
-      { name: 'Aurora Serverless v2 (auto-pause)', tip: 'Global Database para multi-region. Comparar com DynamoDB.' },
-      { name: 'X-Ray + distributed tracing', tip: 'Service map identifica gargalos. Sampling rate afeta custo.' },
-      { name: 'IAM Roles + SCPs + Organizations', tip: 'SCP nega no org-level independente de policy da conta.' },
-      { name: 'Cost optimization (Savings Plans, Spot)', tip: 'Compute Savings Plan cobre EC2+Fargate+Lambda. Analisar com Cost Explorer.' },
-    ],
+    id: 'latency', label: 'Latência de leitura', category: 'Performance',
+    description: 'Tempo típico de resposta para uma query',
+    values: {
+      rds:         { rating: 'good',      note: '1–10ms para queries simples com índice' },
+      aurora:      { rating: 'excellent', note: '&lt;1ms para leituras de read replica na mesma AZ' },
+      dynamodb:    { rating: 'excellent', note: 'Single-digit ms garantido no p99. DAX reduz para microssegundos' },
+      elasticache: { rating: 'excellent', note: 'Sub-milissegundo — memória, sem I/O de disco' },
+      redshift:    { rating: 'poor',      note: 'Segundos a minutos para queries analíticas complexas' },
+    },
   },
   {
-    id: 'especialista',
-    name: 'Especialista',
-    label: 'Solutions Architect',
-    emoji: '🏆',
-    concepts: [
-      { name: 'Multi-region active-active (Route53, DynamoDB Global)', tip: 'RPO=0, RTO<1min. DynamoDB Global Tables replicam em <1s.' },
-      { name: 'Landing Zone + Control Tower + AWS Organizations', tip: 'Guardrails preventivos (SCP) e detectivos (Config Rules).' },
-      { name: 'EKS + Karpenter + Service Mesh', tip: 'Karpenter provisionamento em segundos vs minutos do CA.' },
-      { name: 'FinOps: custo por feature, chargeback', tip: 'Tags + Cost Allocation + Budgets com ações automáticas.' },
-      { name: 'Well-Architected Framework (6 pillars)', tip: 'Saiba defender cada pilar com exemplos reais do projeto.' },
-    ],
+    id: 'transactions', label: 'Transações ACID', category: 'Consistência',
+    description: 'Suporte a transações atômicas multi-operação',
+    values: {
+      rds:         { rating: 'excellent', note: 'ACID completo. Isolation levels configuráveis' },
+      aurora:      { rating: 'excellent', note: 'ACID com 6 cópias de dados em 3 AZs — mais durável que RDS padrão' },
+      dynamodb:    { rating: 'good',      note: 'TransactWriteItems até 25 itens. Consistência eventual por padrão' },
+      elasticache: { rating: 'poor',      note: 'Sem transações ACID — best-effort. Redis MULTI/EXEC é limitado' },
+      redshift:    { rating: 'fair',      note: 'ACID para DML mas otimizado para leitura analítica, não OLTP' },
+    },
+  },
+  {
+    id: 'ops', label: 'Overhead operacional', category: 'Operações',
+    description: 'Esforço de gestão, backup, patching e HA',
+    values: {
+      rds:         { rating: 'good',      note: 'Multi-AZ, backups, patching gerenciados. Você escolhe engine/versão' },
+      aurora:      { rating: 'excellent', note: 'Zero gestão de storage. Failover em menos de 30s. Backtrack para correção de erros' },
+      dynamodb:    { rating: 'excellent', note: 'Serverless total — sem cluster, sem patching, sem capacity planning manual' },
+      elasticache: { rating: 'good',      note: 'Serverless mode elimina gestão de cluster. Shard gerenciado automaticamente' },
+      redshift:    { rating: 'good',      note: 'Redshift Serverless elimina gestão de cluster para cargas variáveis' },
+    },
+  },
+  {
+    id: 'use-case', label: 'Caso de uso ideal', category: 'Decisão',
+    description: 'Quando escolher este serviço',
+    values: {
+      rds:         { rating: 'good', note: 'Apps relacionais existentes, migração lift-and-shift, PostgreSQL/MySQL' },
+      aurora:      { rating: 'good', note: 'Novas apps relacionais de alta performance, substituição RDS, Global Database' },
+      dynamodb:    { rating: 'good', note: 'Session, carrinho, IoT, gaming, escala imprevisível, acesso por chave' },
+      elasticache: { rating: 'good', note: 'Cache de sessão, resultado de query, rate limiting, leaderboards (sorted set)' },
+      redshift:    { rating: 'good', note: 'BI, data warehouse, queries analíticas, integração com S3 via Redshift Spectrum' },
+    },
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — ComparisonTable: SQS vs SNS vs EventBridge vs Kinesis
+// Justificativa: "quando usar SQS vs SNS vs EventBridge?" é pergunta obrigatória
+// em qualquer entrevista de arquitetura serverless ou event-driven. Os 4 serviços
+// parecem similares à primeira vista — a tabela expõe as diferenças reais.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MSG_OPTIONS: ComparisonOption[] = [
+  { id: 'sqs',         label: 'SQS',         sublabel: 'Fila point-to-point',       color: '#f59e0b' },
+  { id: 'sns',         label: 'SNS',         sublabel: 'Pub/Sub fan-out',           color: C },
+  { id: 'eventbridge', label: 'EventBridge', sublabel: 'Event bus com roteamento',  color: PRP },
+  { id: 'kinesis',     label: 'Kinesis',     sublabel: 'Streaming de dados',        color: SKY },
+]
+
+const MSG_CRITERIA: ComparisonCriterion[] = [
+  {
+    id: 'pattern', label: 'Padrão', category: 'Arquitetura',
+    description: 'Modelo de comunicação entre produtor e consumidor',
+    values: {
+      sqs:         { rating: 'good',      note: 'Point-to-point: um produtor, um consumidor (ou workers em competição)' },
+      sns:         { rating: 'excellent', note: 'Fan-out: um tópico → N subscribers (SQS, Lambda, HTTP, email, SMS)' },
+      eventbridge: { rating: 'excellent', note: 'Event bus: produtor publica, roteamento por conteúdo do evento para N destinos' },
+      kinesis:     { rating: 'good',      note: 'Streaming: dados em ordem por shard. N consumidores leem independentemente' },
+    },
+  },
+  {
+    id: 'ordering', label: 'Ordenação', category: 'Garantias',
+    description: 'Entrega em ordem de chegada',
+    values: {
+      sqs:         { rating: 'fair',      note: 'Standard: sem ordem. FIFO: ordenação estrita, até 300 TPS' },
+      sns:         { rating: 'poor',      note: 'Sem garantia de ordem (fan-out para múltiplos subscribers)' },
+      eventbridge: { rating: 'poor',      note: 'Sem garantia de ordem — event bus é best-effort' },
+      kinesis:     { rating: 'excellent', note: 'Ordenação estrita por shard. Ideal para eventos sequenciais (logs, cliques)' },
+    },
+  },
+  {
+    id: 'delivery', label: 'Semântica de entrega', category: 'Garantias',
+    description: 'Quantas vezes a mensagem pode ser entregue',
+    values: {
+      sqs:         { rating: 'good',      note: 'Standard: at-least-once. FIFO: exactly-once com deduplication ID' },
+      sns:         { rating: 'fair',      note: 'At-least-once para HTTP/HTTPS. SQS subscriber adiciona durabilidade' },
+      eventbridge: { rating: 'good',      note: 'At-least-once com retry automático. DLQ configurável' },
+      kinesis:     { rating: 'excellent', note: 'At-least-once. Replay possível — retenção de 1 a 365 dias no stream' },
+    },
+  },
+  {
+    id: 'filtering', label: 'Filtragem/roteamento', category: 'Funcionalidade',
+    description: 'Capacidade de rotear mensagens baseado em conteúdo',
+    values: {
+      sqs:         { rating: 'poor',      note: 'Sem filtragem — consumidor processa todas as mensagens da fila' },
+      sns:         { rating: 'good',      note: 'Message Filtering: subscriber recebe só mensagens que passam no filtro (atributos)' },
+      eventbridge: { rating: 'excellent', note: 'Rules com pattern matching no JSON do evento — filtragem rica por campo e valor' },
+      kinesis:     { rating: 'fair',      note: 'Consumer pode filtrar no Lambda trigger, mas stream não filtra nativamente' },
+    },
+  },
+  {
+    id: 'throughput', label: 'Throughput', category: 'Performance',
+    description: 'Volume de mensagens suportado por segundo',
+    values: {
+      sqs:         { rating: 'excellent', note: 'Praticamente ilimitado (Standard). FIFO: 300 TPS (3000 com batching)' },
+      sns:         { rating: 'excellent', note: 'Praticamente ilimitado — depende dos subscribers (SQS, Lambda)' },
+      eventbridge: { rating: 'good',      note: '10.000 events/s por default por conta (aumenta via quota request)' },
+      kinesis:     { rating: 'excellent', note: '1 MB/s entrada e 2 MB/s saída por shard. Shards são escaláveis' },
+    },
+  },
+  {
+    id: 'use-case', label: 'Quando usar', category: 'Decisão',
+    description: 'Contexto ideal de aplicação',
+    values: {
+      sqs:         { rating: 'good', note: 'Worker queue, desacoplamento de serviços, retry com DLQ, jobs assíncronos' },
+      sns:         { rating: 'good', note: 'Fan-out para múltiplos consumidores, notificações (email/SMS/push)' },
+      eventbridge: { rating: 'good', note: 'Event-driven entre serviços AWS, integração com 200+ SaaS, schema registry' },
+      kinesis:     { rating: 'good', note: 'Logs em tempo real, clickstream, métricas, analytics, replay de eventos' },
+    },
   },
 ]
 
@@ -624,6 +986,13 @@ export default function AwsVisuais() {
       subtitle: 'Users, Groups, Roles e Policies — o que cada um faz e quando usar',
       accent: C,
       component: <IamExplorer />,
+    },
+    {
+      id: 'vpc-explorer',
+      title: 'VPC — Subnets, SG e NACL',
+      subtitle: 'Subnets públicas vs privadas, IGW, NAT Gateway, Security Group vs NACL',
+      accent: C,
+      component: <VpcExplorer />,
     },
     {
       id: 'aws-layers',
@@ -714,16 +1083,30 @@ export default function AwsVisuais() {
       ),
     },
     {
-      id: 'progression',
-      title: 'Jornada AWS — Iniciante ao Especialista',
-      subtitle: 'O que dominar em cada nível para entrevistas e certificações',
+      id: 'database-comparison',
+      title: 'Bancos de Dados AWS — quando usar cada um',
+      subtitle: 'RDS vs Aurora vs DynamoDB vs ElastiCache vs Redshift — critérios e casos de uso',
       accent: C,
       component: (
-        <ProgressionMap
-          levels={AWS_LEVELS}
+        <ComparisonTable
+          options={DB_OPTIONS}
+          criteria={DB_CRITERIA}
           accentColor={C}
           bgColor={BG}
-          cardColor={CARD}
+        />
+      ),
+    },
+    {
+      id: 'messaging-comparison',
+      title: 'Mensageria — SQS vs SNS vs EventBridge vs Kinesis',
+      subtitle: 'Padrão, ordenação, semântica de entrega, filtragem e quando usar cada um',
+      accent: C,
+      component: (
+        <ComparisonTable
+          options={MSG_OPTIONS}
+          criteria={MSG_CRITERIA}
+          accentColor={C}
+          bgColor={BG}
         />
       ),
     },

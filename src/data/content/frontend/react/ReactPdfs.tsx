@@ -82,7 +82,7 @@ const PDF_CARDS: PdfCard[] = [
   },
 ]
 
-const TYPE_COLOR: Record<PdfType, string> = {
+const TYPE_COLOR: Partial<Record<PdfType, string>> = {
   qa:           '#a78bfa',
   cheatsheet:   C,
   mnemonics:    '#4ade80',
@@ -758,7 +758,7 @@ export default function ReactPdfs() {
             </span>
             <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${C}55, transparent)` }} />
           </div>
-          <HeroCard card={featured} onOpen={() => setOpen(featured)} />
+          <HeroCard card={featured} onOpen={() => setOpen(featured)} accent={C} />
         </div>
       )}
 
@@ -772,7 +772,7 @@ export default function ReactPdfs() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {collection.map(card => (
-            <CollectionCard key={card.id} card={card} onOpen={() => setOpen(card)} />
+            <CollectionCard key={card.id} card={card} onOpen={() => setOpen(card)} accent={C} />
           ))}
         </div>
       </div>

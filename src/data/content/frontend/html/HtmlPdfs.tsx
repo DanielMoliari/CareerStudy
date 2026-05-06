@@ -80,7 +80,7 @@ const PDF_CARDS: PdfCard[] = [
   },
 ]
 
-const TYPE_COLOR: Record<PdfType, string> = {
+const TYPE_COLOR: Partial<Record<PdfType, string>> = {
   qa:           C,
   cheatsheet:   '#38bdf8',
   mnemonics:    '#4ade80',
@@ -802,7 +802,7 @@ export default function HtmlPdfs() {
             </span>
             <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${C}55, transparent)` }} />
           </div>
-          <HeroCard card={featured} onOpen={() => setOpen(featured)} />
+          <HeroCard card={featured} onOpen={() => setOpen(featured)} accent={C} />
         </div>
       )}
 
@@ -816,12 +816,12 @@ export default function HtmlPdfs() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {collection.map(card => (
-            <CollectionCard key={card.id} card={card} onOpen={() => setOpen(card)} />
+            <CollectionCard key={card.id} card={card} onOpen={() => setOpen(card)} accent={C} />
           ))}
         </div>
       </div>
 
-      {open && <PdfModal card={open} onClose={() => setOpen(null)} builders={PDF_BUILDERS} />}
+      {open && <PdfModal card={open} onClose={() => setOpen(null)} builders={PDF_BUILDERS} accent={C} />}
     </div>
   )
 }

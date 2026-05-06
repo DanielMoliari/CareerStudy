@@ -4,10 +4,6 @@ import { VisuaisShell } from '@/components/visuals/VisuaisShell'
 import type { VisualDef } from '@/components/visuals/VisuaisNav'
 import { LayerStack } from '@/components/visuals/LayerStack'
 import type { Layer } from '@/components/visuals/LayerStack'
-import { ComparisonTable } from '@/components/visuals/ComparisonTable'
-import type { ComparisonOption, ComparisonCriterion } from '@/components/visuals/ComparisonTable'
-import { CodeStepper } from '@/components/visuals/CodeStepper'
-import type { CodeStepperScenario } from '@/components/visuals/CodeStepper'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
 import { DecisionTree } from '@/components/visuals/DecisionTree'
@@ -16,6 +12,10 @@ import { FeaturesCarousel } from '@/components/visuals/FeaturesCarousel'
 import type { Feature } from '@/components/visuals/FeaturesCarousel'
 import { CardCarousel } from '@/components/visuals/CardCarousel'
 import type { CarouselCard } from '@/components/visuals/CardCarousel'
+import { CodeStepper } from '@/components/visuals/CodeStepper'
+import type { CodeStepperScenario } from '@/components/visuals/CodeStepper'
+import { DiffViewer } from '@/components/visuals/DiffViewer'
+import type { DiffExample } from '@/components/visuals/DiffViewer'
 
 // ── Paleta Tailwind CSS ─────────────────────────────────────────────────────────
 const C      = '#38BDF8'   // tailwind sky
@@ -32,7 +32,10 @@ const PRP    = '#a78bfa'
 const PINK   = '#f472b6'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 1 — Utility classes por categoria (LayerStack clicável)
+// VISUAL 1 — Classes por categoria (LayerStack clicável)
+// Justificativa: Tailwind tem centenas de classes. Ver as categorias com
+// exemplos reais e o código que geram é a forma mais rápida de entender o que
+// existe — texto plano vira lista inutilizável sem a âncora visual.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const UTILITY_LAYERS: Layer[] = [
@@ -100,6 +103,9 @@ const UTILITY_LAYERS: Layer[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 2 — Responsive design (custom visual com breakpoints)
+// Justificativa: o conceito mobile-first (sem prefixo = todos, com prefixo =
+// a partir de) é contraintuitivo para devs vindos de CSS tradicional. O visual
+// com a régua de breakpoints e o exemplo colorido torna o padrão imediato.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface Breakpoint {
@@ -113,12 +119,12 @@ interface Breakpoint {
 }
 
 const BREAKPOINTS: Breakpoint[] = [
-  { prefix: '(sem prefixo)', px: 0,    rem: '0',     label: 'Mobile (base)',  color: GRN,   example: 'text-sm flex-col',     mobileFirst: 'Aplica em todos os tamanhos' },
-  { prefix: 'sm:',          px: 640,  rem: '40rem',  label: 'Small (≥640px)',  color: C,     example: 'sm:text-base',         mobileFirst: 'Aplica a partir de 640px' },
-  { prefix: 'md:',          px: 768,  rem: '48rem',  label: 'Medium (≥768px)', color: SEC,   example: 'md:flex-row',          mobileFirst: 'Aplica a partir de 768px — tablet' },
-  { prefix: 'lg:',          px: 1024, rem: '64rem',  label: 'Large (≥1024px)', color: PRP,   example: 'lg:grid-cols-3',       mobileFirst: 'Aplica a partir de 1024px — laptop' },
-  { prefix: 'xl:',          px: 1280, rem: '80rem',  label: 'XL (≥1280px)',    color: AMB,   example: 'xl:max-w-7xl',         mobileFirst: 'Aplica a partir de 1280px — desktop' },
-  { prefix: '2xl:',         px: 1536, rem: '96rem',  label: '2XL (≥1536px)',   color: PINK,  example: '2xl:text-2xl',         mobileFirst: 'Aplica a partir de 1536px — wide' },
+  { prefix: '(sem prefixo)', px: 0,    rem: '0',     label: 'Mobile (base)',   color: GRN,   example: 'text-sm flex-col',     mobileFirst: 'Aplica em todos os tamanhos — mobile base' },
+  { prefix: 'sm:',           px: 640,  rem: '40rem',  label: 'Small (≥640px)',  color: C,     example: 'sm:text-base',         mobileFirst: 'Aplica a partir de 640px' },
+  { prefix: 'md:',           px: 768,  rem: '48rem',  label: 'Medium (≥768px)', color: SEC,   example: 'md:flex-row',          mobileFirst: 'Aplica a partir de 768px — tablet' },
+  { prefix: 'lg:',           px: 1024, rem: '64rem',  label: 'Large (≥1024px)', color: PRP,   example: 'lg:grid-cols-3',       mobileFirst: 'Aplica a partir de 1024px — laptop' },
+  { prefix: 'xl:',           px: 1280, rem: '80rem',  label: 'XL (≥1280px)',    color: AMB,   example: 'xl:max-w-7xl',         mobileFirst: 'Aplica a partir de 1280px — desktop' },
+  { prefix: '2xl:',          px: 1536, rem: '96rem',  label: '2XL (≥1536px)',   color: PINK,  example: '2xl:text-2xl',         mobileFirst: 'Aplica a partir de 1536px — wide' },
 ]
 
 function ResponsiveBreakpointsVisual() {
@@ -236,8 +242,8 @@ function ResponsiveBreakpointsVisual() {
       <div style={{ background: `${AMB}15`, border: `1px solid ${AMB}40`, borderRadius: 8, padding: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <span style={{ fontSize: 16 }}>💡</span>
         <span style={{ fontSize: 12, color: FG }}>
-          <strong style={{ color: AMB }}>Mobile-first:</strong> sem prefixo = todos os tamanhos. Com prefixo = a partir daquele tamanho para cima. Para desktops primeiro: use{' '}
-          <code style={{ color: C, fontFamily: "'JetBrains Mono', monospace" }}>max-lg:</code> (aplica até lg).
+          <strong style={{ color: AMB }}>Mobile-first:</strong> sem prefixo = todos os tamanhos. Com prefixo = a partir daquele tamanho para cima. Para desktops primeiro:{' '}
+          <code style={{ color: C, fontFamily: "'JetBrains Mono', monospace" }}>max-lg:</code> aplica até lg.
         </span>
       </div>
     </div>
@@ -245,168 +251,260 @@ function ResponsiveBreakpointsVisual() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 3 — Comparação Tailwind vs CSS Modules vs Styled Components vs Sass
+// VISUAL 3 — Pipeline JIT: scan → generate → purge (custom)
+// Justificativa: entender POR QUE classes dinâmicas não funcionam, por que o
+// content[] é obrigatório e por que classes somem em produção requer
+// visualizar o pipeline de build. Nenhum texto explica isso tão rápido quanto
+// o fluxo interativo por fase.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const CMP_OPTIONS: ComparisonOption[] = [
-  { id: 'tailwind', label: 'Tailwind CSS',         sublabel: 'utility-first',           color: C },
-  { id: 'modules',  label: 'CSS Modules',           sublabel: 'scoped CSS clássico',     color: GRN },
-  { id: 'styled',   label: 'Styled Components',     sublabel: 'CSS-in-JS',               color: '#db7093' },
-  { id: 'sass',     label: 'Sass/SCSS',             sublabel: 'CSS pré-processado',      color: '#CC6699' },
-]
+interface JitPhase {
+  id: string
+  step: string
+  label: string
+  color: string
+  icon: string
+  what: string
+  howItWorks: string
+  gotcha: string
+  example: string
+}
 
-const CMP_CRITERIA: ComparisonCriterion[] = [
+const JIT_PHASES: JitPhase[] = [
   {
-    id: 'bundle',
-    label: 'Bundle size (produção)',
-    category: 'Performance',
-    description: 'CSS gerado no bundle final',
-    values: {
-      tailwind: { rating: 'excellent', note: 'JIT — apenas classes usadas (~5-10KB)' },
-      modules:  { rating: 'good',      note: 'Só CSS dos módulos importados' },
-      styled:   { rating: 'fair',      note: 'Runtime + CSS serializado (~12KB lib)' },
-      sass:     { rating: 'good',      note: 'Depende do que está no arquivo' },
-    },
+    id: 'scan',
+    step: '01',
+    label: 'Scan',
+    color: C,
+    icon: '🔍',
+    what: 'O scanner lê todos os arquivos listados em content[] usando expressões regulares buscando strings completas de classes Tailwind.',
+    howItWorks: 'O Tailwind analisa cada arquivo linha por linha procurando padrões como "bg-red-500", "flex", "hover:text-blue-600". Ele NÃO executa JavaScript — só lê texto.',
+    gotcha: 'O scanner não consegue detectar classes construídas por interpolação: `bg-${color}-500` nunca aparece como string completa no código.',
+    example: "content: ['./src/**/*.{ts,tsx}'] → escaneia app/, components/, lib/",
   },
   {
-    id: 'dx',
-    label: 'Velocidade de desenvolvimento',
-    category: 'DX',
-    description: 'Quão rápido escrever estilo no dia a dia',
-    values: {
-      tailwind: { rating: 'excellent', note: 'IntelliSense + sem trocar arquivos' },
-      modules:  { rating: 'good',      note: 'CSS familiar mas trocar de arquivo' },
-      styled:   { rating: 'good',      note: 'Colocação de código, variantes com props' },
-      sass:     { rating: 'fair',      note: 'Reutilização com mixins, nesting' },
-    },
+    id: 'collect',
+    step: '02',
+    label: 'Collect',
+    color: AMB,
+    icon: '📋',
+    what: 'Todas as strings encontradas são coletadas em um Set de classes únicas a gerar.',
+    howItWorks: 'Se "flex" aparece em 100 arquivos, ainda assim gera apenas 1 linha de CSS. A deduplicação é automática — não há CSS duplicado por uso repetido.',
+    gotcha: 'Arquivos fora do content[] não são escaneados. Classes nesses arquivos existem em dev (JIT mais agressivo) mas somem em produção.',
+    example: "Set coletado: { 'flex', 'bg-sky-500', 'text-sm', 'hover:bg-sky-600', ... }",
   },
   {
-    id: 'naming',
-    label: 'Naming / CSS global leakage',
-    category: 'Arquitetura',
-    description: 'Problema de estilos vazando entre componentes',
-    values: {
-      tailwind: { rating: 'excellent', note: 'Sem naming, sem leakage — classes atômicas' },
-      modules:  { rating: 'excellent', note: 'Hash automático — zero leakage' },
-      styled:   { rating: 'excellent', note: 'Scoped por definição — zero leakage' },
-      sass:     { rating: 'poor',      note: 'CSS global — precisa de BEM ou OOCSS' },
-    },
+    id: 'generate',
+    step: '03',
+    label: 'Generate',
+    color: GRN,
+    icon: '⚙️',
+    what: 'Para cada classe coletada, o Tailwind gera exatamente o CSS correspondente.',
+    howItWorks: 'Cada classe tem um mapeamento determinístico para CSS. "p-4" → "padding: 1rem". "hover:bg-sky-600" → ".hover\\:bg-sky-600:hover { background-color: #0284c7 }". Arbitrary values como w-[327px] também são gerados aqui.',
+    gotcha: 'Arbitrary values que se repetem geram CSS duplicado. Se bg-[#1a2b3c] aparece em 10 lugares, gera 1 regra CSS mas só por ser a mesma string literal.',
+    example: "flex → display: flex; bg-sky-500 → background-color: #0ea5e9; p-4 → padding: 1rem",
   },
   {
-    id: 'typescript',
-    label: 'Type safety',
-    category: 'DX',
-    description: 'Integração com TypeScript para variantes',
-    values: {
-      tailwind: { rating: 'excellent', note: 'cva + VariantProps — variantes 100% tipadas' },
-      modules:  { rating: 'fair',      note: 'Tipagem de classes com csstype — limitado' },
-      styled:   { rating: 'excellent', note: 'Props tipados diretamente no componente' },
-      sass:     { rating: 'poor',      note: 'Sem type safety nativa' },
-    },
-  },
-  {
-    id: 'darkmode',
-    label: 'Dark mode',
-    category: 'Features',
-    description: 'Suporte a temas dinâmicos',
-    values: {
-      tailwind: { rating: 'excellent', note: 'dark: prefix ou CSS variables — fácil' },
-      modules:  { rating: 'good',      note: 'prefers-color-scheme no CSS — ok' },
-      styled:   { rating: 'excellent', note: 'ThemeProvider + variáveis — muito flexível' },
-      sass:     { rating: 'fair',      note: 'Variáveis Sass + media query — verboso' },
-    },
-  },
-  {
-    id: 'ssr',
-    label: 'SSR / Next.js',
-    category: 'Integração',
-    description: 'Suporte a Server-Side Rendering sem flash',
-    values: {
-      tailwind: { rating: 'excellent', note: 'Zero runtime — funciona em Server Components' },
-      modules:  { rating: 'excellent', note: 'CSS estático — funciona em Server Components' },
-      styled:   { rating: 'fair',      note: 'Requer ServerStyleSheet e setup extra (App Router complicado)' },
-      sass:     { rating: 'excellent', note: 'CSS estático — funciona perfeitamente' },
-    },
+    id: 'output',
+    step: '04',
+    label: 'Output',
+    color: PRP,
+    icon: '📦',
+    what: 'CSS final gerado é inserido na saída — somente as classes efetivamente usadas.',
+    howItWorks: 'O bundle CSS final contém apenas as classes encontradas pelo scanner. Um app típico gera 5-15KB de CSS — contra centenas de KB de um framework CSS tradicional que inclui tudo.',
+    gotcha: 'Sempre teste com npm run build — dev usa um cache mais permissivo. Bugs de "funciona em dev, some em produção" são quase sempre content[] incompleto.',
+    example: "Output: ~8KB CSS (apenas classes usadas) vs ~300KB CSS (framework completo)",
   },
 ]
 
+function JitPipelineVisual() {
+  const [active, setActive] = useState(0)
+  const phase = JIT_PHASES[active]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
+      {/* Steps */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderRadius: 10, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+        {JIT_PHASES.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => setActive(i)}
+            style={{
+              flex: 1,
+              padding: '14px 8px',
+              background: active === i ? `${p.color}20` : CARD,
+              border: 'none',
+              borderRight: i < JIT_PHASES.length - 1 ? `1px solid ${LINE}` : 'none',
+              borderBottom: active === i ? `3px solid ${p.color}` : '3px solid transparent',
+              cursor: 'pointer',
+              transition: 'all .2s',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>{p.icon}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+              color: active === i ? p.color : FGMUTE,
+            }}>{p.step}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: active === i ? p.color : FG }}>{p.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Detalhe da fase */}
+      <div style={{ background: CARD, borderRadius: 12, padding: 22, border: `1px solid ${phase.color}40`, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <span style={{ fontSize: 28 }}>{phase.icon}</span>
+          <div>
+            <span style={{ fontSize: 10, color: phase.color, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '.08em' }}>FASE {phase.step}</span>
+            <div style={{ fontSize: 18, fontWeight: 800, color: phase.color }}>{phase.label}</div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 13, color: FG, lineHeight: 1.65, margin: '0 0 16px' }}>{phase.what}</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ background: BG, borderRadius: 8, padding: 14 }}>
+            <div style={{ fontSize: 10, color: C, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Como funciona</div>
+            <p style={{ fontSize: 12, color: FG, margin: 0, lineHeight: 1.6 }}>{phase.howItWorks}</p>
+          </div>
+          <div style={{ background: BG, borderRadius: 8, padding: 14 }}>
+            <div style={{ fontSize: 10, color: RED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Gotcha comum</div>
+            <p style={{ fontSize: 12, color: FG, margin: 0, lineHeight: 1.6 }}>{phase.gotcha}</p>
+          </div>
+        </div>
+
+        <div style={{ background: `${phase.color}12`, border: `1px solid ${phase.color}40`, borderRadius: 8, padding: 12 }}>
+          <span style={{ fontSize: 10, color: phase.color, fontWeight: 700, marginRight: 8 }}>Exemplo:</span>
+          <code style={{ fontSize: 11, color: FG, fontFamily: "'JetBrains Mono', monospace" }}>{phase.example}</code>
+        </div>
+      </div>
+
+      {/* Fluxo linear */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+        {JIT_PHASES.map((p, i) => (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{
+              padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+              background: `${p.color}20`, color: p.color, border: `1px solid ${p.color}60`,
+            }}>{p.label}</div>
+            {i < JIT_PHASES.length - 1 && <span style={{ color: LINE, fontSize: 16 }}>→</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 4 — Customização do tema (tailwind.config.js) — CodeStepper
+// VISUAL 4 — cva + cn() passo a passo (CodeStepper)
+// Justificativa: cva + cn() é O padrão de componentes profissionais em Tailwind.
+// Ver a evolução de "classes brutas" → "cn()" → "cva" → "VariantProps tipados"
+// passo a passo torna o padrão memorável e defensável em entrevista.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const CONFIG_SCENARIOS: CodeStepperScenario[] = [
+const CVA_SCENARIOS: CodeStepperScenario[] = [
   {
-    id: 'theme-config',
-    label: 'tailwind.config — Tokens customizados',
-    code: `// tailwind.config.ts
-import type { Config } from 'tailwindcss'
+    id: 'cva-pattern',
+    label: 'Button: de classes brutas até cva tipado',
+    code: `// Passo 1 — classes brutas repetidas (problemático)
+// <button className="rounded bg-sky-600 px-4 py-2 text-white hover:bg-sky-700">
 
-export default {
-  content: ['./src/**/*.{ts,tsx}'],
-  darkMode: 'class',
+// Passo 2 — cn() resolve conflitos de override
+import { cn } from '@/lib/utils'
+function Button({ className, ...props }) {
+  return (
+    <button
+      className={cn(
+        'rounded bg-sky-600 px-4 py-2 text-white',
+        'hover:bg-sky-700 transition-colors',
+        className  // className externo sempre vence
+      )}
+      {...props}
+    />
+  )
+}
 
-  theme: {
-    extend: {
-      colors: {
-        primary: 'hsl(var(--color-primary) / <alpha-value>)',
-        surface: 'hsl(var(--color-surface) / <alpha-value>)',
-        muted:   'hsl(var(--color-muted)   / <alpha-value>)',
+// Passo 3 — cva adiciona variantes type-safe
+import { cva, type VariantProps } from 'class-variance-authority'
+
+const buttonVariants = cva(
+  'rounded px-4 py-2 font-medium transition-colors',
+  {
+    variants: {
+      variant: {
+        primary:   'bg-sky-600 text-white hover:bg-sky-700',
+        secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+        ghost:     'text-slate-600 hover:bg-slate-100',
       },
-      fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
-        mono: ['var(--font-jetbrains)', 'monospace'],
-      },
-      spacing: {
-        18: '4.5rem',
-        22: '5.5rem',
-      },
-      borderRadius: {
-        xl:  '1rem',
-        '2xl': '1.5rem',
+      size: {
+        sm: 'text-sm px-3 py-1.5',
+        md: 'text-base px-4 py-2',
+        lg: 'text-lg px-6 py-3',
       },
     },
-  },
-} satisfies Config`,
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  }
+)
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>
+  & VariantProps<typeof buttonVariants>
+
+function Button({ variant, size, className, ...props }: ButtonProps) {
+  return (
+    <button
+      className={cn(buttonVariants({ variant, size }), className)}
+      {...props}
+    />
+  )
+}`,
     language: 'typescript',
     steps: [
       {
         lineStart: 1,
-        lineEnd: 1,
-        title: 'Arquivo de configuração',
-        explanation: 'tailwind.config.ts é o ponto central de customização. Use satisfies Config para type safety completa nas opções. Next.js 14 usa .ts para o config do Tailwind (diferente do next.config.mjs).',
+        lineEnd: 2,
+        title: 'Passo 1 — O problema',
+        explanation: 'Classes Tailwind inline sem abstração: não há variantes, não há type safety, e concatenar className externo causa conflito de especificidade (px-4 vs px-8 vence quem veio primeiro no CSS gerado — imprevisível).',
       },
       {
         lineStart: 4,
-        lineEnd: 4,
-        title: 'content — o que escanear',
-        explanation: 'Glob patterns de todos os arquivos que contêm classes Tailwind. Essencial para JIT. Se um arquivo não estiver aqui, suas classes não aparecem no bundle de produção — mas aparecem em dev (gotcha comum).',
-      },
-      {
-        lineStart: 5,
-        lineEnd: 5,
-        title: 'darkMode: "class"',
-        explanation: 'Estratégia de dark mode. "class" = toggle manual via classe .dark no html (você controla). "media" = segue prefers-color-scheme do sistema. "class" é o padrão recomendado para apps com controle de tema.',
-      },
-      {
-        lineStart: 9,
-        lineEnd: 12,
-        title: 'Cores com CSS variables',
-        explanation: 'hsl(var(--color-primary) / <alpha-value>) permite usar modificadores de opacidade: bg-primary/50 gera background: hsl(var(--color-primary) / 0.5). É o padrão do shadcn/ui para dark mode sem rebuild.',
-        output: 'Gera: bg-primary, text-primary, border-primary, bg-primary/50, text-primary/30...',
-      },
-      {
-        lineStart: 14,
-        lineEnd: 16,
-        title: 'Fontes via CSS variables',
-        explanation: 'CSS variables para fontes permitem lazy loading via next/font e uso de qualquer provider. var(--font-inter) é definido pelo next/font e injetado automaticamente no root.',
-        output: 'Gera: font-sans → Inter, font-mono → JetBrains Mono',
+        lineEnd: 15,
+        title: 'Passo 2 — cn() resolve conflitos',
+        explanation: 'cn() = clsx (classes condicionais) + tailwind-merge (resolve conflitos). Quando o usuário passa className="px-8", tailwind-merge remove px-4 do base e mantém px-8. O override sempre funciona corretamente.',
+        output: 'cn("px-4", "px-8") → "px-8" (px-4 removido pelo tailwind-merge)',
       },
       {
         lineStart: 18,
-        lineEnd: 19,
-        title: 'Spacing e borderRadius customizados',
-        explanation: 'extend adiciona ao sistema sem substituir o padrão. spacing: { 18: "4.5rem" } gera p-18, m-18, h-18, w-18. Sempre use extend — nunca sobrescreva o theme completo a menos que seja intencional.',
-        output: 'Gera: p-18 (4.5rem), mt-22 (5.5rem), rounded-xl (1rem), rounded-2xl (1.5rem)',
+        lineEnd: 20,
+        title: 'Passo 3 — cva declara variantes',
+        explanation: 'cva recebe as classes base (aplicadas sempre) e um objeto variants. Cada variante tem chave (variant, size) e valores possíveis (primary, secondary, ghost). cva retorna uma função que gera a string de classes.',
+        output: 'buttonVariants({ variant: "primary", size: "md" }) → "rounded px-4 py-2 ... bg-sky-600 text-white hover:bg-sky-700"',
+      },
+      {
+        lineStart: 21,
+        lineEnd: 36,
+        title: 'Variantes definidas',
+        explanation: 'Cada variante tem um conjunto de classes. O objeto variants mapeia cada combinação possível de props para classes Tailwind concretas. defaultVariants define o que usar quando nenhum valor for passado.',
+      },
+      {
+        lineStart: 38,
+        lineEnd: 39,
+        title: 'VariantProps — tipos automáticos',
+        explanation: 'VariantProps<typeof buttonVariants> extrai automaticamente o tipo { variant?: "primary" | "secondary" | "ghost"; size?: "sm" | "md" | "lg" }. TypeScript tipa os props sem escrever o tipo manualmente.',
+        output: 'Erro TypeScript: variant="invalid" — "invalid" não existe em "primary" | "secondary" | "ghost"',
+      },
+      {
+        lineStart: 41,
+        lineEnd: 47,
+        title: 'Componente final tipado',
+        explanation: 'cn(buttonVariants({ variant, size }), className): primeiro resolve as variantes, depois aplica o className externo — que sempre vence conflitos via tailwind-merge. Padrão usado em shadcn/ui.',
+        output: '<Button variant="secondary" size="sm" className="w-full" /> → funciona com autocomplete e type safety',
       },
     ],
   },
@@ -414,6 +512,9 @@ export default {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 5 — Dark mode (FeaturesCarousel)
+// Justificativa: class vs media é um gotcha frequente. CSS variables vs
+// dark: em cada elemento é a diferença entre um design system escalável e um
+// que vira impossível de manter. O before/after lado a lado é insubstituível.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DARK_MODE_FEATURES: Feature[] = [
@@ -441,7 +542,7 @@ const DARK_MODE_FEATURES: Feature[] = [
     tag: 'padrão profissional',
     name: 'CSS variables + shadcn/ui',
     color: PRP,
-    before: '/* globals.css — sem variables */\nbody {\n  background: #ffffff;\n  color: #0f172a;\n}\n\n/* Sem controle de tema */\n/* Sem suporte a multi-theme */\n/* Rebuild para trocar tema */\nbg-white text-slate-900',
+    before: '/* globals.css — sem variables */\nbody {\n  background: #ffffff;\n  color: #0f172a;\n}\n\n/* Sem controle de tema */\n/* Sem suporte a multi-theme */\nbg-white text-slate-900',
     after: '/* globals.css — com variables */\n:root {\n  --background: 0 0% 100%;\n  --foreground: 222 84% 5%;\n}\n.dark {\n  --background: 222 84% 5%;\n  --foreground: 210 40% 98%;\n}\n\nbg-background text-foreground',
     beforeLabel: 'valores diretos (limitado)',
     afterLabel: 'CSS variables (shadcn/ui)',
@@ -461,6 +562,9 @@ const DARK_MODE_FEATURES: Feature[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 6 — Variants (hover, focus, group-hover, peer, dark, aria) — CardCarousel
+// Justificativa: group-hover e peer são recursos pouco conhecidos mas muito
+// poderosos. Nenhum texto memoriza melhor do que ver o "o que é, como usar,
+// quando não usar" lado a lado para cada variant.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const VARIANTS_CARDS: CarouselCard[] = [
@@ -552,25 +656,28 @@ const VARIANTS_CARDS: CarouselCard[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 7 — Anti-patterns
+// Justificativa: classe dinâmica por interpolação, @apply em componentes e
+// arquivos fora do content[] são os bugs mais dolorosos em produção — aparecem
+// em dev e somem no build. O diff visual cria reconhecimento imediato.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const TW_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Classes dinâmicas por interpolação de string',
     wrong: [
-      [{ text: '// ❌ Scanner do Tailwind não detecta string interpolada', color: FGMUTE }],
+      [{ text: '// Scanner do Tailwind não detecta string interpolada', color: FGMUTE }],
       [{ text: 'const color = "red"', color: FG }],
-      [{ text: `<div className={\`bg-\${color}-500\`}>`, color: RED }],
+      [{ text: '<div className={`bg-${color}-500`}>', color: RED }],
       [{ text: '// Tailwind não inclui bg-red-500 no CSS de produção', color: FGMUTE }],
     ],
     right: [
-      [{ text: '// ✅ Mapa de classes completas — scanner detecta', color: FGMUTE }],
+      [{ text: '// Mapa de classes completas — scanner detecta', color: FGMUTE }],
       [{ text: 'const colorMap = {', color: FG }],
       [{ text: "  red: 'bg-red-500',", color: GRN }],
       [{ text: "  blue: 'bg-blue-500',", color: GRN }],
       [{ text: "  green: 'bg-green-500',", color: GRN }],
       [{ text: '} as const', color: FG }],
-      [{ text: `<div className={colorMap[color]}>`, color: GRN }],
+      [{ text: '<div className={colorMap[color]}>', color: GRN }],
     ],
     why: 'Tailwind escaneia o código em build time via regex buscando strings completas. Interpolação cria "bg-" + "red" + "-500" — nunca aparece como string completa. Produção fica sem a classe.',
   },
@@ -585,7 +692,7 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '// Perde o utility-first, cria abstrações de CSS', color: FGMUTE }],
     ],
     right: [
-      [{ text: '// ✅ Componente React — melhor em todos os aspectos', color: FGMUTE }],
+      [{ text: '// Componente React — melhor em todos os aspectos', color: FGMUTE }],
       [{ text: 'function Button({ className, ...props }) {', color: GRN }],
       [{ text: "  return <button className={cn(", color: GRN }],
       [{ text: "    'rounded bg-sky-600 px-4 py-2 text-white',", color: GRN }],
@@ -599,7 +706,7 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Concatenar classes sem tailwind-merge',
     wrong: [
-      [{ text: '// ❌ Qual classe vence? Depende da ordem no CSS gerado', color: FGMUTE }],
+      [{ text: '// Qual classe vence? Depende da ordem no CSS gerado', color: FGMUTE }],
       [{ text: "function Button({ className }) {", color: FG }],
       [{ text: "  return <button className={'px-4 py-2 ' + className}>", color: RED }],
       [{ text: '  // Se className="px-8", ambas ficam: px-4 px-8', color: FGMUTE }],
@@ -607,7 +714,7 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ cn() resolve conflitos deterministicamente', color: FGMUTE }],
+      [{ text: '// cn() resolve conflitos deterministicamente', color: FGMUTE }],
       [{ text: "function Button({ className }) {", color: GRN }],
       [{ text: "  return <button className={cn('px-4 py-2', className)}>", color: GRN }],
       [{ text: '  // Se className="px-8" → resultado: "py-2 px-8"', color: FGMUTE }],
@@ -617,12 +724,12 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
     why: 'Quando duas classes Tailwind afetam a mesma propriedade (px-4 e px-8), quem vence depende da ordem no CSS gerado — não da ordem no JSX. tailwind-merge resolve deterministicamente: a última sempre vence.',
   },
   {
-    title: 'Arquivos fora do content[] — classes some em produção',
+    title: 'Arquivos fora do content[] — classes somem em produção',
     wrong: [
       [{ text: '// tailwind.config.ts', color: FGMUTE }],
       [{ text: 'content: [', color: FG }],
       [{ text: "  './src/app/**/*.{ts,tsx}',", color: RED }],
-      [{ text: '  // ❌ esqueceu os componentes!', color: RED }],
+      [{ text: '  // esqueceu os componentes!', color: RED }],
       [{ text: ']', color: FG }],
       [{ text: '// Classes em src/components/ funcionam em dev', color: FGMUTE }],
       [{ text: '// mas somem em produção (JIT de dev é mais agressivo)', color: RED }],
@@ -631,7 +738,7 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '// tailwind.config.ts', color: FGMUTE }],
       [{ text: 'content: [', color: GRN }],
       [{ text: "  './src/**/*.{ts,tsx}',", color: GRN }],
-      [{ text: '  // ✅ glob abrange app/, components/, lib/', color: FGMUTE }],
+      [{ text: '  // glob abrange app/, components/, lib/', color: FGMUTE }],
       [{ text: ']', color: GRN }],
       [{ text: '// Sempre teste: npm run build + inspecione o CSS', color: FGMUTE }],
     ],
@@ -640,13 +747,13 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
   {
     title: 'Usar !important em vez de cn() / ordem correta',
     wrong: [
-      [{ text: '// ❌ !important é sinal de especificidade mal gerenciada', color: FGMUTE }],
+      [{ text: '// !important é sinal de especificidade mal gerenciada', color: FGMUTE }],
       [{ text: "<Button className='!bg-red-500 !text-white'>", color: RED }],
       [{ text: '// Funciona mas cria cascata de !important', color: FGMUTE }],
       [{ text: '// Difícil de sobrescrever depois', color: RED }],
     ],
     right: [
-      [{ text: '// ✅ cn() resolve conflitos sem !important', color: FGMUTE }],
+      [{ text: '// cn() resolve conflitos sem !important', color: FGMUTE }],
       [{ text: "function Button({ className, variant }) {", color: GRN }],
       [{ text: "  return <button className={cn(", color: GRN }],
       [{ text: "    buttonVariants({ variant }),", color: GRN }],
@@ -660,6 +767,9 @@ const TW_ANTIPATTERNS: AntiPattern[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 8 — DecisionTree: usar utilitário ou extrair componente?
+// Justificativa: "quando extrair para componente?" é a pergunta mais frequente
+// ao trabalhar com Tailwind em time. A árvore de decisão resolve isso de forma
+// objetiva — e é exatamente o tipo de questão cobrada em entrevista sênior.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DECISION_ROOT: DTNode = {
@@ -735,6 +845,166 @@ const DECISION_NODES: Record<string, DTNode> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — Tailwind v4 (DiffViewer)
+// Justificativa: Tailwind v4 é uma mudança de paradigma — a configuração migra
+// de JS para CSS puro (@theme), o engine troca para Rust, o content[] some.
+// Ver exatamente o que muda linha a linha (v3 → v4) é a forma mais eficiente
+// de estudar essa migração antes de uma entrevista sênior.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const TW_V4_DIFFS: DiffExample[] = [
+  {
+    id: 'config',
+    label: 'Arquivo de configuração',
+    description: 'tailwind.config.ts (v3) → @theme em CSS puro (v4)',
+    beforeLabel: 'Tailwind v3 — tailwind.config.ts',
+    afterLabel: 'Tailwind v4 — globals.css com @theme',
+    before: `// tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+export default {
+  content: ['./src/**/*.{ts,tsx}'],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: 'hsl(var(--color-primary) / <alpha-value>)',
+        surface: 'hsl(var(--color-surface) / <alpha-value>)',
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)', 'sans-serif'],
+      },
+    },
+  },
+} satisfies Config`,
+    after: `/* globals.css — sem arquivo .ts de config */
+@import "tailwindcss";
+
+@theme {
+  /* Tokens diretos em CSS — sem JS */
+  --color-primary: oklch(0.6 0.15 200);
+  --color-surface: oklch(0.15 0.02 240);
+  --font-sans: 'Inter', sans-serif;
+
+  /* content[] automático — sem configurar */
+  /* darkMode: 'class' ainda via .dark no HTML */
+}
+
+/* Plugins como @utility */
+@utility container-query {
+  container-type: inline-size;
+}`,
+    explanation: 'v4 elimina o arquivo JS de configuração. @theme no CSS define tokens diretamente com sintaxe CSS nativa (oklch). Automatic content detection remove a necessidade de listar arquivos.',
+    tags: ['configuração', 'migração', 'v4'],
+  },
+  {
+    id: 'import',
+    label: 'Importação do framework',
+    description: 'Diretivas @tailwind (v3) → @import único (v4)',
+    beforeLabel: 'Tailwind v3 — globals.css',
+    afterLabel: 'Tailwind v4 — globals.css',
+    before: `/* globals.css — v3 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Configurações custom depois */
+@layer base {
+  :root {
+    --color-primary: 187 100% 42%;
+  }
+}`,
+    after: `/* globals.css — v4 */
+@import "tailwindcss";
+
+/* @theme substitui @layer base para tokens */
+@theme {
+  --color-primary: oklch(0.6 0.15 200);
+}
+
+/* @layer ainda funciona para CSS custom */
+@layer base {
+  * { box-sizing: border-box; }
+}`,
+    explanation: '@import "tailwindcss" substitui as três diretivas @tailwind. Sintaxe de cores muda: HSL "187 100% 42%" → OKLCH nativo do CSS moderno.',
+    tags: ['importação', 'sintaxe', 'v4'],
+  },
+  {
+    id: 'content',
+    label: 'Content detection',
+    description: 'content[] manual (v3) → automático (v4)',
+    beforeLabel: 'Tailwind v3 — content manual obrigatório',
+    afterLabel: 'Tailwind v4 — detecção automática',
+    before: `// tailwind.config.ts — v3
+export default {
+  // OBRIGATÓRIO em v3:
+  content: [
+    './src/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    // Esquecer um diretório = classes somem em produção
+  ],
+  // ...
+}`,
+    after: `/* globals.css — v4 */
+@import "tailwindcss";
+
+/* Sem content[] — Tailwind v4 detecta
+   automaticamente todos os arquivos
+   relevantes do projeto.
+
+   Para forçar inclusão de um path:
+   @source "../node_modules/minha-lib";
+*/
+
+@theme {
+  /* apenas tokens custom aqui */
+}`,
+    explanation: 'O gotcha mais doloroso do v3 (funciona em dev, some em produção por content[] incompleto) foi eliminado no v4 com detecção automática. @source para forçar inclusão de dependências externas.',
+    tags: ['content', 'gotcha eliminado', 'v4'],
+  },
+  {
+    id: 'arbitrary-custom',
+    label: 'Valores arbitrários e utilitários custom',
+    description: 'plugin() em JS (v3) → @utility em CSS (v4)',
+    beforeLabel: 'Tailwind v3 — plugin em JS',
+    afterLabel: 'Tailwind v4 — @utility em CSS',
+    before: `// tailwind.config.ts — v3
+import plugin from 'tailwindcss/plugin'
+
+export default {
+  plugins: [
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        '.scrollbar-hide': {
+          '-ms-overflow-style': 'none',
+          'scrollbar-width': 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        },
+      })
+    }),
+  ],
+}`,
+    after: `/* globals.css — v4 */
+@import "tailwindcss";
+
+/* Utilitários custom em CSS puro — sem plugin() */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Uso: <div class="scrollbar-hide"> */`,
+    explanation: 'Plugins que adicionavam utilitários em JS viram @utility em CSS. Menos indireção, mais alinhado com CSS nativo. A função plugin() ainda existe para plugins complexos.',
+    tags: ['plugins', 'utilitários', 'v4'],
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -763,27 +1033,20 @@ export default function TailwindCssVisuais() {
       component: <ResponsiveBreakpointsVisual />,
     },
     {
-      id: 'comparison',
-      title: 'Tailwind vs CSS Modules vs Styled Components vs Sass',
-      subtitle: 'Comparação técnica para escolher a ferramenta certa por contexto',
-      accent: PRP,
-      component: (
-        <ComparisonTable
-          options={CMP_OPTIONS}
-          criteria={CMP_CRITERIA}
-          accentColor={C}
-          bgColor={BG}
-        />
-      ),
+      id: 'jit-pipeline',
+      title: 'Pipeline JIT',
+      subtitle: 'Scan → Collect → Generate → Output — por que classes dinâmicas falham e content[] importa',
+      accent: AMB,
+      component: <JitPipelineVisual />,
     },
     {
-      id: 'config',
-      title: 'Customização do Tema',
-      subtitle: 'tailwind.config.ts — tokens, CSS variables, extend vs theme e dark mode',
-      accent: AMB,
+      id: 'cva-pattern',
+      title: 'cva + cn() passo a passo',
+      subtitle: 'De classes brutas até variantes type-safe com VariantProps — o padrão profissional',
+      accent: GRN,
       component: (
         <CodeStepper
-          scenarios={CONFIG_SCENARIOS}
+          scenarios={CVA_SCENARIOS}
           accentColor={C}
           bgColor={BG}
         />
@@ -793,7 +1056,7 @@ export default function TailwindCssVisuais() {
       id: 'dark-mode',
       title: 'Dark Mode',
       subtitle: 'class vs media, dark: prefix, CSS variables e ThemeProvider',
-      accent: GRN,
+      accent: PRP,
       component: (
         <FeaturesCarousel
           features={DARK_MODE_FEATURES}
@@ -840,6 +1103,19 @@ export default function TailwindCssVisuais() {
           accentColor={C}
           bgColor={BG}
           cardColor={CARD}
+        />
+      ),
+    },
+    {
+      id: 'tailwind-v4',
+      title: 'Tailwind v4 — Migração',
+      subtitle: 'tailwind.config.ts → @theme CSS, @tailwind → @import, content[] → automático',
+      accent: PINK,
+      component: (
+        <DiffViewer
+          examples={TW_V4_DIFFS}
+          accentColor={C}
+          bgColor={BG}
         />
       ),
     },

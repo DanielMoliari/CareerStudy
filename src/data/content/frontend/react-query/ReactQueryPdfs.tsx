@@ -11,18 +11,17 @@ import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
-import { buildMindmapPdf } from '@/components/pdfs/MindmapPdf'
-import type { MindmapCategory } from '@/components/pdfs/MindmapPdf'
+import { buildComparativeRefPdf } from '@/components/pdfs/ComparativeRefPdf'
+import type { CompOption, CompCriterion, CompScenario } from '@/components/pdfs/ComparativeRefPdf'
 
 // ── Paleta React Query ──────────────────────────────────────────────────────────
-const C      = '#FF4154'
-const GRN    = '#4ade80'
-const AMB    = '#f59e0b'
-const SKY    = '#38bdf8'
-const PRP    = '#a78bfa'
-const RED    = '#ef4444'
+const C   = '#FF4154'
+const GRN = '#4ade80'
+const AMB = '#f59e0b'
+const SKY = '#38bdf8'
+const PRP = '#a78bfa'
 
-// ── Metadados dos PDFs ────────────────────────────────────────────────────────────
+// ── Metadados dos PDFs ──────────────────────────────────────────────────────────
 
 const PDF_CARDS: PdfCard[] = [
   {
@@ -67,24 +66,24 @@ const PDF_CARDS: PdfCard[] = [
     goal: 'Reconhecimento de padrão',
   },
   {
-    id: 'mindmap',
-    title: 'Mind Map',
-    subtitle: 'React Query do zero ao sênior em uma folha',
-    type: 'mindmap',
+    id: 'comparative',
+    title: 'React Query vs Alternativas',
+    subtitle: 'RQ × SWR × RTK Query × fetch — tabela de decisão',
+    type: 'comparative',
     pages: 2,
-    description: 'Mapa mental completo com 8 categorias — cache lifecycle, query keys, hooks, mutations, advanced features, SSR, devtools e ecossistema — com checklist de 20 perguntas de entrevista que você deve conseguir responder de cabeça.',
+    description: 'Tabela densa comparando React Query, SWR, RTK Query e fetch puro em 8 critérios: cache, mutations, devtools, bundle size, SSR, infinite scroll, TypeScript e curva de aprendizado. Com cenários de quando usar cada um — resposta pronta para a entrevista.',
     icon: '05',
-    goal: 'Mapeamento mental',
+    goal: 'Decisão técnica defensável',
   },
 ]
 
-// ── Dados: Q&A ────────────────────────────────────────────────────────────────────
+// ── Dados: Q&A ──────────────────────────────────────────────────────────────────
 
 const QAS: QAItem[] = [
   {
     level: 'Pleno',
     q: 'O que é "estado de servidor" e por que React Query existe?',
-    a: 'Estado de servidor são dados que vivem no backend e precisam ser sincronizados com o cliente. Têm características únicas: podem ficar desatualizados, são assíncronos, precisam de loading/error states e podem ser cacheados. useState + useEffect para isso vira boilerplate sem cache, sem deduplicação e sem retry automático.',
+    a: 'Estado de servidor são dados que vivem no backend e precisam ser sincronizados com o cliente. Têm características únicas: podem ficar desatualizados, são assíncronos, precisam de loading/error states e podem ser cacheados. useState + useEffect para isso vira boilerplate sem cache, sem deduplicação e sem retry automático. React Query abstrai o ciclo de vida: fetching, caching, background refetch.',
     bullets: [
       'Estado de servidor ≠ estado de UI (useState/Zustand).',
       'React Query abstrai o ciclo de vida: fetching, caching, background refetch.',
@@ -95,7 +94,7 @@ const QAS: QAItem[] = [
   {
     level: 'Pleno',
     q: 'Como funcionam as query keys e por que são importantes?',
-    a: 'Query keys são a identidade de um dado no cache — array com hierarquia de especificidade. Mesma key = mesma entrada no cache. Array hierárquico permite invalidação granular: invalidar [\'posts\'] invalida [\'posts\', id] e [\'posts\', id, \'comments\'] — todos os filhos.',
+    a: "Query keys são a identidade de um dado no cache — array com hierarquia de especificidade. Mesma key = mesma entrada no cache. Array hierárquico permite invalidação granular: invalidar ['posts'] invalida ['posts', id] e ['posts', id, 'comments'] — todos os filhos.",
     bullets: [
       'Use query factories para centralizar keys por domínio.',
       'Só primitivos na key — objetos inline causam refetch desnecessário.',
@@ -132,7 +131,7 @@ const QAS: QAItem[] = [
     bullets: [
       'enabled={!!userId}: só executa quando userId existe.',
       'Também útil para buscas com input mínimo: enabled={query.length > 2}.',
-      'Status: "pending" quando pausada, não "loading".',
+      "Status: 'pending' quando pausada, não 'loading'.",
     ],
     tip: 'Demonstrar um caso real de query dependente mostra domínio prático.',
   },
@@ -216,9 +215,9 @@ const QAS: QAItem[] = [
   {
     level: 'Senior',
     q: 'Como organizar queries de múltiplos domínios em projeto grande?',
-    a: 'Query factories: para cada domínio (posts, users, comments), crie um objeto que centraliza todas as keys e queryFns. Combine com hooks customizados: usePost(id), usePosts(filters), useCreatePost(). Os componentes nunca veem query keys diretamente — só importam os hooks.',
+    a: "Query factories: para cada domínio (posts, users, comments), crie um objeto que centraliza todas as keys e queryFns. Combine com hooks customizados: usePost(id), usePosts(filters), useCreatePost(). Os componentes nunca veem query keys diretamente — só importam os hooks.",
     bullets: [
-      'Query factory: objeto com all(), lists(), list(filters), detail(id).',
+      "Query factory: objeto com all(), lists(), list(filters), detail(id).",
       'Hooks customizados por domínio encapsulam keys e queryFns.',
       'Invalidar postKeys.all() atualiza todas as views do domínio de uma vez.',
     ],
@@ -282,11 +281,11 @@ const QAS: QAItem[] = [
   {
     level: 'Senior',
     q: 'Como usar queryCache.subscribe para logging global de erros?',
-    a: 'queryCache.subscribe observa eventos do cache — incluindo erros. Configure no QueryClient para logging centralizado sem onError repetido em cada useQuery. Recebe events com { type, query, error }. Integre com Sentry ou Datadog para captura automática de todos os erros de fetch.',
+    a: "queryCache.subscribe observa eventos do cache — incluindo erros. Configure no QueryClient para logging centralizado sem onError repetido em cada useQuery. Recebe events com { type, query, error }. Integre com Sentry ou Datadog para captura automática de todos os erros de fetch.",
     bullets: [
       'Evita onError duplicado em cada useQuery — centraliza o logging.',
-      'Integre com Sentry: queryCache.subscribe(event => captureException(event.error)).',
-      'Filtre por event.type === \'observerResultsUpdated\' e query.state.status === \'error\'.',
+      "Integre com Sentry: queryCache.subscribe(event => captureException(event.error)).",
+      "Filtre por event.type === 'observerResultsUpdated' e query.state.status === 'error'.",
     ],
     tip: 'Demonstrar conhecimento de queryCache.subscribe é o detalhe de nível staff — poucos sabem disso.',
   },
@@ -303,7 +302,7 @@ const QAS: QAItem[] = [
   },
 ]
 
-// ── Dados: Cheatsheet ────────────────────────────────────────────────────────────
+// ── Dados: Cheatsheet ───────────────────────────────────────────────────────────
 
 const CS_HOOKS: HookItem[] = [
   { name: 'useQuery',           sig: '{ queryKey, queryFn, staleTime?, enabled?, select?, placeholderData? }',  desc: 'Busca e cacheia dados — retorna { data, isLoading, isFetching, isError, error }' },
@@ -316,17 +315,17 @@ const CS_HOOKS: HookItem[] = [
 const CS_PATTERNS: PatternItem[] = [
   {
     name: 'Query factory',
-    code: 'const postKeys = { all: () => [\'posts\'], list: (f) => [...postKeys.all(), \'list\', f], detail: (id) => [...postKeys.all(), id] }',
+    code: "const postKeys = { all: () => ['posts'], list: (f) => [...postKeys.all(), 'list', f], detail: (id) => [...postKeys.all(), id] }",
     desc: 'Centraliza keys por domínio — invalide postKeys.all() para atualizar tudo relacionado a posts',
   },
   {
     name: 'Custom hook por domínio',
-    code: 'export function usePosts(filters) { return useQuery({ queryKey: postKeys.list(filters), queryFn: () => api.posts.list(filters) }) }',
+    code: "export function usePosts(filters) { return useQuery({ queryKey: postKeys.list(filters), queryFn: () => api.posts.list(filters) }) }",
     desc: 'Componentes nunca veem query keys diretamente — apenas importam hooks semânticos',
   },
   {
     name: 'Mutation com invalidação',
-    code: 'useMutation({ mutationFn: createPost, onSuccess: () => qc.invalidateQueries({ queryKey: postKeys.all() }) })',
+    code: "useMutation({ mutationFn: createPost, onSuccess: () => qc.invalidateQueries({ queryKey: postKeys.all() }) })",
     desc: 'Padrão CRUD básico — invalidar o domínio inteiro após sucesso',
   },
   {
@@ -368,7 +367,7 @@ const CS_TIPS: string[] = [
   'cancelQueries no onMutate é obrigatório em optimistic updates — evita sobrescrever o otimismo',
   'select é memoizado — componente só re-renderiza se o dado transformado mudar',
   '@tanstack/react-query-devtools é essencial em desenvolvimento — inspecione o cache visualmente',
-  'invalidateQueries hierárquico: [\'posts\'] invalida tudo que começa com \'posts\'',
+  "invalidateQueries hierárquico: ['posts'] invalida tudo que começa com 'posts'",
 ]
 
 const CS_MENTAL_MODELS: string[] = [
@@ -377,7 +376,7 @@ const CS_MENTAL_MODELS: string[] = [
   'Mutation = ação; invalidation = sincronização; optimistic update = otimismo com rede de segurança',
 ]
 
-// ── Dados: Mnemônicos ────────────────────────────────────────────────────────────
+// ── Dados: Mnemônicos ───────────────────────────────────────────────────────────
 
 const MNEMONICS: MnemonicItem[] = [
   {
@@ -414,8 +413,8 @@ const MNEMONICS: MnemonicItem[] = [
       ['I', 'Inativada por feature flag ou permissão insuficiente'],
       ['S', 'Suspensa até autenticação confirmada'],
     ],
-    explanation: 'DEIS como "DEsabilita Intelligently, Sênior". enabled={!!valor} é o padrão — undefined e null são falsy, string vazia também. Quando enabled=false a query fica em status \'pending\', não \'loading\'.',
-    example: 'const { data: user } = useQuery({...}); const { data: posts } = useQuery({ queryKey: [\'posts\', user?.id], enabled: !!user?.id })',
+    explanation: "DEIS como 'DEsabilita Intelligently, Sênior'. enabled={!!valor} é o padrão — undefined e null são falsy, string vazia também. Quando enabled=false a query fica em status 'pending', não 'loading'.",
+    example: "const { data: user } = useQuery({...}); const { data: posts } = useQuery({ queryKey: ['posts', user?.id], enabled: !!user?.id })",
     why: 'Não usar enabled em queries dependentes causa erros de runtime — a queryFn tenta usar valores undefined. enabled={!!valor} é a guarda mais segura.',
   },
 ]
@@ -428,14 +427,14 @@ const ANTIPATTERNS: AntiPatternItem[] = [
     badDesc: 'Objeto criado a cada render = key diferente a cada render = refetch infinito',
     badCode: [
       { t: 'useQuery({' },
-      { t: '  queryKey: ', }, { t: "[{ userId, page }]", c: '#ef4444' },
+      { t: '  queryKey: ' }, { t: "[{ userId, page }]", c: '#ef4444' },
       { t: '  // objeto = nova referência a cada render', c: '#475569' },
       { t: '})' },
     ],
     goodDesc: 'Use primitivos — React Query compara por valor, não por referência',
     goodCode: [
       { t: 'useQuery({' },
-      { t: '  queryKey: ', }, { t: "['posts', userId, page]", c: '#4ade80' },
+      { t: '  queryKey: ' }, { t: "['posts', userId, page]", c: '#4ade80' },
       { t: '  // primitivos = comparação estável', c: '#475569' },
       { t: '})' },
     ],
@@ -447,7 +446,7 @@ const ANTIPATTERNS: AntiPatternItem[] = [
     badCode: [
       { t: 'const [data, setData] = useState(null)' },
       { t: 'useEffect(() => {', c: '#ef4444' },
-      { t: '  fetch(\'/api/posts\')' },
+      { t: "  fetch('/api/posts')" },
       { t: '    .then(r => r.json())' },
       { t: '    .then(d => setData(d))' },
       { t: '}, [userId])', c: '#ef4444' },
@@ -456,7 +455,7 @@ const ANTIPATTERNS: AntiPatternItem[] = [
     goodCode: [
       { t: 'const { data, isLoading } = useQuery({', c: '#4ade80' },
       { t: "  queryKey: ['posts', userId]," },
-      { t: '  queryFn: () => fetch(\'/api/posts\')', },
+      { t: "  queryFn: () => fetch('/api/posts')" },
       { t: '    .then(r => r.json()),' },
       { t: '  staleTime: 60_000,' },
       { t: '})', c: '#4ade80' },
@@ -514,7 +513,7 @@ const ANTIPATTERNS: AntiPatternItem[] = [
       { t: "useQuery({ queryKey: ['post', userId], ... })" },
       { t: "// Mutation invalida ['posts'] — ComponentB nunca atualiza", c: '#ef4444' },
     ],
-    goodDesc: 'Query factory centraliza todas as keys — typos viram erros de TypeScript',
+    goodDesc: "Query factory centraliza todas as keys — typos viram erros de TypeScript",
     goodCode: [
       { t: "// queries/postKeys.ts", c: '#475569' },
       { t: 'export const postKeys = {', c: '#4ade80' },
@@ -527,119 +526,127 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
-// ── Dados: Mindmap ────────────────────────────────────────────────────────────────
+// ── Dados: Comparative ─────────────────────────────────────────────────────────
 
-const MINDMAP_CATEGORIES: MindmapCategory[] = [
+const COMP_OPTIONS: CompOption[] = [
+  { name: 'React Query (v5)',  color: '#FF4154' },
+  { name: 'SWR',              color: '#38bdf8' },
+  { name: 'RTK Query',        color: '#a78bfa' },
+  { name: 'fetch puro',       color: '#4ade80' },
+]
+
+const COMP_CRITERIA: CompCriterion[] = [
   {
-    label: 'Hooks principais',
-    color: GRN,
-    items: [
-      { t: 'useQuery', k: true },
-      { t: 'useMutation', k: true },
-      { t: 'useInfiniteQuery', k: true },
-      { t: 'useQueryClient', k: true },
-      { t: 'useSuspenseQuery', a: true },
-    ],
+    criterion: 'Cache automático',
+    category: 'Core',
+    values: {
+      'React Query (v5)': 'staleTime, gcTime, background refetch, stale-while-revalidate',
+      'SWR': 'revalidation, dedupe, focusThrottleInterval — mais simples',
+      'RTK Query': 'cache semelhante ao React Query, ligado ao Redux store',
+      'fetch puro': 'sem cache de cliente — novo fetch a cada render',
+    },
+    winner: 'React Query (v5)',
   },
   {
-    label: 'Cache lifecycle',
-    color: AMB,
-    items: [
-      { t: 'fresh → stale → inactive → GC', k: true },
-      { t: 'staleTime — quando background refetch', k: true },
-      { t: 'gcTime — quando remove da memória', k: true },
-      { t: 'stale-while-revalidate', k: true },
-      { t: 'persistQueryClient', a: true },
-    ],
+    criterion: 'Mutations com callbacks',
+    category: 'Core',
+    values: {
+      'React Query (v5)': 'useMutation: onMutate, onSuccess, onError, onSettled — optimistic updates',
+      'SWR': 'mutate() simples, sem callbacks estruturados — menos ergonômico',
+      'RTK Query': 'endpoints com invalidatesTags — acoplado ao Redux',
+      'fetch puro': 'implementação manual com useEffect + useState',
+    },
+    winner: 'React Query (v5)',
   },
   {
-    label: 'Query keys',
-    color: SKY,
-    items: [
-      { t: '[\'posts\', id] — hierarquia', k: true },
-      { t: 'invalidar pai = invalidar filhos', k: true },
-      { t: 'Query factories', k: true },
-      { t: 'só primitivos na key', k: true },
-    ],
+    criterion: 'DevTools e DX',
+    category: 'Experiência',
+    values: {
+      'React Query (v5)': 'DevTools visuais (@tanstack/react-query-devtools), TypeScript excelente',
+      'SWR': 'sem DevTools próprios, TypeScript ok',
+      'RTK Query': 'Redux DevTools maduros, verbose',
+      'fetch puro': 'sem abstração — total controle, zero overhead',
+    },
+    winner: 'React Query (v5)',
   },
   {
-    label: 'Mutations',
-    color: C,
-    items: [
-      { t: 'mutationFn', k: true },
-      { t: 'onSuccess → invalidateQueries', k: true },
-      { t: 'onMutate → optimistic update', k: true },
-      { t: 'onError → rollback', k: true },
-      { t: 'onSettled → consistência final', k: true },
-      { t: 'mutate vs mutateAsync', a: true },
-    ],
+    criterion: 'Bundle size',
+    category: 'Performance',
+    values: {
+      'React Query (v5)': '~13KB gzipped — custo justificável pela DX em projetos complexos',
+      'SWR': '~4KB gzipped — muito leve, melhor para apps simples',
+      'RTK Query': '~15KB (Redux + RTK + RTK Query) — só se já usa Redux',
+      'fetch puro': '0KB — nativo do browser',
+    },
+    winner: 'SWR',
   },
   {
-    label: 'Controle de execução',
-    color: PRP,
-    items: [
-      { t: 'enabled — pausar query', k: true },
-      { t: 'select — derivar dado', k: true },
-      { t: 'placeholderData — UX suave', a: true },
-      { t: 'initialData — SSR simples', a: true },
-    ],
+    criterion: 'SSR / Next.js App Router',
+    category: 'Integração',
+    values: {
+      'React Query (v5)': 'dehydrate + HydrationBoundary + prefetchQuery em Server Components',
+      'SWR': 'fallback prop — funciona mas menos ergonômico',
+      'RTK Query': 'possível com setup mais complexo',
+      'fetch puro': 'é exatamente o caso de uso de Server Components',
+    },
+    winner: 'React Query (v5)',
   },
   {
-    label: 'Recursos avançados',
-    color: '#f472b6',
-    items: [
-      { t: 'useInfiniteQuery + cursor', a: true },
-      { t: 'prefetchQuery — antecipar dados', a: true },
-      { t: 'dehydrate + HydrationBoundary', a: true },
-      { t: 'WebSocket + setQueryData', a: true },
-      { t: 'queryCache.subscribe', a: true },
-    ],
+    criterion: 'Scroll infinito',
+    category: 'Features',
+    values: {
+      'React Query (v5)': 'useInfiniteQuery com getNextPageParam — nativo e ergonômico',
+      'SWR': 'useSWRInfinite — funciona bem',
+      'RTK Query': 'implementação manual',
+      'fetch puro': 'tudo manual com useState + useEffect',
+    },
+    winner: 'React Query (v5)',
   },
   {
-    label: 'QueryClient API',
-    color: '#fb923c',
-    items: [
-      { t: 'invalidateQueries', k: true },
-      { t: 'setQueryData', k: true },
-      { t: 'getQueryData', k: true },
-      { t: 'prefetchQuery', a: true },
-      { t: 'cancelQueries', a: true },
-      { t: 'removeQueries', a: true },
-    ],
+    criterion: 'Curva de aprendizado',
+    category: 'Experiência',
+    values: {
+      'React Query (v5)': 'conceitos de cache, staleTime, gcTime — leva alguns dias',
+      'SWR': 'API mínima — mais fácil de começar',
+      'RTK Query': 'requer entender Redux + RTK antes',
+      'fetch puro': 'sem curva — você já sabe',
+    },
+    winner: 'SWR',
   },
   {
-    label: 'Ecossistema',
-    color: '#a3e635',
-    items: [
-      { t: '@tanstack/react-query-devtools', k: true },
-      { t: 'TanStack Query v5', k: true },
-      { t: 'SWR — alternativa leve', a: true },
-      { t: 'RTK Query — alternativa Redux', a: true },
-    ],
+    criterion: 'Quando usar',
+    category: 'Decisão',
+    values: {
+      'React Query (v5)': 'Mutations frequentes, optimistic updates, infinite scroll, SSR complexo',
+      'SWR': 'Apps de leitura simples, dashboards, bundle budget apertado',
+      'RTK Query': 'Projeto já usa Redux/RTK — evita adicionar outra lib de cache',
+      'fetch puro': 'Server Components, dados que não precisam de cache de cliente',
+    },
+    winner: 'React Query (v5)',
   },
 ]
 
-const MINDMAP_CHECKLIST: string[] = [
-  'Explique a diferença entre estado de servidor e estado de cliente',
-  'Como funcionam as query keys e invalidação hierárquica?',
-  'Qual a diferença entre staleTime e gcTime?',
-  'Qual a diferença entre isLoading e isFetching?',
-  'Como implementar optimistic updates com useMutation?',
-  'Quais os 4 callbacks do useMutation e o papel de cada um?',
-  'Como usar useInfiniteQuery para scroll infinito?',
-  'Como integrar React Query com Next.js App Router (SSR)?',
-  'Como integrar React Query com WebSocket?',
-  'O que é o prop select e como funciona a memoização?',
-  'Quando usar invalidateQueries vs refetchQueries?',
-  'O que são query factories e por que usar?',
-  'Como usar enabled para queries dependentes?',
-  'Quando usar React Query vs SWR vs fetch em Server Component?',
-  'Como usar placeholderData para UX de paginação suave?',
-  'O que é useSuspenseQuery e quando preferir sobre useQuery?',
-  'Como configurar retry e backoff automático?',
-  'O que faz queryCache.subscribe?',
-  'Como usar mutateAsync vs mutate?',
-  'O que acontece com dado stale durante background refetch?',
+const COMP_SCENARIOS: CompScenario[] = [
+  {
+    scenario: 'CRUD com optimistic updates',
+    recommendation: 'React Query',
+    reason: 'useMutation com onMutate/onError/onSettled é a abstração mais ergonômica para esse padrão',
+  },
+  {
+    scenario: 'Dashboard de leitura, sem mutations',
+    recommendation: 'SWR',
+    reason: 'Bundle menor, API mais simples, cobre 100% do caso de uso sem overhead',
+  },
+  {
+    scenario: 'App Next.js com Server Components',
+    recommendation: 'fetch puro + React Query nos Client Components',
+    reason: 'Server Components usam fetch nativo; React Query nos Client Components que precisam de interatividade',
+  },
+  {
+    scenario: 'Projeto com Redux já estabelecido',
+    recommendation: 'RTK Query',
+    reason: 'Sem adicionar nova lib de cache — aproveita o store Redux existente',
+  },
 ]
 
 // ── Builders ────────────────────────────────────────────────────────────────────
@@ -684,18 +691,18 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     coverTitle: 'React Query Anti-patterns',
     coverSubtitle: 'Os 5 erros mais comuns — e como corrigir',
   }),
-  mindmap: () => buildMindmapPdf({
-    categories: MINDMAP_CATEGORIES,
-    checklist: MINDMAP_CHECKLIST,
-    accentColor: C,
+  comparative: () => buildComparativeRefPdf({
+    options: COMP_OPTIONS,
+    criteria: COMP_CRITERIA,
+    scenarios: COMP_SCENARIOS,
     skillName: 'React Query',
+    accentColor: C,
     stackLabel: 'Frontend — Data Fetching',
-    coverTitle: 'React Query Mind Map',
-    coverSubtitle: 'Do cache lifecycle ao SSR com Next.js',
+    coverTitle: 'React Query vs Alternativas',
   }),
 }
 
-// ── Componente ────────────────────────────────────────────────────────────────────
+// ── Componente ──────────────────────────────────────────────────────────────────
 
 export default function ReactQueryPdfs() {
   const [open, setOpen] = useState<PdfCard | null>(null)

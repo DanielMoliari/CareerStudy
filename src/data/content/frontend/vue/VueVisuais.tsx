@@ -16,6 +16,8 @@ import { StateMachineExplorer } from '@/components/visuals/StateMachineExplorer'
 import type { SMState, SMTransition } from '@/components/visuals/StateMachineExplorer'
 import { DecisionTree } from '@/components/visuals/DecisionTree'
 import type { DTNode } from '@/components/visuals/DecisionTree'
+import { CardCarousel } from '@/components/visuals/CardCarousel'
+import type { CarouselCard } from '@/components/visuals/CardCarousel'
 
 // ── Paleta Vue ────────────────────────────────────────────────────────────────
 const C      = '#4FC08D'   // Vue green
@@ -192,7 +194,7 @@ const LIFECYCLE_PHASES: TimelinePhase[] = [
     code: [
       [{ text: 'import', color: PRP }, { text: ' { ref, computed, onMounted } ', color: FG }, { text: 'from', color: PRP }, { text: " 'vue'", color: AMB }],
       [{ text: 'const', color: PRP }, { text: ' count ', color: FG }, { text: '=', color: SKY }, { text: ' ref(0)', color: C }],
-      [{ text: 'const', color: PRP }, { text: ' double ', color: FG }, { text: '=', color: SKY }, { text: ' computed(() => count.value * 2)', color: C }],
+      [{ text: 'const', color: PRP }, { text: ' double ', color: FG }, { text: '=', color: SKY }, { text: ' computed(() =&gt; count.value * 2)', color: C }],
     ],
   },
   {
@@ -205,7 +207,7 @@ const LIFECYCLE_PHASES: TimelinePhase[] = [
     code: [
       [{ text: 'onBeforeMount', color: AMB }, { text: '(() => {', color: FG }],
       [{ text: '  // template compilado, DOM ainda não existe', color: FGMUTE }],
-      [{ text: '  // useRaramente — prefira onMounted', color: FGMUTE }],
+      [{ text: '  // use raramente — prefira onMounted', color: FGMUTE }],
       [{ text: '})', color: FG }],
     ],
   },
@@ -234,7 +236,7 @@ const LIFECYCLE_PHASES: TimelinePhase[] = [
     code: [
       [{ text: 'onUpdated', color: SKY }, { text: '(() => {', color: FG }],
       [{ text: '  // DOM atualizado após re-render', color: FGMUTE }],
-      [{ text: '  // ⚠️ NÃO modifique estado aqui!', color: RED }],
+      [{ text: '  // ⚠ NÃO modifique estado aqui!', color: RED }],
       [{ text: '  // Use computed/watch em vez disso', color: FGMUTE }],
       [{ text: '})', color: FG }],
     ],
@@ -277,7 +279,7 @@ const LIFECYCLE_PHASES: TimelinePhase[] = [
 const REACTIVITY_STATES: SMState[] = [
   { id: 'raw',      label: 'Valor raw',     description: 'Valor JavaScript comum. Mudanças não são detectadas. Primitivos (number, string, boolean) ou objetos simples sem reatividade.', color: FGMUTE, isInitial: true },
   { id: 'ref',      label: 'ref()',         description: 'Wrapper reativo para qualquer valor. Acesso via .value em JS, auto-unwrap no template. Funciona com primitivos e objetos. A forma mais recomendada para Composition API.', color: C },
-  { id: 'reactive', label: 'reactive()',    description: 'Proxy reativo sobre objeto. Acesso direto sem .value. Gotcha: perde reatividade ao desestruturar. Prefira ref() para evitar armadilhas.', color: SEC },
+  { id: 'reactive', label: 'reactive()',    description: 'Proxy reativo sobre objeto. Acesso direto sem .value. Gotcha: perde reatividade ao desestruturar — os primitivos extraídos não são Proxies. Prefira ref() para evitar armadilhas.', color: SEC },
   { id: 'computed', label: 'computed()',    description: 'Valor derivado cacheado. Só reavalia quando dependências mudam. Lazy por natureza — não roda se não for acessado. Nunca deve ter efeitos colaterais.', color: GRN },
   { id: 'watch',    label: 'watch()',       description: 'Observer explícito com lazy por padrão. Tem acesso ao valor anterior e novo. Use quando precisa do oldValue ou controle fino de quando rodar.', color: AMB },
   { id: 'effect',   label: 'watchEffect()', description: 'Observer automático — rastreia todas as dependências acessadas. Executa imediatamente no mount. Sem acesso ao valor anterior. Ideal para sync simples com efeitos colaterais.', color: PRP },
@@ -323,7 +325,7 @@ const COMPONENT_LAYERS: Layer[] = [
     id: 'slots',
     label: 'Slots',
     sublabel: 'Conteúdo injetado pelo pai — inversão de controle',
-    description: 'Slots permitem que o pai injete conteúdo JSX dentro do filho. Slot padrão: <slot />. Named slots: <slot name="header" />. Scoped slots: <slot :item="item" /> — pai recebe dados do filho (renderless component pattern).',
+    description: 'Slots permitem que o pai injete conteúdo no filho. Slot padrão: <slot />. Named slots: <slot name="header" />. Scoped slots: <slot :item="item" /> — pai recebe dados do filho (renderless component pattern).',
     code: '// Filho:\n<slot :item="currentItem" :index="idx" />\n// Pai:\n<MyList v-slot="{ item, index }">{{ item.name }}</MyList>',
     color: GRN,
     icon: '🎰',
@@ -410,13 +412,13 @@ const ROUTER_NODES: Record<string, DTNode> = {
   lazy: {
     id: 'lazy',
     recommendation: 'Importação dinâmica no component',
-    detail: "// Lazy loading — bundle separado por rota:\n{\n  path: '/dashboard',\n  component: () => import('./DashboardPage.vue')\n}\n// Com chunk name para debugging:\ncomponent: () => import(/* webpackChunkName: 'dashboard' */ './DashboardPage.vue')\n// Vite gera chunk automaticamente",
+    detail: "// Lazy loading — bundle separado por rota:\n{\n  path: '/dashboard',\n  component: () => import('./DashboardPage.vue')\n}\n// Vite gera chunk automaticamente",
     color: C,
   },
   nested: {
     id: 'nested',
-    recommendation: 'children[] + <RouterView> aninhado',
-    detail: "// Router:\n{\n  path: '/admin',\n  component: AdminLayout,  // tem <RouterView />\n  children: [\n    { path: 'users', component: UsersPage },\n    { path: 'settings', component: SettingsPage },\n  ]\n}\n// AdminLayout.vue:\n<template>\n  <Sidebar />\n  <RouterView />  <!-- filho renderiza aqui -->\n</template>",
+    recommendation: 'children[] + RouterView aninhado',
+    detail: "// Router:\n{\n  path: '/admin',\n  component: AdminLayout,  // tem RouterView\n  children: [\n    { path: 'users', component: UsersPage },\n    { path: 'settings', component: SettingsPage },\n  ]\n}\n// AdminLayout.vue:\n<Sidebar />\n<RouterView />  // filho renderiza aqui",
     color: GRN,
   },
 }
@@ -436,7 +438,7 @@ import { ref, computed } from 'vue'
 export const useCounterStore = defineStore('counter', () => {
   // State
   const count = ref(0)
-  const history = ref<number[]>([])
+  const history = ref([])
 
   // Getters (computed)
   const double = computed(() => count.value * 2)
@@ -478,7 +480,7 @@ console.log(store.double)  // reativo`,
       lineEnd: 7,
       title: 'State — refs reativos',
       explanation: 'State em Pinia Composition API são simplesmente refs. Totalmente tipados, reativos. Diferença do Vuex: sem mutations — você muta diretamente em actions. Sem módulos aninhados — stores independentes e composáveis.',
-      memory: { 'count': 'ref(0)', 'history': 'ref<number[]>([])' },
+      memory: { 'count': 'ref(0)', 'history': 'ref([])' },
     },
     {
       lineStart: 9,
@@ -573,7 +575,7 @@ const VUE_ANTIPATTERNS: AntiPattern[] = [
     why: 'reactive() cria um Proxy. Desestruturar extrai os valores primitivos sem o Proxy — a reatividade é perdida silenciosamente. Use toRefs() ou prefira ref() para tudo.',
   },
   {
-    title: 'watch() esquecendo o immediate para roda no mount',
+    title: 'watch() esquecendo o immediate para rodar no mount',
     wrong: [
       [{ text: 'const userId = ref(route.params.id)', color: FGMUTE }],
       [{ text: '// Bug: não carrega dados ao montar!', color: RED }],
@@ -611,6 +613,117 @@ const VUE_ANTIPATTERNS: AntiPattern[] = [
       [{ text: 'const theme = inject(ThemeKey)  // Ref<string>', color: GRN }],
     ],
     why: 'provide() com primitivo cria uma cópia estática. O descendente não atualiza quando o pai muda o valor. Passe sempre a ref completa.',
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — Diretivas Vue essenciais (CardCarousel)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DIRECTIVE_CARDS: CarouselCard[] = [
+  {
+    name: 'v-if / v-else-if / v-else',
+    signature: 'v-if="condition"',
+    emoji: '🔀',
+    color: C,
+    use: [
+      'Conteúdo raramente exibido (login wall, empty state)',
+      'Condição que muda poucas vezes por sessão',
+      'Quando o componente deve executar lifecycle hooks ao montar/desmontar',
+    ],
+    dontUse: 'Toggle frequente (tabas, modais) — use v-show para evitar re-criação do DOM',
+    difficulty: 1,
+  },
+  {
+    name: 'v-show',
+    signature: 'v-show="condition"',
+    emoji: '👁️',
+    color: SEC,
+    use: [
+      'Toggle frequente — tabas, accordions, dropdowns',
+      'Quando preservar estado do componente é importante',
+      'Quando o custo de inicialização (chart, mapa) é alto',
+    ],
+    dontUse: 'Conteúdo que raramente aparece — mantém DOM e usa memória desnecessariamente',
+    difficulty: 1,
+  },
+  {
+    name: 'v-for',
+    signature: 'v-for="item in list" :key="item.id"',
+    emoji: '🔁',
+    color: GRN,
+    use: [
+      'Renderizar listas, tabelas ou grades de itens',
+      'Iterar sobre objeto: v-for="(val, key) in obj"',
+      'Combinar com computed() para filtrar/ordenar antes de renderizar',
+    ],
+    dontUse: 'Nunca usar v-if no mesmo elemento — v-if avalia antes de v-for em Vue 3',
+    difficulty: 1,
+  },
+  {
+    name: 'v-model',
+    signature: 'v-model="value"',
+    emoji: '🔗',
+    color: AMB,
+    use: [
+      'Two-way binding em inputs nativos (text, checkbox, select)',
+      'v-model em componente = :modelValue + @update:modelValue',
+      'Múltiplos v-model: v-model:title + v-model:content no mesmo componente',
+    ],
+    dontUse: 'Não usar para fluxo unidirecional intencional — prefira :value + @input explícitos',
+    difficulty: 2,
+  },
+  {
+    name: 'v-bind / :',
+    signature: ':prop="expression"',
+    emoji: '🔌',
+    color: SKY,
+    use: [
+      'Qualquer atributo dinâmico: :class, :style, :href, :disabled',
+      'Binding de objeto completo: v-bind="$attrs" para pass-through',
+      ':class com objeto: :class="{ active: isActive, error: hasError }"',
+    ],
+    dontUse: 'Não usar para texto simples — prefer {{ interpolação }} para conteúdo textual',
+    difficulty: 1,
+  },
+  {
+    name: 'v-on / @',
+    signature: '@event="handler"',
+    emoji: '🎯',
+    color: RED,
+    use: [
+      'Eventos nativos do DOM: @click, @submit.prevent, @keydown.enter',
+      'Eventos de componente filho: @update:modelValue, @close',
+      'Modificadores: .prevent, .stop, .once, .self, .capture',
+    ],
+    dontUse: 'Não passar funções inline complexas — extraia para métodos nomeados para manter template legível',
+    difficulty: 1,
+  },
+  {
+    name: 'v-slot / #',
+    signature: 'v-slot="{ item }" ou #default="{ item }"',
+    emoji: '🎰',
+    color: PRP,
+    use: [
+      'Receber dados do filho via scoped slot (renderless components)',
+      'Named slots: <template #header> para múltiplas regiões',
+      'Pattern renderless: filho gerencia lógica, pai controla visual',
+    ],
+    dontUse: 'Não usar scoped slot quando props simples resolvem — adiciona complexidade desnecessária',
+    difficulty: 3,
+  },
+  {
+    name: 'v-memo (Vue 3.2+)',
+    signature: 'v-memo="[dep1, dep2]"',
+    emoji: '⚡',
+    color: AMB,
+    use: [
+      'Memoizar subárvore grande com muitas dependências',
+      'Listas longas combinadas com v-for para evitar re-renders desnecessários',
+      'Componentes que raramente mudam mas são caros de renderizar',
+    ],
+    dontUse: 'Não usar indiscriminadamente — overhead de comparação supera benefício em componentes simples',
+    difficulty: 3,
   },
 ]
 
@@ -713,6 +826,21 @@ export default function VueVisuais() {
           patterns={VUE_ANTIPATTERNS}
           accentColor={C}
           bgColor={BG}
+        />
+      ),
+    },
+    {
+      id: 'directives',
+      title: 'Diretivas Vue — referência completa',
+      subtitle: 'v-if, v-show, v-for, v-model, v-bind, v-on, v-slot e v-memo — quando usar cada uma',
+      accent: C,
+      component: (
+        <CardCarousel
+          cards={DIRECTIVE_CARDS}
+          accentColor={C}
+          bgColor={BG}
+          heading="Diretivas Vue"
+          description="Clique em cada diretiva para ver os casos de uso e quando evitá-la."
         />
       ),
     },

@@ -9,20 +9,20 @@ import { buildCheatsheetPdf } from '@/components/pdfs/CheatsheetPdf'
 import type { HookItem, PatternItem, DepRow, RuleItem } from '@/components/pdfs/CheatsheetPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
-import { buildMindmapPdf } from '@/components/pdfs/MindmapPdf'
-import type { MindmapCategory } from '@/components/pdfs/MindmapPdf'
 import { buildQuickRefPdf } from '@/components/pdfs/QuickRefPdf'
 import type { QuickRefColumn } from '@/components/pdfs/QuickRefPdf'
+import { buildComparativeRefPdf } from '@/components/pdfs/ComparativeRefPdf'
+import type { CompOption, CompCriterion, CompScenario } from '@/components/pdfs/ComparativeRefPdf'
 
 // ── Paleta Tailwind CSS ──────────────────────────────────────────────────────────
-const C      = '#38BDF8'
-const GRN    = '#4ade80'
-const AMB    = '#f59e0b'
-const PRP    = '#a78bfa'
-const RED    = '#ef4444'
-const PINK   = '#f472b6'
+const C    = '#38BDF8'
+const GRN  = '#4ade80'
+const AMB  = '#f59e0b'
+const PRP  = '#a78bfa'
+const RED  = '#ef4444'
+const PINK = '#f472b6'
 
-// ── Metadados dos PDFs ────────────────────────────────────────────────────────────
+// ── Metadados dos PDFs ──────────────────────────────────────────────────────────
 
 const PDF_CARDS: PdfCard[] = [
   {
@@ -37,24 +37,24 @@ const PDF_CARDS: PdfCard[] = [
     featured: true,
   },
   {
-    id: 'cheatsheet',
-    title: 'CheatSheet',
-    subtitle: 'Classes por categoria, variantes e configuração',
-    type: 'cheatsheet',
-    pages: 3,
-    description: 'Referência densa: classes de layout/spacing/typography/colors/effects, todos os prefixos de variantes (hover:, dark:, md:, group-hover:, peer), configuração do tailwind.config e padrões com cn()/cva. Tudo que você precisa sem abrir a documentação.',
-    icon: '02',
-    goal: 'Consulta rápida',
-  },
-  {
     id: 'quick-ref',
     title: 'Quick Ref',
     subtitle: 'Referência ultra-compacta das classes mais usadas',
     type: 'quick-ref',
     pages: 1,
     description: 'Cartão A4 landscape com as classes mais usadas organizadas por categoria: layout, spacing, typography, colors, borders, effects e variantes. Imprima e cole no monitor.',
-    icon: '03',
+    icon: '02',
     goal: 'Referência rápida',
+  },
+  {
+    id: 'cheatsheet',
+    title: 'CheatSheet',
+    subtitle: 'Classes por categoria, variantes e configuração',
+    type: 'cheatsheet',
+    pages: 3,
+    description: 'Referência densa: classes de layout/spacing/typography/colors/effects, todos os prefixos de variantes (hover:, dark:, md:, group-hover:, peer), configuração do tailwind.config e padrões com cn()/cva. Tudo que você precisa sem abrir a documentação.',
+    icon: '03',
+    goal: 'Consulta rápida',
   },
   {
     id: 'antipatterns',
@@ -67,18 +67,18 @@ const PDF_CARDS: PdfCard[] = [
     goal: 'Reconhecimento de padrão',
   },
   {
-    id: 'mindmap',
-    title: 'Mind Map',
-    subtitle: 'Tailwind do zero ao sênior em uma folha',
-    type: 'mindmap',
+    id: 'comparative',
+    title: 'Tailwind vs Alternativas',
+    subtitle: 'Tailwind × CSS Modules × Styled Components × Sass',
+    type: 'comparative',
     pages: 2,
-    description: 'Mapa mental completo com 8 categorias — classes utilitárias, variantes, configuração, dark mode, composição, ecossistema, performance e comparação — com checklist de 20 perguntas de entrevista.',
+    description: 'Tabela densa comparando Tailwind CSS, CSS Modules, Styled Components e Sass em 7 critérios: bundle size, velocidade de desenvolvimento, naming/leakage, type safety, dark mode, SSR e curva de aprendizado. Com cenários de quando usar cada um — argumento pronto para entrevista.',
     icon: '05',
-    goal: 'Mapeamento mental',
+    goal: 'Decisão técnica defensável',
   },
 ]
 
-// ── Dados: Q&A ────────────────────────────────────────────────────────────────────
+// ── Dados: Q&A ──────────────────────────────────────────────────────────────────
 
 const QAS: QAItem[] = [
   {
@@ -303,84 +303,6 @@ const QAS: QAItem[] = [
   },
 ]
 
-// ── Dados: Cheatsheet ────────────────────────────────────────────────────────────
-
-const CS_HOOKS: HookItem[] = [
-  { name: 'flex / flex-col',           sig: 'display: flex / flex-direction: column',                    desc: 'Layout flexível — base de qualquer design responsivo' },
-  { name: 'grid grid-cols-{n}',        sig: 'display: grid; grid-template-columns: repeat(n, 1fr)',       desc: 'Layout em grade — combine com col-span para estruturas complexas' },
-  { name: 'p-{n} / px-{n} / py-{n}',  sig: 'padding: n×0.25rem / padding-x / padding-y',                desc: 'Escala de espaçamento: p-1=4px, p-2=8px, p-4=16px, p-8=32px' },
-  { name: 'text-{size}',               sig: 'font-size: xs=0.75 / sm=0.875 / base=1 / lg=1.125 / xl=1.25rem', desc: 'Escala tipográfica — combine com font-{weight} e leading-{size}' },
-  { name: 'hover: / focus: / dark:',   sig: 'Gera seletor condicional: :hover, :focus, .dark &',         desc: 'Variants de estado — combine com qualquer utility' },
-]
-
-const CS_PATTERNS: PatternItem[] = [
-  {
-    name: 'cn() helper',
-    code: 'function cn(...i: ClassValue[]) { return twMerge(clsx(i)) }',
-    desc: 'clsx para condições + tailwind-merge para conflitos — padrão em todo projeto profissional',
-  },
-  {
-    name: 'cva com variantes',
-    code: 'const btn = cva("base", { variants: { v: { a: "classes" } }, defaultVariants: { v: "a" } })',
-    desc: 'Variantes type-safe com VariantProps<typeof btn> para type safety completa',
-  },
-  {
-    name: 'Dark mode com CSS variables',
-    code: ':root { --color-bg: 255 255 255 } .dark { --color-bg: 15 23 42 } → bg-[rgb(var(--color-bg))]',
-    desc: 'Tokens semânticos via CSS variables — troca tema sem dark: em cada elemento',
-  },
-  {
-    name: 'Responsive mobile-first',
-    code: '<div class="text-sm md:text-base lg:text-lg xl:grid-cols-3">',
-    desc: 'Sem prefixo = mobile base. Prefixo = a partir daquele breakpoint para cima',
-  },
-  {
-    name: 'Arbitrary values para casos únicos',
-    code: 'w-[327px] h-[calc(100vh-4rem)] grid-cols-[1fr_2fr] bg-[#1a2b3c]',
-    desc: 'Underscores → espaços. Use para valores únicos — se repetir 3x, vira token no config',
-  },
-]
-
-const CS_DEP_ROWS: DepRow[] = [
-  ['sm: (≥640px)',   'Smartphone landscape, telas pequenas'],
-  ['md: (≥768px)',   'Tablet — layout de 2 colunas geralmente começa aqui'],
-  ['lg: (≥1024px)',  'Laptop — layout de 3 colunas, sidebars'],
-  ['xl: (≥1280px)',  'Desktop — max-width containers'],
-  ['2xl: (≥1536px)', 'Wide screens — conteúdo muito largo'],
-  ['max-md:',        'Desktop-first excepcional — aplica até md (não acima)'],
-  ['hover:',         'Mouse hover — não use para informação crítica (touchscreen)'],
-  ['focus-visible:', 'Foco via teclado (melhor a11y que focus:)'],
-  ['dark:',          'Dark mode — combine com CSS variables para escalabilidade'],
-  ['group-hover:',   'Filho reage ao hover do pai com classe .group'],
-  ['peer-checked:',  'Elemento reage ao estado do irmão anterior com classe .peer'],
-  ['data-[state=*]:', 'Estiliza por atributo data-* — ideal para componentes Radix UI'],
-]
-
-const CS_RULES: RuleItem[] = [
-  { ok: true,  t: 'Use mapa de classes completas para valores dinâmicos: { red: "bg-red-500" }[color]' },
-  { ok: false, t: 'Interpolação de string: `bg-${color}-500` — scanner não detecta' },
-  { ok: true,  t: 'cn() para combinar classes — resolve conflitos com tailwind-merge' },
-  { ok: false, t: 'Concatenar strings de classes sem tailwind-merge — comportamento imprevisível' },
-  { ok: true,  t: 'theme.extend para adicionar tokens sem sobrescrever o padrão' },
-  { ok: false, t: 'Modificar theme (sem extend) — sobrescreve cores, spacing etc. do padrão' },
-  { ok: true,  t: '@apply para HTML de terceiros (CMS, markdown) que você não controla' },
-  { ok: false, t: '@apply em componentes React — use componente com cva ao invés' },
-]
-
-const CS_TIPS: string[] = [
-  'Classes fora do content[] aparecem em dev mas somem em produção — sempre teste npm run build',
-  'bg-primary/50 com opacity só funciona com hsl(var() / <alpha-value>) no config',
-  'peer deve ser um irmão ANTERIOR no DOM — irmão posterior não funciona',
-  'Tailwind IntelliSense no VS Code é obrigatório — instale antes de começar',
-  'group/{name} para múltiplos grupos aninhados sem conflito de variants',
-]
-
-const CS_MENTAL_MODELS: string[] = [
-  'Utility-first = composição no HTML, não no CSS. O estilo vai com o markup.',
-  'JIT = scanner + geração sob demanda. Só existe no bundle o que o scanner encontrou.',
-  'Tailwind não é CSS-in-JS. É CSS estático gerado em build time — funciona em Server Components.',
-]
-
 // ── Dados: Quick Ref ────────────────────────────────────────────────────────────
 
 const QUICK_REF_COLUMNS: QuickRefColumn[] = [
@@ -444,12 +366,12 @@ const QUICK_REF_COLUMNS: QuickRefColumn[] = [
       {
         title: 'Breakpoints',
         entries: [
-          { key: '(base)',  value: '0px+',   badge: 'mobile',  badgeColor: '#4ade80' },
-          { key: 'sm:',     value: '≥640px', badge: 'sm phone', badgeColor: '#38BDF8' },
-          { key: 'md:',     value: '≥768px', badge: 'tablet',  badgeColor: '#38BDF8' },
-          { key: 'lg:',     value: '≥1024px', badge: 'laptop', badgeColor: '#a78bfa' },
+          { key: '(base)',  value: '0px+',    badge: 'mobile',  badgeColor: '#4ade80' },
+          { key: 'sm:',     value: '≥640px',  badge: 'sm phone', badgeColor: '#38BDF8' },
+          { key: 'md:',     value: '≥768px',  badge: 'tablet',  badgeColor: '#38BDF8' },
+          { key: 'lg:',     value: '≥1024px', badge: 'laptop',  badgeColor: '#a78bfa' },
           { key: 'xl:',     value: '≥1280px', badge: 'desktop', badgeColor: '#f59e0b' },
-          { key: '2xl:',    value: '≥1536px', badge: 'wide',   badgeColor: '#f472b6' },
+          { key: '2xl:',    value: '≥1536px', badge: 'wide',    badgeColor: '#f472b6' },
           { key: 'max-md:', value: 'até 768px — desktop-first' },
         ],
       },
@@ -478,20 +400,98 @@ const QUICK_REF_COLUMNS: QuickRefColumn[] = [
       {
         title: 'Variants de estado',
         entries: [
-          { key: 'hover:',         value: 'ao passar o mouse', badge: 'interação', badgeColor: '#38BDF8' },
-          { key: 'focus:',         value: 'ao focar',          badge: 'a11y',      badgeColor: '#4ade80' },
-          { key: 'focus-visible:', value: 'foco via teclado',  badge: 'a11y',      badgeColor: '#4ade80' },
-          { key: 'active:',        value: 'durante o clique',  badge: 'interação', badgeColor: '#38BDF8' },
-          { key: 'disabled:',      value: 'atributo disabled', badge: 'form',      badgeColor: '#f59e0b' },
-          { key: 'dark:',          value: 'dark mode ativo',   badge: 'tema',      badgeColor: '#a78bfa' },
-          { key: 'group-hover:',   value: 'hover no pai .group', badge: 'grupo',   badgeColor: '#f472b6' },
-          { key: 'peer-checked:',  value: 'irmão anterior checked', badge: 'peer', badgeColor: '#f472b6' },
-          { key: 'aria-checked:',  value: 'atributo aria-checked', badge: 'a11y',  badgeColor: '#4ade80' },
+          { key: 'hover:',         value: 'ao passar o mouse', badge: 'interação',  badgeColor: '#38BDF8' },
+          { key: 'focus:',         value: 'ao focar',          badge: 'a11y',       badgeColor: '#4ade80' },
+          { key: 'focus-visible:', value: 'foco via teclado',  badge: 'a11y',       badgeColor: '#4ade80' },
+          { key: 'active:',        value: 'durante o clique',  badge: 'interação',  badgeColor: '#38BDF8' },
+          { key: 'disabled:',      value: 'atributo disabled', badge: 'form',       badgeColor: '#f59e0b' },
+          { key: 'dark:',          value: 'dark mode ativo',   badge: 'tema',       badgeColor: '#a78bfa' },
+          { key: 'group-hover:',   value: 'hover no pai .group', badge: 'grupo',    badgeColor: '#f472b6' },
+          { key: 'peer-checked:',  value: 'irmão anterior checked', badge: 'peer',  badgeColor: '#f472b6' },
+          { key: 'aria-checked:',  value: 'atributo aria-checked', badge: 'a11y',   badgeColor: '#4ade80' },
           { key: 'data-[state=*]:', value: 'atributo data-* (Radix)', badge: 'headless', badgeColor: '#94a3b8' },
         ],
       },
     ],
   },
+]
+
+// ── Dados: Cheatsheet ───────────────────────────────────────────────────────────
+
+const CS_HOOKS: HookItem[] = [
+  { name: 'flex / flex-col',           sig: 'display: flex / flex-direction: column',                         desc: 'Layout flexível — base de qualquer design responsivo' },
+  { name: 'grid grid-cols-{n}',        sig: 'display: grid; grid-template-columns: repeat(n, 1fr)',            desc: 'Layout em grade — combine com col-span para estruturas complexas' },
+  { name: 'p-{n} / px-{n} / py-{n}',  sig: 'padding: n×0.25rem / padding-x / padding-y',                     desc: 'Escala de espaçamento: p-1=4px, p-2=8px, p-4=16px, p-8=32px' },
+  { name: 'text-{size}',               sig: 'font-size: xs=0.75 / sm=0.875 / base=1 / lg=1.125 / xl=1.25rem', desc: 'Escala tipográfica — combine com font-{weight} e leading-{size}' },
+  { name: 'hover: / focus: / dark:',   sig: 'Gera seletor condicional: :hover, :focus, .dark &',              desc: 'Variants de estado — combine com qualquer utility' },
+]
+
+const CS_PATTERNS: PatternItem[] = [
+  {
+    name: 'cn() helper',
+    code: 'function cn(...i: ClassValue[]) { return twMerge(clsx(i)) }',
+    desc: 'clsx para condições + tailwind-merge para conflitos — padrão em todo projeto profissional',
+  },
+  {
+    name: 'cva com variantes',
+    code: 'const btn = cva("base", { variants: { v: { a: "classes" } }, defaultVariants: { v: "a" } })',
+    desc: 'Variantes type-safe com VariantProps<typeof btn> para type safety completa',
+  },
+  {
+    name: 'Dark mode com CSS variables',
+    code: ':root { --color-bg: 255 255 255 } .dark { --color-bg: 15 23 42 } → bg-[rgb(var(--color-bg))]',
+    desc: 'Tokens semânticos via CSS variables — troca tema sem dark: em cada elemento',
+  },
+  {
+    name: 'Responsive mobile-first',
+    code: '<div class="text-sm md:text-base lg:text-lg xl:grid-cols-3">',
+    desc: 'Sem prefixo = mobile base. Prefixo = a partir daquele breakpoint para cima',
+  },
+  {
+    name: 'Arbitrary values para casos únicos',
+    code: 'w-[327px] h-[calc(100vh-4rem)] grid-cols-[1fr_2fr] bg-[#1a2b3c]',
+    desc: 'Underscores → espaços. Use para valores únicos — se repetir 3x, vira token no config',
+  },
+]
+
+const CS_DEP_ROWS: DepRow[] = [
+  ['sm: (≥640px)',    'Smartphone landscape, telas pequenas'],
+  ['md: (≥768px)',    'Tablet — layout de 2 colunas geralmente começa aqui'],
+  ['lg: (≥1024px)',   'Laptop — layout de 3 colunas, sidebars'],
+  ['xl: (≥1280px)',   'Desktop — max-width containers'],
+  ['2xl: (≥1536px)',  'Wide screens — conteúdo muito largo'],
+  ['max-md:',         'Desktop-first excepcional — aplica até md (não acima)'],
+  ['hover:',          'Mouse hover — não use para informação crítica (touchscreen)'],
+  ['focus-visible:',  'Foco via teclado (melhor a11y que focus:)'],
+  ['dark:',           'Dark mode — combine com CSS variables para escalabilidade'],
+  ['group-hover:',    'Filho reage ao hover do pai com classe .group'],
+  ['peer-checked:',   'Elemento reage ao estado do irmão anterior com classe .peer'],
+  ['data-[state=*]:', 'Estiliza por atributo data-* — ideal para componentes Radix UI'],
+]
+
+const CS_RULES: RuleItem[] = [
+  { ok: true,  t: 'Use mapa de classes completas para valores dinâmicos: { red: "bg-red-500" }[color]' },
+  { ok: false, t: 'Interpolação de string: `bg-${color}-500` — scanner não detecta' },
+  { ok: true,  t: 'cn() para combinar classes — resolve conflitos com tailwind-merge' },
+  { ok: false, t: 'Concatenar strings de classes sem tailwind-merge — comportamento imprevisível' },
+  { ok: true,  t: 'theme.extend para adicionar tokens sem sobrescrever o padrão' },
+  { ok: false, t: 'Modificar theme (sem extend) — sobrescreve cores, spacing etc. do padrão' },
+  { ok: true,  t: '@apply para HTML de terceiros (CMS, markdown) que você não controla' },
+  { ok: false, t: '@apply em componentes React — use componente com cva ao invés' },
+]
+
+const CS_TIPS: string[] = [
+  'Classes fora do content[] aparecem em dev mas somem em produção — sempre teste npm run build',
+  'bg-primary/50 com opacity só funciona com hsl(var() / <alpha-value>) no config',
+  'peer deve ser um irmão ANTERIOR no DOM — irmão posterior não funciona',
+  'Tailwind IntelliSense no VS Code é obrigatório — instale antes de começar',
+  'group/{name} para múltiplos grupos aninhados sem conflito de variants',
+]
+
+const CS_MENTAL_MODELS: string[] = [
+  'Utility-first = composição no HTML, não no CSS. O estilo vai com o markup.',
+  'JIT = scanner + geração sob demanda. Só existe no bundle o que o scanner encontrou.',
+  'Tailwind não é CSS-in-JS. É CSS estático gerado em build time — funciona em Server Components.',
 ]
 
 // ── Dados: Anti-patterns ────────────────────────────────────────────────────────
@@ -502,8 +502,8 @@ const ANTIPATTERNS: AntiPatternItem[] = [
     badDesc: 'Interpolação impede o scanner — classe não aparece no bundle de produção',
     badCode: [
       { t: 'const color = "red"' },
-      { t: `<div className={\`bg-\${color}-500\`}>`, c: '#ef4444' },
-      { t: '// Scanner vê: bg-" + color + "-500', c: '#475569' },
+      { t: '<div className={`bg-${color}-500`}>', c: '#ef4444' },
+      { t: "// Scanner vê: bg-\" + color + \"-500", c: '#475569' },
       { t: '// Funciona em dev, some em produção', c: '#ef4444' },
     ],
     goodDesc: 'Mapa de classes completas — scanner detecta string literal',
@@ -584,7 +584,7 @@ const ANTIPATTERNS: AntiPatternItem[] = [
       { t: '// tailwind.config.ts', c: '#475569' },
       { t: 'theme: {', c: '#ef4444' },
       { t: "  colors: { primary: '#38BDF8' },", c: '#ef4444' },
-      { t: '  // ❌ removeu blue-500, red-500, todos os outros', c: '#ef4444' },
+      { t: '  // removeu blue-500, red-500, todos os outros', c: '#ef4444' },
       { t: '},', c: '#ef4444' },
     ],
     goodDesc: 'theme.extend adiciona tokens sem remover as cores e spacing padrão',
@@ -593,7 +593,7 @@ const ANTIPATTERNS: AntiPatternItem[] = [
       { t: 'theme: {', c: '#4ade80' },
       { t: '  extend: {', c: '#4ade80' },
       { t: "    colors: { primary: '#38BDF8' },", c: '#4ade80' },
-      { t: '    // ✅ adiciona sem remover o padrão', c: '#475569' },
+      { t: '    // adiciona sem remover o padrão', c: '#475569' },
       { t: '  },', c: '#4ade80' },
       { t: '},', c: '#4ade80' },
     ],
@@ -601,122 +601,116 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
-// ── Dados: Mindmap ────────────────────────────────────────────────────────────────
+// ── Dados: Comparative ─────────────────────────────────────────────────────────
 
-const MINDMAP_CATEGORIES: MindmapCategory[] = [
+const COMP_OPTIONS: CompOption[] = [
+  { name: 'Tailwind CSS',        color: '#38BDF8' },
+  { name: 'CSS Modules',         color: '#4ade80' },
+  { name: 'Styled Components',   color: '#db7093' },
+  { name: 'Sass/SCSS',           color: '#CC6699' },
+]
+
+const COMP_CRITERIA: CompCriterion[] = [
   {
-    label: 'Classes utilitárias',
-    color: C,
-    items: [
-      { t: 'Layout: flex, grid, container', k: true },
-      { t: 'Spacing: p-*, m-*, gap-*', k: true },
-      { t: 'Typography: text-*, font-*', k: true },
-      { t: 'Colors: bg-*, text-*, border-*', k: true },
-      { t: 'Effects: shadow-*, rounded-*, opacity-*', k: true },
-    ],
+    criterion: 'Bundle size (produção)',
+    category: 'Performance',
+    values: {
+      'Tailwind CSS':      'JIT — apenas classes usadas (~5-10KB) — melhor da categoria',
+      'CSS Modules':       'Só CSS dos módulos importados — compacto',
+      'Styled Components': 'Runtime + CSS serializado (~12KB lib) — overhead de JS',
+      'Sass/SCSS':         'Depende do que está no arquivo — sem purge automático',
+    },
+    winner: 'Tailwind CSS',
   },
   {
-    label: 'Variants & States',
-    color: RED,
-    items: [
-      { t: 'hover: / focus: / active:', k: true },
-      { t: 'sm: / md: / lg: / xl: — responsive', k: true },
-      { t: 'dark: — dark mode', k: true },
-      { t: 'group / group-hover:', k: true },
-      { t: 'peer / peer-checked:', k: true },
-      { t: 'focus-visible: / disabled:', k: true },
-      { t: 'aria-* / data-[state=*]:', a: true },
-    ],
+    criterion: 'Velocidade de desenvolvimento',
+    category: 'DX',
+    values: {
+      'Tailwind CSS':      'IntelliSense + sem trocar de arquivo — mais rápido na prática',
+      'CSS Modules':       'CSS familiar mas requer trocar entre arquivo .tsx e .module.css',
+      'Styled Components': 'Colocação de código, variantes com props — ergonômico',
+      'Sass/SCSS':         'Reutilização com mixins, nesting — mais verboso que Tailwind',
+    },
+    winner: 'Tailwind CSS',
   },
   {
-    label: 'Composição',
-    color: GRN,
-    items: [
-      { t: 'cn() = clsx + tailwind-merge', k: true },
-      { t: 'cva — variantes type-safe', k: true },
-      { t: 'VariantProps — tipos automáticos', k: true },
-      { t: '@apply — HTML de terceiros only', k: true },
-    ],
+    criterion: 'Naming / CSS global leakage',
+    category: 'Arquitetura',
+    values: {
+      'Tailwind CSS':      'Sem naming, sem leakage — classes atômicas globais por design',
+      'CSS Modules':       'Hash automático — zero leakage — excelente',
+      'Styled Components': 'Scoped por definição — zero leakage — excelente',
+      'Sass/SCSS':         'CSS global — precisa de BEM ou OOCSS para organizar',
+    },
+    winner: 'CSS Modules',
   },
   {
-    label: 'Dark Mode',
-    color: PRP,
-    items: [
-      { t: 'darkMode: "class" (recomendado)', k: true },
-      { t: 'dark: prefix por elemento', k: true },
-      { t: 'CSS variables — sem dark: em tudo', k: true },
-      { t: 'ThemeProvider + localStorage', k: true },
-      { t: 'Multi-theme com data-theme=*', a: true },
-    ],
+    criterion: 'Type safety (variantes)',
+    category: 'DX',
+    values: {
+      'Tailwind CSS':      'cva + VariantProps — variantes 100% tipadas com autocomplete',
+      'CSS Modules':       'Tipagem de classes com csstype — limitado',
+      'Styled Components': 'Props tipados diretamente no componente — excelente',
+      'Sass/SCSS':         'Sem type safety nativa',
+    },
+    winner: 'Tailwind CSS',
   },
   {
-    label: 'Configuração',
-    color: AMB,
-    items: [
-      { t: 'tailwind.config.ts — tokens e temas', k: true },
-      { t: 'theme.extend — adicionar sem substituir', k: true },
-      { t: 'content[] — arquivos a escanear', k: true },
-      { t: 'CSS variables + alpha-value', k: true },
-      { t: 'safelist — classes dinâmicas garantidas', a: true },
-      { t: 'preset — tokens compartilhados', a: true },
-    ],
+    criterion: 'Dark mode',
+    category: 'Features',
+    values: {
+      'Tailwind CSS':      'dark: prefix ou CSS variables — fácil e flexível',
+      'CSS Modules':       'prefers-color-scheme no CSS — ok mas não automático',
+      'Styled Components': 'ThemeProvider + variáveis — muito flexível',
+      'Sass/SCSS':         'Variáveis Sass + media query — mais verboso',
+    },
+    winner: 'Tailwind CSS',
   },
   {
-    label: 'Arbitrary Values',
-    color: PINK,
-    items: [
-      { t: 'w-[327px] — valor fixo único', k: true },
-      { t: 'bg-[#hex] — cor arbitrária', k: true },
-      { t: 'grid-cols-[1fr_2fr] — underscore=espaço', k: true },
-      { t: 'h-[calc(100vh-4rem)]', a: true },
-    ],
+    criterion: 'SSR / Next.js App Router',
+    category: 'Integração',
+    values: {
+      'Tailwind CSS':      'Zero runtime — funciona em Server Components nativamente',
+      'CSS Modules':       'CSS estático — funciona em Server Components nativamente',
+      'Styled Components': 'Requer ServerStyleSheet e setup extra — problemático no App Router',
+      'Sass/SCSS':         'CSS estático — funciona perfeitamente em Server Components',
+    },
+    winner: 'Tailwind CSS',
   },
   {
-    label: 'Ecossistema',
-    color: '#fb923c',
-    items: [
-      { t: 'shadcn/ui — componentes prontos', k: true },
-      { t: 'Radix UI — comportamento headless', k: true },
-      { t: 'tailwind-merge — resolver conflitos', k: true },
-      { t: 'clsx — classes condicionais', k: true },
-      { t: 'Prettier plugin — ordenar classes', a: true },
-      { t: 'Tailwind IntelliSense (VS Code)', k: true },
-    ],
-  },
-  {
-    label: 'Tailwind v4',
-    color: '#a3e635',
-    items: [
-      { t: 'Engine Oxide (Rust) — 10x mais rápido', a: true },
-      { t: '@theme em CSS — sem tailwind.config.ts', a: true },
-      { t: 'Auto content detection — sem content[]', a: true },
-      { t: '@import "tailwindcss" — sem diretivas', a: true },
-      { t: 'Container queries nativo', a: true },
-    ],
+    criterion: 'Curva de aprendizado',
+    category: 'DX',
+    values: {
+      'Tailwind CSS':      'Nomes de classe exigem memorização — IntelliSense ajuda muito',
+      'CSS Modules':       'CSS puro — curva mínima para quem já sabe CSS',
+      'Styled Components': 'Template literals + ThemeProvider — alguma curva',
+      'Sass/SCSS':         'CSS puro + variáveis/nesting — curva mínima',
+    },
+    winner: 'CSS Modules',
   },
 ]
 
-const MINDMAP_CHECKLIST: string[] = [
-  'O que é utility-first e qual o tradeoff em relação ao CSS tradicional?',
-  'Como o JIT elimina CSS morto?',
-  'Por que classes dinâmicas por interpolação não funcionam?',
-  'Como usar tailwind-merge e por que é necessário?',
-  'Como criar componentes com variantes type-safe usando cva?',
-  'Quais são os 5 breakpoints padrão em pixels?',
-  'Qual a diferença entre darkMode: "class" e "media"?',
-  'Como usar CSS variables para theming dinâmico?',
-  'O que são arbitrary values e quando usar?',
-  'Quando usar @apply e quando NÃO usar?',
-  'Como funciona group e group-hover?',
-  'Como funciona peer e peer-checked?',
-  'Como configurar tailwind.config com extend vs theme?',
-  'O que acontece com arquivos fora do content[]?',
-  'Como integrar Tailwind com shadcn/ui?',
-  'Como usar data-[state=*] para componentes Radix?',
-  'O que há de novo no Tailwind v4?',
-  'Como usar Tailwind em Server Components do Next.js?',
-  'Como fazer container queries com Tailwind?',
-  'Como configurar Tailwind para múltiplas marcas/temas?',
+const COMP_SCENARIOS: CompScenario[] = [
+  {
+    scenario: 'App React/Next.js moderno com design system',
+    recommendation: 'Tailwind CSS + cva + shadcn/ui',
+    reason: 'Performance máxima, Server Components nativos, ecossistema rico — escolha padrão em 2024/2025',
+  },
+  {
+    scenario: 'Projeto com CSS muito customizado, distante do padrão Tailwind',
+    recommendation: 'CSS Modules',
+    reason: 'CSS puro com scoping automático — sem overhead de aprender classes Tailwind para design único',
+  },
+  {
+    scenario: 'App com temas dinâmicos complexos e herança de props de estilo',
+    recommendation: 'Styled Components',
+    reason: 'ThemeProvider e props de estilo são a abstração mais ergonômica para esse caso',
+  },
+  {
+    scenario: 'Projeto legado ou equipe familiarizada com BEM/OOCSS',
+    recommendation: 'Sass/SCSS',
+    reason: 'Menor resistência da equipe — mixins e variáveis melhoram o CSS existente',
+  },
 ]
 
 // ── Builders ────────────────────────────────────────────────────────────────────
@@ -729,6 +723,14 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     stackLabel: 'Frontend — CSS Framework',
     coverTitle: 'Tailwind CSS Q&A Review',
     coverSubtitle: 'Utility-first — nível pleno/sênior',
+  }),
+  'quick-ref': () => buildQuickRefPdf({
+    columns: QUICK_REF_COLUMNS,
+    skillName: 'Tailwind CSS',
+    accentColor: C,
+    stackLabel: 'Frontend — CSS Framework',
+    tagline: 'Classes utilitárias, breakpoints e variants de estado',
+    version: 'v3 / v4',
   }),
   cheatsheet: () => buildCheatsheetPdf({
     skillName: 'Tailwind CSS',
@@ -745,14 +747,6 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
       mentalModels: CS_MENTAL_MODELS,
     },
   }),
-  'quick-ref': () => buildQuickRefPdf({
-    columns: QUICK_REF_COLUMNS,
-    skillName: 'Tailwind CSS',
-    accentColor: C,
-    stackLabel: 'Frontend — CSS Framework',
-    tagline: 'Classes utilitárias, breakpoints e variants de estado',
-    version: 'v3 / v4',
-  }),
   antipatterns: () => buildAntipatternsPdf({
     antipatterns: ANTIPATTERNS,
     accentColor: C,
@@ -761,18 +755,18 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     coverTitle: 'Tailwind CSS Anti-patterns',
     coverSubtitle: 'Os 5 erros mais comuns — e como corrigir',
   }),
-  mindmap: () => buildMindmapPdf({
-    categories: MINDMAP_CATEGORIES,
-    checklist: MINDMAP_CHECKLIST,
-    accentColor: C,
+  comparative: () => buildComparativeRefPdf({
+    options: COMP_OPTIONS,
+    criteria: COMP_CRITERIA,
+    scenarios: COMP_SCENARIOS,
     skillName: 'Tailwind CSS',
+    accentColor: C,
     stackLabel: 'Frontend — CSS Framework',
-    coverTitle: 'Tailwind CSS Mind Map',
-    coverSubtitle: 'Das classes atômicas ao design system completo',
+    coverTitle: 'Tailwind vs Alternativas',
   }),
 }
 
-// ── Componente ────────────────────────────────────────────────────────────────────
+// ── Componente ──────────────────────────────────────────────────────────────────
 
 export default function TailwindCssPdfs() {
   const [open, setOpen] = useState<PdfCard | null>(null)

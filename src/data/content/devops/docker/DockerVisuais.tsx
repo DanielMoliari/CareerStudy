@@ -280,7 +280,7 @@ ENTRYPOINT ["node", "dist/server.js"]`,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 5 — Redes Docker (LayerStack horizontal via cards custom)
+// VISUAL 5 — Modos de rede Docker
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const NETWORK_LAYERS: Layer[] = [
@@ -438,7 +438,133 @@ const DOCKER_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — Jornada Docker: do iniciante ao sênior (ProgressionMap)
+// VISUAL 8 — Volumes: bind mount vs named volume vs tmpfs
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const VOLUMES_OPTIONS: ComparisonOption[] = [
+  { id: 'named',  label: 'Named Volume',  sublabel: 'gerenciado pelo Docker', color: C },
+  { id: 'bind',   label: 'Bind Mount',    sublabel: 'caminho do host',        color: AMB },
+  { id: 'tmpfs',  label: 'tmpfs',         sublabel: 'apenas em memória',      color: GRN },
+]
+
+const VOLUMES_CRITERIA: ComparisonCriterion[] = [
+  {
+    id: 'persistence',
+    label: 'Persistência',
+    category: 'Dados',
+    description: 'Os dados sobrevivem ao container ser removido?',
+    values: {
+      named:  { rating: 'excellent', note: 'Sobrevive a docker rm; removido só com docker volume rm' },
+      bind:   { rating: 'excellent', note: 'Persiste no filesystem do host — independente do Docker' },
+      tmpfs:  { rating: 'poor',      note: 'Perdido ao parar o container — apenas em RAM' },
+    },
+  },
+  {
+    id: 'portability',
+    label: 'Portabilidade',
+    category: 'Operação',
+    description: 'Funciona da mesma forma em qualquer ambiente?',
+    values: {
+      named:  { rating: 'excellent', note: 'Gerenciado pelo Docker — path interno abstrato' },
+      bind:   { rating: 'fair',      note: 'Depende do path no host — pode quebrar em CI/CD' },
+      tmpfs:  { rating: 'excellent', note: 'Não depende de disco — 100% portável' },
+    },
+  },
+  {
+    id: 'performance',
+    label: 'Performance',
+    category: 'Performance',
+    description: 'Velocidade de I/O em relação ao disco nativo',
+    values: {
+      named:  { rating: 'good',      note: 'Overlayfs — leve overhead de copy-on-write' },
+      bind:   { rating: 'good',      note: 'Direto no filesystem do host — próximo do nativo' },
+      tmpfs:  { rating: 'excellent', note: 'RAM — o mais rápido possível' },
+    },
+  },
+  {
+    id: 'security',
+    label: 'Segurança',
+    category: 'Segurança',
+    description: 'Risco de vazar dados fora do container',
+    values: {
+      named:  { rating: 'good',      note: 'Isolado em /var/lib/docker/volumes — não expõe host' },
+      bind:   { rating: 'fair',      note: 'Expõe diretório do host — cuidado com permissões' },
+      tmpfs:  { rating: 'excellent', note: 'Nunca toca disco — ideal para dados sensíveis' },
+    },
+  },
+  {
+    id: 'usecase',
+    label: 'Caso de uso principal',
+    category: 'Operação',
+    description: 'Onde cada tipo brilha',
+    values: {
+      named:  { rating: 'excellent', note: 'Banco de dados, artefatos de build, prod' },
+      bind:   { rating: 'good',      note: 'Hot reload em dev — código do host no container' },
+      tmpfs:  { rating: 'good',      note: 'Secrets em runtime, filas em memória, /tmp' },
+    },
+  },
+  {
+    id: 'backup',
+    label: 'Backup e migração',
+    category: 'Operação',
+    description: 'Facilidade de fazer backup ou mover entre hosts',
+    values: {
+      named:  { rating: 'good',      note: 'docker run --volumes-from ou rsync do path em /var/lib/docker' },
+      bind:   { rating: 'excellent', note: 'É só um diretório no host — backup com qualquer ferramenta' },
+      tmpfs:  { rating: 'na',        note: 'N/A — dados efêmeros por design' },
+    },
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — Overlay2: camadas de imagem e copy-on-write
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const OVERLAY_LAYERS: Layer[] = [
+  {
+    id: 'container-layer',
+    label: 'Container Layer (upper)',
+    sublabel: 'Writable — existe só enquanto o container existe',
+    description: 'Camada de escrita exclusiva do container. Quando o container modifica um arquivo da imagem, o kernel copia o arquivo inteiro para esta camada (copy-on-write) e modifica a cópia. A imagem original nunca é tocada. Ao remover o container, esta camada é descartada — por isso dados sem volume são perdidos.',
+    code: 'docker run → cria upper layer\ndocker rm  → upper layer destruída',
+    color: C,
+    icon: '✏️',
+    examples: ['Arquivos criados pelo container', 'Arquivos modificados (cópia)', 'Logs em /var/log', '/tmp e /var/run'],
+  },
+  {
+    id: 'merged',
+    label: 'merged (visão unificada)',
+    sublabel: 'O filesystem que o container vê — union mount',
+    description: 'OverlayFS monta lower + upper e apresenta ao container como um único filesystem. O container não sabe que o filesystem é composto. Leituras são servidas da lower se o arquivo não foi modificado (zero copy). Writes vão sempre para upper. É a "janela" do container para o mundo.',
+    code: 'mount -t overlay overlay \\\n  -o lowerdir=lower,upperdir=upper,workdir=work \\\n  merged/',
+    color: SKY,
+    icon: '🪟',
+    examples: ['View unificada de lower + upper', 'Transparente para o processo', 'Leitura: lower (rápido)', 'Escrita: upper (copy-on-write)'],
+  },
+  {
+    id: 'image-layers',
+    label: 'Image Layers (lower — read-only)',
+    sublabel: 'Compartilhadas entre todos os containers da mesma imagem',
+    description: 'Cada instrução do Dockerfile que muda o filesystem cria uma layer imutável. Layers são identificadas por SHA256 e cacheadas localmente. Múltiplos containers da mesma imagem COMPARTILHAM as mesmas lower layers — sem duplicação de dados. Uma imagem node:20-alpine com 5 containers consome o espaço de UMA imagem + 5 thin upper layers.',
+    code: 'FROM node:20-alpine  # → layer SHA256:abc\nRUN npm ci          # → layer SHA256:def\nCOPY . .            # → layer SHA256:ghi',
+    color: GRN,
+    icon: '📚',
+    examples: ['Base OS (alpine ~5 MB)', 'Runtime (node binário)', 'npm install (node_modules)', 'COPY . . (código)'],
+  },
+  {
+    id: 'host-kernel',
+    label: 'Host Kernel + OverlayFS driver',
+    sublabel: 'overlay2 é o driver padrão no Linux desde Docker 1.12',
+    description: 'OverlayFS é implementado no kernel Linux (desde 3.18). Docker usa overlay2 (versão otimizada). O driver gerencia o mapeamento entre as layers armazenadas em /var/lib/docker/overlay2/ e os pontos de montagem de cada container. Alternativas: devicemapper (legado), btrfs, zfs.',
+    code: 'docker info | grep "Storage Driver"\n# → overlay2\nls /var/lib/docker/overlay2/<SHA>/{diff,link,lower,work}',
+    color: FGMUTE,
+    icon: '🐧',
+    examples: ['overlay2 (padrão, Linux)', '/var/lib/docker/overlay2/', 'diff/ link/ lower/ work/', 'docker system df (uso de disco)'],
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — Jornada Docker: do iniciante ao sênior (ProgressionMap)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DOCKER_LEVELS: ProgressionLevel[] = [
@@ -599,6 +725,33 @@ export default function DockerVisuais() {
       component: (
         <AntiPatternsGallery
           patterns={DOCKER_ANTIPATTERNS}
+          accentColor={C}
+          bgColor={BG}
+        />
+      ),
+    },
+    {
+      id: 'volumes',
+      title: 'Volumes: bind mount vs named vs tmpfs',
+      subtitle: 'Persistência, portabilidade, performance e segurança por tipo de volume',
+      accent: C,
+      component: (
+        <ComparisonTable
+          options={VOLUMES_OPTIONS}
+          criteria={VOLUMES_CRITERIA}
+          accentColor={C}
+          bgColor={BG}
+        />
+      ),
+    },
+    {
+      id: 'overlay2-layers',
+      title: 'Overlay2 — camadas de imagem e copy-on-write',
+      subtitle: 'lower (read-only) + upper (writable) + merged — como o filesystem do container funciona',
+      accent: SKY,
+      component: (
+        <LayerStack
+          layers={OVERLAY_LAYERS}
           accentColor={C}
           bgColor={BG}
         />

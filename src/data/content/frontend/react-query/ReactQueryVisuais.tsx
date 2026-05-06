@@ -4,18 +4,16 @@ import { VisuaisShell } from '@/components/visuals/VisuaisShell'
 import type { VisualDef } from '@/components/visuals/VisuaisNav'
 import { StateMachineExplorer } from '@/components/visuals/StateMachineExplorer'
 import type { SMState, SMTransition } from '@/components/visuals/StateMachineExplorer'
-import { CardCarousel } from '@/components/visuals/CardCarousel'
-import type { CarouselCard } from '@/components/visuals/CardCarousel'
 import { ComparisonTable } from '@/components/visuals/ComparisonTable'
 import type { ComparisonOption, ComparisonCriterion } from '@/components/visuals/ComparisonTable'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
-import { ProgressionMap } from '@/components/visuals/ProgressionMap'
-import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
 import { CodeStepper } from '@/components/visuals/CodeStepper'
 import type { CodeStepperScenario } from '@/components/visuals/CodeStepper'
 import { DecisionTree } from '@/components/visuals/DecisionTree'
 import type { DTNode } from '@/components/visuals/DecisionTree'
+import { SequenceDiagram } from '@/components/visuals/SequenceDiagram'
+import type { SeqActor, SeqMessage, SeqGroup } from '@/components/visuals/SequenceDiagram'
 
 // ── Paleta React Query ──────────────────────────────────────────────────────────
 const C      = '#FF4154'   // react-query vermelho
@@ -31,7 +29,10 @@ const SKY    = '#38bdf8'
 const PRP    = '#a78bfa'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 1 — Máquina de estados de uma query (idle → loading → success → error → refetching)
+// VISUAL 1 — Máquina de estados de uma query
+// Justificativa: o ciclo idle→loading→success→error→refetching é o coração da
+// lib. A distinção entre isLoading e isFetching só faz sentido ao ver os
+// estados e transições — texto não consegue transmitir isso com a mesma clareza.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const QUERY_STATES: SMState[] = [
@@ -71,18 +72,21 @@ const QUERY_STATES: SMState[] = [
 ]
 
 const QUERY_TRANSITIONS: SMTransition[] = [
-  { from: 'idle',       to: 'loading',     event: 'enabled=true',            code: 'useQuery({ enabled: !!userId })' },
-  { from: 'loading',    to: 'success',     event: 'queryFn resolve',         code: '{ data: posts, isSuccess: true }' },
-  { from: 'loading',    to: 'error',       event: 'queryFn rejeita (x retry)',code: '{ isError: true, error: err }' },
-  { from: 'success',    to: 'refetching',  event: 'stale + window focus',    code: 'isFetching=true, data=anterior' },
-  { from: 'refetching', to: 'success',     event: 'refetch resolve',         code: '{ data: novo, isFetching: false }' },
-  { from: 'refetching', to: 'error',       event: 'refetch falha',           code: 'data anterior preservado' },
-  { from: 'error',      to: 'loading',     event: 'retry / refetch manual',  code: 'query.refetch()' },
-  { from: 'success',    to: 'idle',        event: 'enabled → false',         code: 'useQuery({ enabled: false })' },
+  { from: 'idle',       to: 'loading',     event: 'enabled=true',             code: 'useQuery({ enabled: !!userId })' },
+  { from: 'loading',    to: 'success',     event: 'queryFn resolve',          code: '{ data: posts, isSuccess: true }' },
+  { from: 'loading',    to: 'error',       event: 'queryFn rejeita (x retry)', code: '{ isError: true, error: err }' },
+  { from: 'success',    to: 'refetching',  event: 'stale + window focus',     code: 'isFetching=true, data=anterior' },
+  { from: 'refetching', to: 'success',     event: 'refetch resolve',          code: '{ data: novo, isFetching: false }' },
+  { from: 'refetching', to: 'error',       event: 'refetch falha',            code: 'data anterior preservado' },
+  { from: 'error',      to: 'loading',     event: 'retry / refetch manual',   code: 'query.refetch()' },
+  { from: 'success',    to: 'idle',        event: 'enabled → false',          code: 'useQuery({ enabled: false })' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 2 — Cache: fresh → stale → garbage collected (HookTimeline-like custom)
+// VISUAL 2 — Cache: fresh → stale → inactive → garbage collected
+// Justificativa: staleTime vs gcTime é a confusão mais comum entre devs que
+// começam a usar React Query. O visual interativo com painel de detalhes por
+// fase torna o mental model concreto em menos de 2 minutos.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface CachePhase {
@@ -216,84 +220,143 @@ function CacheLifecycleVisual() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 3 — useQuery vs useMutation vs useInfiniteQuery (CardCarousel)
+// VISUAL 3 — Query keys hierárquicas
+// Justificativa: o conceito de invalidação hierárquica (pai invalida filhos)
+// é o ponto mais mal compreendido de React Query. Ver a árvore de chaves e
+// clicar em cada nó para ver o que é invalidado não existe em texto.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const HOOKS_CARDS: CarouselCard[] = [
+interface KeyNode {
+  key: (string | Record<string, unknown>)[]
+  label: string
+  description: string
+  invalidates: string[]
+  color: string
+  example: string
+}
+
+const KEY_NODES: KeyNode[] = [
   {
-    name: 'useQuery',
-    signature: 'useQuery({ queryKey, queryFn, staleTime?, enabled?, select? })',
-    emoji: '📡',
-    color: GRN,
-    use: [
-      'Buscar e cachear dados do servidor (GET)',
-      'Background refetch automático quando dado fica stale',
-      'Deduplicação de requests para a mesma queryKey',
-      'Loading, error e success states gerenciados automaticamente',
-    ],
-    dontUse: 'Para operações que alteram dados (POST, PUT, DELETE) — use useMutation',
-    difficulty: 1,
-  },
-  {
-    name: 'useMutation',
-    signature: 'useMutation({ mutationFn, onSuccess?, onError?, onMutate?, onSettled? })',
-    emoji: '✏️',
+    key: ['posts'],
+    label: "['posts']",
+    description: 'Raiz do domínio posts. Invalidar esta key afeta TUDO relacionado a posts — listas, detalhes, comentários.',
+    invalidates: ["['posts']", "['posts', 'list']", "['posts', 'list', filters]", "['posts', id]", "['posts', id, 'comments']"],
     color: C,
-    use: [
-      'Criar, atualizar ou deletar dados (POST, PUT, PATCH, DELETE)',
-      'Optimistic updates com rollback automático (onMutate + onError)',
-      'Invalidar queries relacionadas após sucesso (onSuccess)',
-      'Operações com side effects (toast, redirect)',
-    ],
-    dontUse: 'Para buscar dados que devem ser cacheados — use useQuery',
-    difficulty: 2,
+    example: "postKeys.all() → queryClient.invalidateQueries({ queryKey: ['posts'] })",
   },
   {
-    name: 'useInfiniteQuery',
-    signature: 'useInfiniteQuery({ queryKey, queryFn, getNextPageParam, initialPageParam })',
-    emoji: '♾️',
-    color: PRP,
-    use: [
-      'Listas com scroll infinito ou "carregar mais"',
-      'Paginação com cursor ou page number',
-      'data.pages = array de todas as páginas carregadas',
-      'fetchNextPage() para buscar a próxima página',
-    ],
-    dontUse: 'Para paginação simples (1 página por vez) — useQuery com pageParam é suficiente',
-    difficulty: 2,
-  },
-  {
-    name: 'useSuspenseQuery',
-    signature: 'useSuspenseQuery({ queryKey, queryFn })',
-    emoji: '⏸️',
-    color: SKY,
-    use: [
-      'Integração com React Suspense boundary',
-      'data sempre definida — sem checar isLoading no componente',
-      'Melhor UX com Suspense: loading centralizado no boundary',
-      'Compatível com useTransition para não bloquear a UI',
-    ],
-    dontUse: 'Sem Suspense boundary no componente pai — o app vai crashar no loading state',
-    difficulty: 3,
-  },
-  {
-    name: 'useQueryClient',
-    signature: 'const qc = useQueryClient()',
-    emoji: '🎛️',
+    key: ['posts', 'list'],
+    label: "['posts', 'list']",
+    description: "Todas as listas de posts, independente dos filtros. Invalidar aqui afeta todos os ['posts', 'list', filters] mas NÃO os detalhes.",
+    invalidates: ["['posts', 'list']", "['posts', 'list', { status: 'published' }]", "['posts', 'list', { page: 2 }]"],
     color: AMB,
-    use: [
-      'Invalidar queries: qc.invalidateQueries({ queryKey })',
-      'Setar cache manualmente: qc.setQueryData(key, data)',
-      'Ler cache: qc.getQueryData(key)',
-      'Prefetch: qc.prefetchQuery({ queryKey, queryFn })',
-    ],
-    dontUse: 'Diretamente em componentes de UI — encapsule em hooks customizados por domínio',
-    difficulty: 2,
+    example: "postKeys.lists() → invalidar após criar/deletar post (reordena listas)",
+  },
+  {
+    key: ['posts', 'list', { status: 'published' }],
+    label: "['posts', 'list', filters]",
+    description: 'Uma lista específica com filtros aplicados. Invalidar aqui afeta apenas esta combinação exata de filtros.',
+    invalidates: ["['posts', 'list', { status: 'published' }]"],
+    color: GRN,
+    example: "postKeys.list({ status: 'published' }) → refetch só da lista filtrada",
+  },
+  {
+    key: ['posts', 'abc123'],
+    label: "['posts', id]",
+    description: 'O detalhe de um post específico. Não é afetado por invalidação da lista — e vice-versa.',
+    invalidates: ["['posts', 'abc123']", "['posts', 'abc123', 'comments']"],
+    color: SKY,
+    example: "postKeys.detail('abc123') → invalidar após editar aquele post específico",
+  },
+  {
+    key: ['posts', 'abc123', 'comments'],
+    label: "['posts', id, 'comments']",
+    description: 'Comentários de um post específico. Leaf node — invalidar aqui só afeta estes comentários.',
+    invalidates: ["['posts', 'abc123', 'comments']"],
+    color: PRP,
+    example: "postKeys.comments('abc123') → invalidar após adicionar comentário",
   },
 ]
 
+function QueryKeysVisual() {
+  const [active, setActive] = useState(0)
+  const node = KEY_NODES[active]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
+      {/* Árvore visual */}
+      <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${LINE}` }}>
+        <div style={{ fontSize: 10, color: FGMUTE, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 14, fontWeight: 700 }}>
+          Hierarquia de query keys — clique para explorar a invalidação
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {KEY_NODES.map((n, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              {/* Indentação visual */}
+              <div style={{ width: i * 24, flexShrink: 0 }} />
+              {i > 0 && (
+                <div style={{ width: 20, height: 36, borderLeft: `2px solid ${LINE}`, borderBottom: `2px solid ${LINE}`, borderBottomLeftRadius: 6, marginBottom: 2, flexShrink: 0 }} />
+              )}
+              <button
+                onClick={() => setActive(i)}
+                style={{
+                  flex: 1,
+                  margin: '3px 0',
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: `1.5px solid ${active === i ? n.color : LINE}`,
+                  background: active === i ? `${n.color}18` : BG,
+                  color: active === i ? n.color : FG,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 12,
+                  fontWeight: active === i ? 700 : 400,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all .2s',
+                }}
+              >
+                {n.label}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Painel de detalhes */}
+      <div style={{ background: CARD, borderRadius: 12, padding: 20, border: `1px solid ${node.color}40`, flex: 1 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: node.color, marginBottom: 8, fontFamily: "'JetBrains Mono', monospace" }}>
+          {node.label}
+        </div>
+        <p style={{ fontSize: 13, color: FG, lineHeight: 1.6, margin: '0 0 16px' }}>{node.description}</p>
+
+        <div style={{ background: BG, borderRadius: 8, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: C, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
+            O que é invalidado quando você chama invalidateQueries com esta key:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {node.invalidates.map((k, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: GRN, fontSize: 12 }}>✓</span>
+                <code style={{ fontSize: 12, color: GRN, fontFamily: "'JetBrains Mono', monospace" }}>{k}</code>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ background: `${AMB}15`, border: `1px solid ${AMB}40`, borderRadius: 8, padding: 12 }}>
+          <span style={{ fontSize: 10, color: AMB, fontWeight: 700 }}>Caso de uso: </span>
+          <code style={{ fontSize: 11, color: FG, fontFamily: "'JetBrains Mono', monospace" }}>{node.example}</code>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 4 — Invalidation strategies (DecisionTree)
+// VISUAL 4 — Estratégia de Invalidação (DecisionTree)
+// Justificativa: após uma mutation, qual método chamar? invalidateQueries vs
+// refetchQueries vs setQueryData vs setQueryData+add são opções que confundem.
+// A árvore de decisão torna isso resolvível em segundos.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const INVALIDATION_ROOT: DTNode = {
@@ -318,35 +381,35 @@ const INVALIDATION_NODES: Record<string, DTNode> = {
   },
   'inv-active': {
     id: 'inv-active',
-    recommendation: 'invalidateQueries({ queryKey: [\'posts\'] })',
+    recommendation: "invalidateQueries({ queryKey: ['posts'] })",
     detail: 'Marca como stale e dispara background refetch imediatamente. O componente continua exibindo dado antigo durante o refetch. Padrão para 95% das mutations.',
     color: GRN,
     icon: '✅',
   },
   'inv-inactive': {
     id: 'inv-inactive',
-    recommendation: 'invalidateQueries({ queryKey: [\'posts\'] })',
+    recommendation: "invalidateQueries({ queryKey: ['posts'] })",
     detail: 'Marca como stale mas NÃO dispara fetch (sem observer). O refetch acontece quando o usuário navegar para a página que usa essa query. Mesmo comando — comportamento diferente.',
     color: FGMUTE,
     icon: '💤',
   },
   refetch: {
     id: 'refetch',
-    recommendation: 'refetchQueries({ queryKey: [\'posts\'] })',
+    recommendation: "refetchQueries({ queryKey: ['posts'] })",
     detail: 'Força fetch imediato mesmo sem observers ativos. Útil após logout (limpar dados sensíveis) ou ações críticas onde você precisa da confirmação do servidor imediatamente.',
     color: AMB,
     icon: '⚡',
   },
   setdata: {
     id: 'setdata',
-    recommendation: 'qc.setQueryData([\'posts\', id], updatedPost)',
+    recommendation: "qc.setQueryData(['posts', id], updatedPost)",
     detail: 'Atualiza o cache sem fetch. Ideal quando a mutation retorna o objeto atualizado. Combina com invalidate no onSettled para consistência final.',
     color: SKY,
     icon: '📝',
   },
   'setdata-add': {
     id: 'setdata-add',
-    recommendation: 'qc.setQueryData([\'posts\'], old => [...old, newPost])',
+    recommendation: "qc.setQueryData(['posts'], old =&gt; [...old, newPost])",
     detail: 'Adiciona o novo item ao cache da lista sem refetch. O servidor retorna o novo objeto na response da mutation — você o injeta no cache. Combine com invalidate no onSettled.',
     color: PRP,
     icon: '➕',
@@ -354,7 +417,10 @@ const INVALIDATION_NODES: Record<string, DTNode> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 5 — Comparação React Query vs SWR vs Redux Thunk
+// VISUAL 5 — Comparação React Query vs SWR vs Redux vs fetch
+// Justificativa: a pergunta "por que não usar SWR ou RTK Query?" é cobrada em
+// toda entrevista que menciona React Query. A tabela multi-critério torna a
+// resposta defensável e mostra que o dev entende os trade-offs reais.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CMP_OPTIONS: ComparisonOption[] = [
@@ -441,6 +507,9 @@ const CMP_CRITERIA: ComparisonCriterion[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 6 — Optimistic update com useMutation (CodeStepper)
+// Justificativa: o fluxo onMutate → cancelQueries → setQueryData → onError
+// rollback → onSettled é contra-intuitivo. Ver cada linha executar com o estado
+// do cache visível é a forma mais clara de aprender esse padrão.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const OPTIMISTIC_SCENARIOS: CodeStepperScenario[] = [
@@ -533,7 +602,10 @@ const OPTIMISTIC_SCENARIOS: CodeStepperScenario[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — Anti-patterns (AntiPatternsGallery)
+// VISUAL 7 — Anti-patterns
+// Justificativa: queryKey instável, isLoading durante refetch e onSettled
+// esquecido são os erros mais caros em produção. O diff visual errado × correto
+// cria reconhecimento de padrão que texto isolado não consegue.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const RQ_ANTIPATTERNS: AntiPattern[] = [
@@ -561,17 +633,15 @@ const RQ_ANTIPATTERNS: AntiPattern[] = [
       [{ text: 'const [data, setData] = useState(null)', color: FG }],
       [{ text: 'const [loading, setLoading] = useState(false)', color: FG }],
       [{ text: 'useEffect(() => {', color: C }],
-      [{ text: '  setLoading(true)', color: FGMUTE }],
-      [{ text: '  fetch(\'/api/posts\').then(r => r.json()).then(d => {', color: FGMUTE }],
-      [{ text: '    setData(d); setLoading(false)', color: FGMUTE }],
+      [{ text: "  fetch('/api/posts').then(r => r.json()).then(d => {", color: FGMUTE }],
+      [{ text: '    setData(d)', color: FGMUTE }],
       [{ text: '  })', color: FGMUTE }],
       [{ text: '}, [userId])', color: C }],
     ],
     right: [
       [{ text: 'const { data, isLoading } = useQuery({', color: FG }],
       [{ text: '  queryKey: ', color: FG }, { text: "['posts', userId]", color: GRN }],
-      [{ text: '  queryFn: () => fetch(\'/api/posts\')', color: FGMUTE }],
-      [{ text: '    .then(r => r.json()),', color: FGMUTE }],
+      [{ text: "  queryFn: () => fetch('/api/posts').then(r => r.json()),", color: FGMUTE }],
       [{ text: '  staleTime: 60_000,', color: GRN }],
       [{ text: '})', color: FG }],
     ],
@@ -582,15 +652,15 @@ const RQ_ANTIPATTERNS: AntiPattern[] = [
     wrong: [
       [{ text: 'const { data, isLoading } = useQuery(...)', color: FG }],
       [{ text: 'if (isLoading) return <Skeleton />', color: C }],
-      [{ text: '// ❌ Skeleton aparece durante background refetch', color: C }],
-      [{ text: '// ❌ UX quebrada: dados somem momentaneamente', color: C }],
+      [{ text: '// Skeleton aparece durante background refetch', color: C }],
+      [{ text: '// UX quebrada: dados somem momentaneamente', color: C }],
     ],
     right: [
       [{ text: 'const { data, isLoading, isFetching } = useQuery(...)', color: FG }],
       [{ text: 'if (isLoading) return <Skeleton />', color: GRN }],
-      [{ text: '// ✅ isLoading só é true na PRIMEIRA busca', color: GRN }],
+      [{ text: '// isLoading só é true na PRIMEIRA busca', color: GRN }],
       [{ text: '{isFetching && <span>Atualizando...</span>}', color: GRN }],
-      [{ text: '// ✅ indicador sutil durante background refetch', color: GRN }],
+      [{ text: '// indicador sutil durante background refetch', color: GRN }],
     ],
     why: 'isLoading = true apenas na primeira busca (sem dado em cache). isFetching = true sempre que há fetch em andamento. Use isFetching para indicadores sutis sem esconder dados.',
   },
@@ -601,7 +671,7 @@ const RQ_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '  mutationFn: toggleLike,', color: FGMUTE }],
       [{ text: '  onMutate: async () => { /* update otimista */ },', color: C }],
       [{ text: '  onError: (_, __, ctx) => { /* rollback */ },', color: C }],
-      [{ text: '  // ❌ sem onSettled — cache pode ficar inconsistente', color: C }],
+      [{ text: '  // sem onSettled — cache pode ficar inconsistente', color: C }],
       [{ text: '})', color: FG }],
     ],
     right: [
@@ -610,7 +680,7 @@ const RQ_ANTIPATTERNS: AntiPattern[] = [
       [{ text: '  onMutate: async () => { /* update otimista */ },', color: GRN }],
       [{ text: '  onError: (_, __, ctx) => { /* rollback */ },', color: GRN }],
       [{ text: '  onSettled: () => {', color: GRN }],
-      [{ text: '    qc.invalidateQueries({ queryKey: [\'posts\'] })', color: GRN }],
+      [{ text: "    qc.invalidateQueries({ queryKey: ['posts'] })", color: GRN }],
       [{ text: '  },', color: GRN }],
       [{ text: '})', color: FG }],
     ],
@@ -621,83 +691,186 @@ const RQ_ANTIPATTERNS: AntiPattern[] = [
     wrong: [
       [{ text: 'onSuccess: () => {', color: FG }],
       [{ text: "  qc.invalidateQueries({ queryKey: ['posts', 'list'] })", color: C }],
-      [{ text: '  // ❌ não invalida detail pages, comments, etc', color: C }],
+      [{ text: '  // não invalida detail pages, comments, etc', color: C }],
       [{ text: '}', color: FG }],
     ],
     right: [
       [{ text: 'onSuccess: () => {', color: FG }],
       [{ text: "  qc.invalidateQueries({ queryKey: postKeys.all() })", color: GRN }],
-      [{ text: '  // ✅ invalida TODO o domínio posts:', color: GRN }],
-      [{ text: '  // [\'posts\'], [\'posts\',\'list\'], [\'posts\', id], etc', color: GRN }],
+      [{ text: "  // invalida TODO o domínio posts:", color: GRN }],
+      [{ text: "  // ['posts'], ['posts','list'], ['posts', id], etc", color: GRN }],
       [{ text: '}', color: FG }],
     ],
-    why: 'A invalidação é hierárquica — usar postKeys.all() invalida todos os filhos. Invalidar só a lista não atualiza as detail pages. Use query factories para evitar magic strings.',
+    why: "A invalidação é hierárquica — usar postKeys.all() invalida todos os filhos. Invalidar só a lista não atualiza as detail pages. Use query factories para evitar magic strings.",
   },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — Progressão de uso (junior → especialista)
+// VISUAL 8 — SSR com Next.js App Router (SequenceDiagram)
+// Justificativa: o padrão prefetchQuery → dehydrate → HydrationBoundary é mal
+// compreendido porque envolve atores diferentes (Server Component, Client
+// Component, QueryClient) em momentos distintos. A sequência de mensagens
+// torna o fluxo inequívoco.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const PROGRESSION_LEVELS: ProgressionLevel[] = [
+const SSR_ACTORS: SeqActor[] = [
+  { id: 'server',    label: 'Server Component', color: GRN,  icon: '🖥️' },
+  { id: 'qcserver',  label: 'QueryClient (server)', color: AMB, icon: '🗄️' },
+  { id: 'boundary',  label: 'HydrationBoundary', color: SKY,  icon: '🌉' },
+  { id: 'qcclient',  label: 'QueryClient (client)', color: PRP, icon: '💾' },
+  { id: 'component', label: 'Client Component', color: C,    icon: '⚛️' },
+]
+
+const SSR_MESSAGES: SeqMessage[] = [
+  { from: 'server',    to: 'qcserver',  label: 'new QueryClient()',                        type: 'create',  note: 'Instância isolada por request' },
+  { from: 'server',    to: 'qcserver',  label: 'prefetchQuery({ queryKey, queryFn })',      type: 'sync',    note: 'Fetch acontece no servidor' },
+  { from: 'qcserver',  to: 'server',    label: 'data populado no cache',                   type: 'return',  note: 'Aguarda promise resolver' },
+  { from: 'server',    to: 'boundary',  label: 'dehydrate(qc) → state serializado',         type: 'sync',    note: 'Serializa o cache como JSON' },
+  { from: 'boundary',  to: 'qcclient',  label: 'hydrateClient(state)',                      type: 'sync',    note: 'Injeta dados no QueryClient do cliente' },
+  { from: 'component', to: 'qcclient',  label: "useQuery({ queryKey: ['posts'] })",          type: 'sync',    note: 'Consulta o cache local' },
+  { from: 'qcclient',  to: 'component', label: '{ data: posts, isLoading: false }',          type: 'return',  note: 'Dado já disponível — sem loading state!' },
+]
+
+const SSR_GROUPS: SeqGroup[] = [
+  { label: 'Server (Node.js)',   kind: 'alt',  fromMsg: 0, toMsg: 3 },
+  { label: 'Cliente (Browser)',  kind: 'alt',  fromMsg: 4, toMsg: 6 },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — useInfiniteQuery + queries dependentes (CodeStepper)
+// Justificativa: useInfiniteQuery tem um modelo mental próprio (pages[], cursor,
+// getNextPageParam) que texto não transmite tão claramente quanto ver cada linha
+// executar com o estado das páginas visível. Queries dependentes com enabled={!!id}
+// também confundem — ver o "por que a query não dispara" junto com a solução é
+// o ponto de virada para quem está aprendendo.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ADVANCED_SCENARIOS: CodeStepperScenario[] = [
   {
-    id: 'beginner',
-    name: 'Iniciante',
-    label: 'Primeiros passos',
-    emoji: '🌱',
-    concepts: [
-      { name: 'QueryClientProvider', tip: 'Wrapper obrigatório no root da aplicação. Sem ele nenhum hook funciona.' },
-      { name: 'useQuery básico', tip: 'queryKey + queryFn. data, isLoading, isError. A base de tudo.' },
-      { name: 'isLoading vs isFetching', tip: 'isLoading = primeira vez. isFetching = qualquer fetch, incluindo background.' },
-      { name: 'staleTime simples', tip: 'staleTime: 60_000 evita refetch excessivo. staleTime: 0 (padrão) = sempre stale.' },
+    id: 'infinite-query',
+    label: 'useInfiniteQuery — scroll infinito com cursor',
+    code: `const {
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+  isLoading,
+} = useInfiniteQuery({
+  queryKey: ['posts', 'infinite'],
+  queryFn: ({ pageParam }) =&gt;
+    fetch(\`/api/posts?cursor=\${pageParam ?? ''}&limit=20\`)
+      .then(r =&gt; r.json()),
+  initialPageParam: null,
+  getNextPageParam: (lastPage) =&gt; lastPage.nextCursor,
+})
+
+// data.pages é array de páginas — flat para um único array:
+const allPosts = data?.pages.flatMap(p =&gt; p.items) ?? []
+
+// Sentinel com IntersectionObserver:
+const ref = useRef(null)
+useEffect(() =&gt; {
+  const observer = new IntersectionObserver(
+    ([e]) =&gt; { if (e.isIntersecting && hasNextPage) fetchNextPage() }
+  )
+  if (ref.current) observer.observe(ref.current)
+  return () =&gt; observer.disconnect()
+}, [hasNextPage, fetchNextPage])`,
+    language: 'typescript',
+    steps: [
+      {
+        lineStart: 1,
+        lineEnd: 6,
+        title: 'Retornos do useInfiniteQuery',
+        explanation: 'Além de data e isLoading, useInfiniteQuery retorna: fetchNextPage() para buscar a próxima página, hasNextPage (true enquanto getNextPageParam retorna valor), e isFetchingNextPage para loading granular da próxima página.',
+      },
+      {
+        lineStart: 7,
+        lineEnd: 9,
+        title: 'queryKey e queryFn com pageParam',
+        explanation: 'A queryFn recebe { pageParam } — o valor retornado por getNextPageParam da página anterior. Na primeira chamada, pageParam é o valor de initialPageParam (null aqui, indicando "começo").',
+        memory: { pageParam: 'null (primeira página)', cursor: 'ausente na URL → começa do início' },
+      },
+      {
+        lineStart: 10,
+        lineEnd: 11,
+        title: 'initialPageParam e getNextPageParam',
+        explanation: 'initialPageParam define o pageParam da primeira requisição. getNextPageParam recebe a última página retornada e deve retornar o cursor da próxima — ou undefined quando não há mais páginas. hasNextPage é true enquanto isso não for undefined.',
+        output: 'Página 1 retorna: { items: [...20 posts], nextCursor: "abc123" }',
+        memory: { hasNextPage: 'true (nextCursor existe)', 'data.pages': '[page1]' },
+      },
+      {
+        lineStart: 16,
+        lineEnd: 16,
+        title: 'data.pages — flatten para renderizar',
+        explanation: 'data.pages é um array de TODAS as páginas carregadas. Cada página é a resposta do servidor. flatMap(p => p.items) transforma [page1, page2, ...] em um único array de posts para renderizar.',
+        output: 'data.pages = [{ items: [...20] }, { items: [...20] }] → allPosts = [...40 posts]',
+      },
+      {
+        lineStart: 19,
+        lineEnd: 25,
+        title: 'IntersectionObserver — fetch ao scrollar',
+        explanation: 'O sentinel div (ref) fica logo abaixo da última lista. Quando entra no viewport (isIntersecting), fetchNextPage() busca a próxima página se hasNextPage for true. Cleanup deregistra o observer ao desmontar.',
+        output: 'Usuário scrollou até o fim → fetchNextPage() → isFetchingNextPage=true → nova página adicionada a data.pages',
+      },
     ],
   },
   {
-    id: 'junior',
-    name: 'Júnior',
-    label: 'Uso básico produtivo',
-    emoji: '🪴',
-    concepts: [
-      { name: 'useMutation + invalidação', tip: 'mutationFn + onSuccess com invalidateQueries. O padrão CRUD mais comum.' },
-      { name: 'Query keys hierárquicas', tip: '[\'posts\'] é pai de [\'posts\', id]. Invalidar o pai invalida todos os filhos.' },
-      { name: 'enabled prop', tip: 'enabled={!!userId} pausa a query até userId existir. Essencial para queries dependentes.' },
-      { name: 'refetch manual', tip: 'query.refetch() para disparar manualmente. útil em botão "atualizar".' },
-    ],
-  },
-  {
-    id: 'pleno',
-    name: 'Pleno',
-    label: 'Padrões de produção',
-    emoji: '🌳',
-    concepts: [
-      { name: 'Query factories', tip: 'Objeto que centraliza keys e queryFns por domínio. Evita magic strings e garante invalidação correta.' },
-      { name: 'select para derivação', tip: 'select: (data) => data.items. Memoizado — componente só re-renderiza se o resultado mudar.' },
-      { name: 'placeholderData', tip: 'keepPreviousData: mantém dados da página anterior ao paginar. UX muito mais suave.' },
-      { name: 'useInfiniteQuery', tip: 'getNextPageParam extrai cursor da última página. fetchNextPage() com IntersectionObserver.' },
-    ],
-  },
-  {
-    id: 'senior',
-    name: 'Sênior',
-    label: 'Arquitetura e edge cases',
-    emoji: '🌲',
-    concepts: [
-      { name: 'Optimistic updates', tip: 'onMutate + cancelQueries + getQueryData + setQueryData. onError faz rollback. onSettled invalida.' },
-      { name: 'SSR com Next.js', tip: 'prefetchQuery no Server Component + dehydrate + HydrationBoundary. Zero loading state inicial.' },
-      { name: 'WebSocket + invalidação', tip: 'Listener WebSocket chama setQueryData ou invalidateQueries. React Query como source of truth.' },
-      { name: 'queryCache.subscribe', tip: 'Observar erros globalmente para logging centralizado sem onError em cada useQuery.' },
-    ],
-  },
-  {
-    id: 'specialist',
-    name: 'Especialista',
-    label: 'Mastery completo',
-    emoji: '🏆',
-    concepts: [
-      { name: 'useSuspenseQuery', tip: 'Integração com Suspense boundary. data sempre definida. Composição com useTransition.' },
-      { name: 'Custom QueryCache', tip: 'queryClient com queryCache e mutationCache customizados para logging, retry policies.' },
-      { name: 'Offline-first', tip: 'networkMode: \'offlineFirst\'. Queries executam mesmo offline — útil com IndexedDB como persistência.' },
-      { name: 'Persisted queries', tip: 'persistQueryClient + localStorage/IndexedDB. Cache sobrevive ao refresh de página.' },
+    id: 'dependent-query',
+    label: 'Queries dependentes com enabled',
+    code: `// Cenário: buscar o perfil do usuário, depois seus posts
+const {
+  data: user,
+  isLoading: userLoading,
+} = useQuery({
+  queryKey: ['user', 'me'],
+  queryFn: fetchCurrentUser,
+})
+
+// Esta query SÓ roda quando user?.id existe:
+const {
+  data: posts,
+  isLoading: postsLoading,
+} = useQuery({
+  queryKey: ['posts', { userId: user?.id }],
+  queryFn: () =&gt; fetchUserPosts(user!.id),
+  enabled: !!user?.id,  // false = pausada, não dispara
+})
+
+// Transformar dado com select (memorizado):
+const { data: postTitles } = useQuery({
+  queryKey: ['posts', { userId: user?.id }],
+  queryFn: () =&gt; fetchUserPosts(user!.id),
+  enabled: !!user?.id,
+  select: useCallback(
+    (posts) =&gt; posts.map(p =&gt; ({ id: p.id, title: p.title })),
+    []  // função estável — re-render só se result mudar
+  ),
+})`,
+    language: 'typescript',
+    steps: [
+      {
+        lineStart: 1,
+        lineEnd: 7,
+        title: 'Primeira query — busca o usuário',
+        explanation: 'A query do usuário roda normalmente. Enquanto executa: isLoading=true, data=undefined. Após sucesso: data contém o objeto user com user.id disponível.',
+        memory: { user: 'undefined → { id: "abc", name: "..." }' },
+      },
+      {
+        lineStart: 9,
+        lineEnd: 18,
+        title: 'Query dependente — enabled={!!user?.id}',
+        explanation: 'enabled={false} pausa a query completamente — não dispara, não aparece em loading. Enquanto user?.id é undefined (user ainda carregando), a query de posts está pausada. Quando user.id aparece, enabled vira true e a query dispara automaticamente.',
+        output: 'user.id = undefined → posts query status: "pending" (não "loading")\nuser.id = "abc" → posts query status: "loading" → "success"',
+        memory: { enabled: '!!undefined = false → !!\"abc\" = true' },
+      },
+      {
+        lineStart: 20,
+        lineEnd: 29,
+        title: 'select — transformar dado com memoização',
+        explanation: 'select recebe o dado bruto e retorna um valor derivado. O componente só re-renderiza se o valor derivado mudar. Envolver em useCallback com [] garante que a função é estável entre renders — sem ela, React Query recalcula select a cada render desnecessariamente.',
+        output: 'Re-render só ocorre se postTitles (array de { id, title }) mudar — não quando outros campos do post mudam',
+      },
     ],
   },
 ]
@@ -733,23 +906,17 @@ export default function ReactQueryVisuais() {
       component: <CacheLifecycleVisual />,
     },
     {
-      id: 'hooks-comparison',
-      title: 'Hooks do React Query',
-      subtitle: 'useQuery vs useMutation vs useInfiniteQuery — quando usar cada um',
-      accent: GRN,
-      component: (
-        <CardCarousel
-          cards={HOOKS_CARDS}
-          accentColor={C}
-          bgColor={BG}
-        />
-      ),
+      id: 'query-keys',
+      title: 'Query Keys Hierárquicas',
+      subtitle: "Invalidar ['posts'] cascateia para todos os filhos — entenda a árvore",
+      accent: SKY,
+      component: <QueryKeysVisual />,
     },
     {
       id: 'invalidation-strategy',
       title: 'Estratégia de Invalidação',
       subtitle: 'Qual método do QueryClient usar após uma mutation?',
-      accent: SKY,
+      accent: GRN,
       component: (
         <DecisionTree
           root={INVALIDATION_ROOT}
@@ -801,16 +968,30 @@ export default function ReactQueryVisuais() {
       ),
     },
     {
-      id: 'progression',
-      title: 'Progressão de Domínio',
-      subtitle: 'Do useQuery básico ao cache offline-first — sua jornada com React Query',
+      id: 'ssr-nextjs',
+      title: 'SSR com Next.js App Router',
+      subtitle: 'prefetchQuery → dehydrate → HydrationBoundary — zero loading state inicial',
       accent: GRN,
       component: (
-        <ProgressionMap
-          levels={PROGRESSION_LEVELS}
+        <SequenceDiagram
+          actors={SSR_ACTORS}
+          messages={SSR_MESSAGES}
+          groups={SSR_GROUPS}
           accentColor={C}
           bgColor={BG}
-          cardColor={CARD}
+        />
+      ),
+    },
+    {
+      id: 'infinite-dependent',
+      title: 'useInfiniteQuery & Queries Dependentes',
+      subtitle: 'Scroll infinito com cursor, getNextPageParam, enabled e select memoizado',
+      accent: PRP,
+      component: (
+        <CodeStepper
+          scenarios={ADVANCED_SCENARIOS}
+          accentColor={C}
+          bgColor={BG}
         />
       ),
     },

@@ -125,6 +125,78 @@ const typescript: SkillContent = {
 </div>`,
         caption: "Utility types são transformações do sistema de tipos. Partial+Pick+Omit cobrem 80% dos casos de CRUD tipado. Memorize os 8 acima — todos caem em entrevista.",
       },
+      {
+        title: "Generics e Conditional Types — fluxo de inferência com infer",
+        html: `<style>
+.tsg-diag{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px;color:#e2e8f0}
+.tsg-card{background:#1e293b;border:1.5px solid #334155;border-radius:8px;padding:12px 14px}
+.tsg-name{color:#3178C6;font-weight:700;font-size:12px;margin-bottom:6px}
+.tsg-arrow{color:#3178C6;text-align:center;font-size:18px;line-height:1;margin:6px 0}
+.tsg-tip{position:relative;cursor:help;border-bottom:1px dashed rgba(49,120,198,.5);display:inline}
+.tsg-tip:hover .tsg-tb{display:block}
+.tsg-tb{display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:#020617;border:1px solid #334155;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;z-index:30;color:#94a3b8;width:240px;pointer-events:none;white-space:normal;box-shadow:0 4px 16px rgba(0,0,0,.7)}
+.tsg-tb::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#334155}
+@keyframes tsg-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.tsg-pulse{animation:tsg-pulse 2s ease-in-out infinite}
+.tsg-step{background:#0a1628;border-left:3px solid #3178C6;border-radius:4px;padding:8px 12px;font-size:10.5px;color:#94a3b8;line-height:1.7}
+.tsg-tag{display:inline-block;background:#1e3a5c;color:#93c5fd;font-size:9px;padding:2px 6px;border-radius:3px;letter-spacing:.05em;font-weight:700;margin-right:4px}
+</style>
+<div class="tsg-diag">
+  <p style="color:#93c5fd;font-size:12px;font-weight:700;margin:0 0 4px">Generics + Conditional Types — como o TypeScript infere</p>
+  <p style="color:#475569;font-size:10px;margin:0 0 18px">Da chamada à inferência: três camadas. Passe o mouse nos termos <span style="border-bottom:1px dashed rgba(49,120,198,.5)">sublinhados</span></p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="tsg-card">
+      <div class="tsg-name">1. Generic com constraint</div>
+      <div style="color:#94a3b8;line-height:1.7;font-size:10.5px">
+        <code style="color:#a78bfa">function</code> <code style="color:#4ade80">findById</code>&lt;T <code style="color:#a78bfa">extends</code> { id: <code style="color:#fbbf24">string</code> }&gt;<br>
+        &nbsp;&nbsp;(items: T[], id: <code style="color:#fbbf24">string</code>): T | <code style="color:#a78bfa">undefined</code><br>
+        <span style="color:#475569">// constraint: T deve ter { id: string }</span>
+      </div>
+    </div>
+    <div class="tsg-card">
+      <div class="tsg-name">2. Conditional + infer</div>
+      <div style="color:#94a3b8;line-height:1.7;font-size:10.5px">
+        <code style="color:#a78bfa">type</code> <code style="color:#7dd3fc">ReturnType</code>&lt;F&gt; =<br>
+        &nbsp;&nbsp;F <code style="color:#a78bfa">extends</code> (...a: <code style="color:#fbbf24">any</code>[]) =&gt; <span class="tsg-tip" style="color:#4ade80;font-weight:700">infer R<span class="tsg-tb">infer R captura o tipo do retorno em compile-time. Só pode aparecer no lado direito de extends (posição covariante).</span></span><br>
+        &nbsp;&nbsp;? R : <code style="color:#a78bfa">never</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="tsg-arrow">↓</div>
+
+  <div class="tsg-card" style="margin-bottom:14px">
+    <div class="tsg-name">3. Inferência em ação</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px">
+      <div class="tsg-step">
+        <span class="tsg-tag">Chamada</span><br>
+        <code style="color:#7dd3fc">findById</code>(users, '1')
+      </div>
+      <div class="tsg-step">
+        <span class="tsg-tag">Inferência</span><br>
+        T = { id: <code style="color:#fbbf24">string</code>; name: <code style="color:#fbbf24">string</code> }
+      </div>
+      <div class="tsg-step">
+        <span class="tsg-tag">Retorno</span><br>
+        T | <code style="color:#a78bfa">undefined</code> <span class="tsg-pulse" style="color:#4ade80">✓</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;font-size:11px;color:#94a3b8;line-height:1.7">
+    <strong style="color:#3178C6">Distribuição automática:</strong> quando o tipo do lado esquerdo de <code style="color:#a78bfa">extends</code> é uma <span class="tsg-tip">union "naked"<span class="tsg-tb">"Naked" = não envolvido em [T] ou Array&lt;T&gt;. Se for naked, o conditional distribui sobre cada membro da union.</span></span>, o conditional type distribui sobre cada membro:
+    <div style="background:#0a1628;border-radius:4px;padding:8px;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10px">
+      <code style="color:#a78bfa">type</code> <code style="color:#7dd3fc">Exclude</code>&lt;T, U&gt; = T <code style="color:#a78bfa">extends</code> U ? <code style="color:#a78bfa">never</code> : T<br>
+      <code style="color:#7dd3fc">Exclude</code>&lt;<code style="color:#4ade80">'a'|'b'|'c'</code>, <code style="color:#4ade80">'a'</code>&gt; → <code style="color:#4ade80">'b' | 'c'</code> <span style="color:#475569">// distribui sobre cada literal</span>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:#64748b">
+      Para desligar a distribuição: <code style="color:#fbbf24">[T] extends [U]</code> — força avaliação como tupla unitária.
+    </div>
+  </div>
+</div>`,
+        caption: "Generics preservam a relação entre tipos. Conditional types com infer extraem partes do tipo. Distribuição automática sobre unions é a base de Exclude/Extract — desligue com [T] extends [U] quando precisar.",
+      },
     ],
     keypoints: [
       {
@@ -501,6 +573,11 @@ type EventName = \`on\${string}\`          // template literal — não dá em i
         label: "Utility types essenciais em ordem CRUD",
         explanation: "P = Partial (update / PATCH). R = Required (forçar completude). O = Omit (criar sem campos gerados). R = Readonly (imutabilidade). E = Extract / Exclude (filtrar unions). R = ReturnType (tipar retorno de função). A = Awaited (desembrulhar Promise). P = Parameters (tipar argumentos). Leia como 'PRO-RE-RAP' e lembre: cada letra é um utility type.",
       },
+      {
+        trick: "UAN",
+        label: "unknown vs any vs never — hierarquia mental",
+        explanation: "U = Unknown (universo seguro): aceita tudo, exige narrowing antes de usar. Use em catch, JSON.parse, fetch. A = Any (opt-out total): desliga checks, último recurso em migrações. Quase sempre unknown é melhor. N = Never (vazio): nada cabe, exhaustive check em switch e funções que sempre lançam. Hierarquia: unknown > never > any em segurança decrescente.",
+      },
     ],
     exercises: [
       {
@@ -524,13 +601,20 @@ type EventName = \`on\${string}\`          // template literal — não dá em i
         concepts: ["generics", "keyof", "indexed access", "conditional types", "template literal types"],
         hint: "O tipo do segundo argumento de on() deve ser inferido do EventMap usando EventMap[K]. Considere usar overloads ou distribuição de generics.",
       },
+      {
+        level: "senior",
+        title: "Branded types para diferenciar IDs estruturalmente iguais",
+        description: "Crie tipos UserId, OrderId e ProductId que são todos string em runtime mas não podem ser confundidos em compile-time. Implemente factory functions seguras (toUserId, toOrderId) que validam e fazem o branding. Adicione função fetchUser(id: UserId) que rejeita um OrderId mesmo sendo string. Mostre como recuperar uma identidade nominal sobre um sistema estrutural.",
+        concepts: ["branded types", "intersection types", "phantom types", "type-level invariants", "factory functions"],
+        hint: "type UserId = string & { readonly __brand: unique symbol }. Factory: function toUserId(s: string): UserId { /* validar */ return s as UserId }. Em chamadas, fetchUser('123' as UserId) deve falhar — só toUserId('123') passa.",
+      },
     ],
     videos: [
-      { title: "TypeScript Course for Beginners", channel: "Academind", url: "", topic: "Fundamentos de TypeScript do zero" },
-      { title: "No More Wasted Time on TypeScript", channel: "Matt Pocock", url: "", topic: "Recursos avançados — generics, conditional types, utility types" },
-      { title: "TypeScript — The Full Course", channel: "Fireship", url: "", topic: "Visão geral rápida e densa de todo o sistema de tipos" },
-      { title: "Advanced TypeScript Patterns", channel: "Jack Herrington", url: "", topic: "Padrões reais em codebases React com TypeScript avançado" },
-      { title: "TypeScript Satisfies Operator", channel: "Matt Pocock", url: "", topic: "Operador satisfies em profundidade" },
+      { title: "TypeScript Course for Beginners", channel: "Academind", url: "https://www.youtube.com/watch?v=BwuLxPH8IDs", topic: "Fundamentos de TypeScript do zero" },
+      { title: "TypeScript Tutorial for Beginners", channel: "Programming with Mosh", url: "https://www.youtube.com/watch?v=d56mG7DezGs", topic: "Sintaxe básica e tooling do TypeScript" },
+      { title: "TypeScript — The Full Course", channel: "Fireship", url: "https://www.youtube.com/watch?v=zQnBQ4tB3ZA", topic: "Visão geral rápida e densa de todo o sistema de tipos" },
+      { title: "Advanced TypeScript Patterns", channel: "Jack Herrington", url: "https://www.youtube.com/watch?v=hBk4nV7q6-w", topic: "Padrões reais em codebases React com TypeScript avançado" },
+      { title: "satisfies operator — TypeScript 4.9", channel: "Matt Pocock", url: "https://www.youtube.com/watch?v=BkSXv8N-pxs", topic: "Operador satisfies em profundidade" },
     ],
     codeExamples: [
       {

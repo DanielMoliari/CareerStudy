@@ -12,12 +12,11 @@ import { DiffViewer } from '@/components/visuals/DiffViewer'
 import type { DiffExample } from '@/components/visuals/DiffViewer'
 import { CodeStepper } from '@/components/visuals/CodeStepper'
 import type { CodeStepperScenario } from '@/components/visuals/CodeStepper'
-import { ProgressionMap } from '@/components/visuals/ProgressionMap'
-import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
+import { LayerStack } from '@/components/visuals/LayerStack'
+import type { Layer } from '@/components/visuals/LayerStack'
 
 // ── Paleta Clean Architecture ─────────────────────────────────────────────────
 const C      = '#455A64'   // blue-grey
-const SEC    = '#314249'
 const BG     = '#0f172a'
 const CARD   = '#1e293b'
 const LINE   = '#334155'
@@ -26,7 +25,6 @@ const FGMUTE = '#94a3b8'
 const GRN    = '#4ade80'
 const RED    = '#ef4444'
 const AMB    = '#f59e0b'
-const PRP    = '#a78bfa'
 const SKY    = '#38bdf8'
 const IND    = '#6366f1'   // camada Entities (indigo)
 const TEAL   = '#14b8a6'   // camada Use Cases
@@ -34,10 +32,13 @@ const ORG    = '#fb923c'   // camada Interface Adapters
 const SLT    = '#64748b'   // camada Frameworks
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 1 — Camadas concêntricas interativas
+// VISUAL 1 — Camadas concêntricas interativas (custom)
+// Justificativa: a visualização concêntrica é o símbolo central de Clean Arch.
+// Ver as camadas e clicar em cada uma para explorar exemplos concretos é
+// exatamente o que o diagrama estático do livro não oferece.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const LAYERS = [
+const LAYERS_DATA = [
   {
     id: 'entities',
     name: 'Entities',
@@ -90,13 +91,13 @@ const LAYERS = [
 
 function ConcentricLayersVisual() {
   const [sel, setSel] = useState<string>('entities')
-  const active = LAYERS.find(l => l.id === sel)!
+  const active = LAYERS_DATA.find(l => l.id === sel)!
 
   return (
     <div style={{ display: 'flex', gap: 24, height: '100%', minHeight: 400 }}>
       {/* círculos */}
       <div style={{ position: 'relative', width: 320, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {[...LAYERS].reverse().map(layer => (
+        {[...LAYERS_DATA].reverse().map(layer => (
           <div
             key={layer.id}
             onClick={() => setSel(layer.id)}
@@ -118,7 +119,7 @@ function ConcentricLayersVisual() {
           />
         ))}
         {/* Labels */}
-        {LAYERS.map((layer, i) => {
+        {LAYERS_DATA.map((layer, i) => {
           const offsets = [
             { top: '8%', left: '50%', transform: 'translateX(-50%)' },
             { top: '20%', left: '50%', transform: 'translateX(-50%)' },
@@ -146,7 +147,7 @@ function ConcentricLayersVisual() {
             </div>
           )
         })}
-        {/* setas */}
+        {/* seta de dependência */}
         <div style={{ position: 'absolute', bottom: '4%', left: '50%', transform: 'translateX(-50%)', fontSize: 11, color: FGMUTE, whiteSpace: 'nowrap' }}>
           ← dependência sempre aponta para dentro →
         </div>
@@ -200,7 +201,7 @@ function ConcentricLayersVisual() {
 
         {/* navegação entre camadas */}
         <div style={{ display: 'flex', gap: 8, marginTop: 20, flexWrap: 'wrap' }}>
-          {LAYERS.map(l => (
+          {LAYERS_DATA.map(l => (
             <button
               key={l.id}
               onClick={() => setSel(l.id)}
@@ -226,6 +227,9 @@ function ConcentricLayersVisual() {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 2 — DiffViewer: antes (acoplado) vs depois (clean)
+// Justificativa: ver código real transformado lado a lado é a maneira mais
+// rápida de internalizar DI, lean controller, entidade rica e testes unitários.
+// 4 exemplos cobrem os 4 conceitos mais cobrados em entrevista.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DIFF_EXAMPLES: DiffExample[] = [
@@ -235,7 +239,7 @@ const DIFF_EXAMPLES: DiffExample[] = [
     description: 'Use Case acoplado ao Prisma vs desacoplado via interface',
     beforeLabel: 'Sem DI — acoplado ao Prisma',
     afterLabel: 'Com DI — depende de interface',
-    before: `// ❌ CreateOrderUseCase conhece Prisma
+    before: `// CreateOrderUseCase conhece Prisma
 import { PrismaClient } from '@prisma/client'
 
 class CreateOrderUseCase {
@@ -251,7 +255,7 @@ class CreateOrderUseCase {
     return order
   }
 }`,
-    after: `// ✅ CreateOrderUseCase depende de interface (port)
+    after: `// CreateOrderUseCase depende de interface (port)
 interface IOrderRepository {
   save(order: Order): Promise<void>
 }
@@ -279,7 +283,7 @@ class CreateOrderUseCase {
     description: 'Lógica de negócio no controller vs delegada ao use case',
     beforeLabel: 'Controller gordo — anti-pattern',
     afterLabel: 'Controller lean — Clean Arch',
-    before: `// ❌ Lógica de negócio no controller
+    before: `// Lógica de negócio no controller
 @Post('/orders')
 async createOrder(@Body() body: CreateOrderDto) {
   // Validação de negócio no controller
@@ -296,10 +300,10 @@ async createOrder(@Body() body: CreateOrderDto) {
 
   return { id: order.id, total: finalTotal }
 }`,
-    after: `// ✅ Controller lean — só traduz HTTP para use case
+    after: `// Controller lean — só traduz HTTP para use case
 @Post('/orders')
 async createOrder(@Body() body: CreateOrderDto) {
-  // Controller traduz: HTTP request → use case input
+  // Controller traduz: HTTP request -> use case input
   const input: CreateOrderInput = {
     userId: body.userId,
     total: body.total,
@@ -308,7 +312,7 @@ async createOrder(@Body() body: CreateOrderDto) {
   // Toda lógica fica no use case
   const output = await this.createOrderUseCase.execute(input)
 
-  // Controller traduz: use case output → HTTP response
+  // Controller traduz: use case output -> HTTP response
   return { id: output.orderId, total: output.finalTotal }
 }`,
     explanation: 'Controller tem um papel único: traduzir HTTP para o domínio e de volta. Regras de negócio (descontos, validações) vivem no use case — testáveis sem subir HTTP.',
@@ -320,7 +324,7 @@ async createOrder(@Body() body: CreateOrderDto) {
     description: 'Dados sem comportamento vs objeto de domínio real',
     beforeLabel: 'Entity anêmica — só dados',
     afterLabel: 'Entity rica — comportamento real',
-    before: `// ❌ Entity anêmica — só getters e setters
+    before: `// Entity anêmica — só getters e setters
 class Order {
   public id: string
   public userId: string
@@ -338,7 +342,7 @@ class OrderService {
     order.status = 'approved'  // mutação direta
   }
 }`,
-    after: `// ✅ Entity rica — comportamento encapsulado
+    after: `// Entity rica — comportamento encapsulado
 class Order {
   private constructor(
     readonly id: string,
@@ -356,7 +360,6 @@ class Order {
       throw new OrderNotPendingError(this.id)
     }
     this._status = OrderStatus.Approved
-    // Poderia emitir DomainEvent aqui
   }
 
   addItem(item: OrderItem): void {
@@ -375,7 +378,7 @@ class Order {
     description: 'O ganho real da Clean Arch: testes rápidos sem subir servidor',
     beforeLabel: 'Teste E2E — lento e frágil',
     afterLabel: 'Teste unitário puro — rápido',
-    before: `// ❌ Teste que sobe servidor HTTP + banco real
+    before: `// Teste que sobe servidor HTTP + banco real
 describe('POST /orders', () => {
   let app: INestApplication
   let prisma: PrismaClient
@@ -396,7 +399,7 @@ describe('POST /orders', () => {
       .expect(201)
   })
 })`,
-    after: `// ✅ Teste do use case em memória — milissegundos
+    after: `// Teste do use case em memória — milissegundos
 class FakeOrderRepository implements IOrderRepository {
   private orders: Order[] = []
   async save(order: Order) { this.orders.push(order) }
@@ -419,7 +422,7 @@ describe('CreateOrderUseCase', () => {
       userId: '123', total: 100
     })
     expect(output.finalTotal).toBe(100)
-    // Roda em <5ms sem banco, sem HTTP
+    // Roda em menos de 5ms sem banco, sem HTTP
   })
 })`,
     explanation: 'A inversão de dependência é o que torna testes unitários possíveis. FakeOrderRepository implementa a mesma interface do Prisma — o use case não percebe a diferença.',
@@ -429,12 +432,15 @@ describe('CreateOrderUseCase', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 3 — ComparisonTable: Clean vs MVC vs Hexagonal vs Layered
+// Justificativa: "por que Clean Arch vs MVC?" é pergunta garantida em entrevista
+// sênior. Comparar 4 arquiteturas em 6 critérios simultaneamente torna
+// impossível de contestar — cada célula é um argumento defensável.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ARCH_OPTIONS: ComparisonOption[] = [
   { id: 'clean',     label: 'Clean Architecture', sublabel: 'Robert Martin', color: C },
   { id: 'mvc',       label: 'MVC',                sublabel: 'Model-View-Controller', color: SKY },
-  { id: 'hexagonal', label: 'Hexagonal',           sublabel: 'Ports & Adapters', color: PRP },
+  { id: 'hexagonal', label: 'Hexagonal',           sublabel: 'Ports & Adapters', color: '#a78bfa' },
   { id: 'layered',   label: 'Layered',             sublabel: 'N-tier tradicional', color: AMB },
 ]
 
@@ -463,10 +469,10 @@ const ARCH_CRITERIA: ComparisonCriterion[] = [
     id: 'boilerplate', label: 'Boilerplate', category: 'Produtividade',
     description: 'Quantidade de código cerimônia necessária para implementar uma feature',
     values: {
-      clean:     { rating: 'poor',  note: 'Entity + UseCase + Interface + Adapter + Controller + DTO + Mapper' },
+      clean:     { rating: 'poor',      note: 'Entity + UseCase + Interface + Adapter + Controller + DTO + Mapper' },
       mvc:       { rating: 'excellent', note: 'Model + View + Controller — mínimo de arquivos' },
-      hexagonal: { rating: 'fair',  note: 'Port + Adapter + Core — menos que Clean, mais que MVC' },
-      layered:   { rating: 'good',  note: 'Service + Repository + Controller — menos cerimônia' },
+      hexagonal: { rating: 'fair',      note: 'Port + Adapter + Core — menos que Clean, mais que MVC' },
+      layered:   { rating: 'good',      note: 'Service + Repository + Controller — menos cerimônia' },
     },
   },
   {
@@ -483,10 +489,10 @@ const ARCH_CRITERIA: ComparisonCriterion[] = [
     id: 'learning-curve', label: 'Curva de Aprendizado', category: 'Time',
     description: 'Tempo para um dev médio entender e aplicar corretamente',
     values: {
-      clean:     { rating: 'poor',  note: 'Alto: dependency rule, ports, mappers, DI — 2-4 semanas' },
+      clean:     { rating: 'poor',      note: 'Alto: dependency rule, ports, mappers, DI — 2-4 semanas' },
       mvc:       { rating: 'excellent', note: 'Baixíssimo: todo dev web conhece MVC em dias' },
-      hexagonal: { rating: 'fair',  note: 'Médio: ports e adapters são intuitivam mas precisam de prática' },
-      layered:   { rating: 'good',  note: 'Baixo: fácil de entender, difícil de manter grande' },
+      hexagonal: { rating: 'fair',      note: 'Médio: ports e adapters são intuitivos mas precisam de prática' },
+      layered:   { rating: 'good',      note: 'Baixo: fácil de entender, difícil de manter grande' },
     },
   },
   {
@@ -503,6 +509,9 @@ const ARCH_CRITERIA: ComparisonCriterion[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 4 — CodeStepper: fluxo de um use case passo a passo
+// Justificativa: o fluxo Controller → Use Case → Entity → Repository → Adapter
+// é abstrato para quem não aplicou. Ver cada linha se iluminar com callstack
+// e memória torna o fluxo concreto e memorável.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const USE_CASE_FLOW: CodeStepperScenario[] = [
@@ -511,7 +520,7 @@ const USE_CASE_FLOW: CodeStepperScenario[] = [
     label: 'CreateOrder — fluxo completo',
     language: 'typescript',
     code: `// HTTP Controller (Interface Adapter)
-const input = mapper.toInput(req.body)     // linha 2
+const input = mapper.toInput(req.body)      // linha 2
 const output = await useCase.execute(input) // linha 3
 return presenter.toHttp(output)             // linha 4
 
@@ -591,105 +600,84 @@ async save(order: Order): Promise<void> {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 5 — AntiPatternsGallery
+// Justificativa: 2 anti-patterns que o DiffViewer NÃO cobre:
+// - God Use Case (SRP): cenário muito comum, sem exemplo equivalente no DiffViewer
+// - Repository leaking ORM type: subtil, difícil de perceber sem exemplo de código
+// Os outros 4 (DI, lean controller, rich entity, testes) estão no DiffViewer
+// com mais espaço e contexto — não duplicar aqui.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CA_ANTIPATTERNS: AntiPattern[] = [
   {
-    title: 'Use Case acessando banco diretamente',
+    title: 'God Use Case — faz tudo',
     wrong: [
-      [{ text: '// ❌ Use case importa Prisma — viola Dependency Rule', color: RED }],
-      [{ text: 'import { PrismaClient } from "@prisma/client"', color: RED }],
-      [{ text: '', color: FG }],
-      [{ text: 'class CreateOrderUseCase {', color: FG }],
-      [{ text: '  private prisma = new PrismaClient()  // <- camada externa!', color: RED }],
-      [{ text: '  async execute(input: Input) {', color: FG }],
-      [{ text: '    return this.prisma.order.create({ data: input })', color: RED }],
+      [{ text: '// ProcessOrderUseCase com 200+ linhas — viola SRP', color: RED }],
+      [{ text: 'class ProcessOrderUseCase {', color: FG }],
+      [{ text: '  async execute(input: any) {', color: FG }],
+      [{ text: '    // valida usuário, verifica estoque,', color: RED }],
+      [{ text: '    // processa pagamento, envia email,', color: RED }],
+      [{ text: '    // gera fatura, atualiza histórico...', color: RED }],
+      [{ text: '    // 200+ linhas misturando tudo', color: RED }],
       [{ text: '  }', color: FG }],
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Use case depende de interface — Dependency Rule OK', color: GRN }],
-      [{ text: 'class CreateOrderUseCase {', color: FG }],
-      [{ text: '  constructor(', color: FG }],
-      [{ text: '    private readonly repo: IOrderRepository  // interface', color: GRN }],
-      [{ text: '  ) {}', color: FG }],
-      [{ text: '  async execute(input: Input) {', color: FG }],
-      [{ text: '    const order = new Order(input)', color: FG }],
-      [{ text: '    await this.repo.save(order)  // chama interface', color: GRN }],
-      [{ text: '  }', color: FG }],
-      [{ text: '}', color: FG }],
+      [{ text: '// Cada use case com uma responsabilidade', color: GRN }],
+      [{ text: 'class CreateOrderUseCase { ... }    // SRP', color: GRN }],
+      [{ text: 'class ReserveStockUseCase { ... }   // separado', color: GRN }],
+      [{ text: 'class ProcessPaymentUseCase { ... } // separado', color: GRN }],
+      [{ text: 'class SendOrderEmailUseCase { ... } // separado', color: GRN }],
+      [{ text: '// Orquestração via Saga ou Step Functions', color: GRN }],
+      [{ text: '// Cada use case testável individualmente', color: GRN }],
     ],
-    why: 'Use case importar Prisma viola a Dependency Rule — a camada de aplicação não pode depender de detalhes de infra. O ganho: trocar ORM, testar sem banco, isolar lógica de negócio.',
+    why: 'God Use Case viola SRP — impossível testar cada responsabilidade em isolamento. Separe por responsabilidade. Para fluxos que exigem múltiplos use cases, use Saga Pattern ou orquestração via Step Functions.',
   },
   {
-    title: 'Lógica de negócio no Controller',
+    title: 'Repository retornando tipo do ORM',
     wrong: [
-      [{ text: '// ❌ Regra de desconto no controller', color: RED }],
-      [{ text: '@Post("/orders")', color: FG }],
-      [{ text: 'async create(@Body() body: CreateOrderDto) {', color: FG }],
-      [{ text: '  // Lógica de negócio aqui — errado!', color: RED }],
-      [{ text: '  const discount = body.total > 1000 ? 0.1 : 0', color: RED }],
-      [{ text: '  const final = body.total * (1 - discount)', color: RED }],
-      [{ text: '  return this.prisma.order.create({ data: { total: final } })', color: RED }],
+      [{ text: '// Port retorna PrismaOrder — vazamento de infra', color: RED }],
+      [{ text: 'interface IOrderRepository {', color: FG }],
+      [{ text: '  findById(id: string): Promise<PrismaOrder>', color: RED }],
       [{ text: '}', color: FG }],
+      [{ text: '// Use case recebe PrismaOrder — sabe de Prisma!', color: RED }],
+      [{ text: 'const order = await this.repo.findById(id)', color: FG }],
+      [{ text: 'order.createdAt  // campo do Prisma, não do domínio', color: RED }],
     ],
     right: [
-      [{ text: '// ✅ Controller lean — só traduz HTTP', color: GRN }],
-      [{ text: '@Post("/orders")', color: FG }],
-      [{ text: 'async create(@Body() body: CreateOrderDto) {', color: FG }],
-      [{ text: '  const input = { userId: body.userId, total: body.total }', color: FG }],
-      [{ text: '  // Delega TODA lógica ao use case', color: GRN }],
-      [{ text: '  const output = await this.createOrderUseCase.execute(input)', color: GRN }],
-      [{ text: '  return { id: output.orderId, total: output.finalTotal }', color: FG }],
+      [{ text: '// Port retorna domain entity — use case agnóstico', color: GRN }],
+      [{ text: 'interface IOrderRepository {', color: FG }],
+      [{ text: '  findById(id: string): Promise<Order | null>', color: GRN }],
       [{ text: '}', color: FG }],
-    ],
-    why: 'Controller gordo é o anti-pattern mais comum. Lógica no controller não é testável sem subir HTTP. Mova toda regra de negócio para o use case — controller só traduz.',
-  },
-  {
-    title: 'Entity anêmica — sem comportamento',
-    wrong: [
-      [{ text: '// ❌ Entity só tem dados — lógica espalhada', color: RED }],
-      [{ text: 'class Order {', color: FG }],
-      [{ text: '  public status: string  // mutável diretamente!', color: RED }],
-      [{ text: '  public total: number', color: RED }],
-      [{ text: '}', color: FG }],
-      [{ text: '// Lógica fora — qualquer um viola invariante', color: RED }],
-      [{ text: 'order.status = "approved"  // sem validação!', color: RED }],
-    ],
-    right: [
-      [{ text: '// ✅ Entity rica — comportamento encapsulado', color: GRN }],
-      [{ text: 'class Order {', color: FG }],
-      [{ text: '  private _status: OrderStatus', color: FG }],
-      [{ text: '  approve(): void {', color: GRN }],
-      [{ text: '    if (this._status !== OrderStatus.Pending)', color: GRN }],
-      [{ text: '      throw new OrderNotPendingError()', color: GRN }],
-      [{ text: '    this._status = OrderStatus.Approved', color: GRN }],
+      [{ text: '// Adapter faz o mapping internamente', color: GRN }],
+      [{ text: 'class PrismaOrderRepository implements IOrderRepository {', color: FG }],
+      [{ text: '  async findById(id: string) {', color: FG }],
+      [{ text: '    const row = await prisma.order.findUnique(...)', color: FG }],
+      [{ text: '    return row ? mapper.toDomain(row) : null', color: GRN }],
       [{ text: '  }', color: FG }],
       [{ text: '}', color: FG }],
     ],
-    why: 'Entity anêmica é um sinal de que a lógica de negócio vazou para services ou controllers. Entity rica encapsula invariantes — impossível colocar pedido em estado inválido de fora.',
+    why: 'Repository com tipo de ORM no contrato faz o use case conhecer Prisma indiretamente — viola a Dependency Rule de forma sutil. O port deve sempre retornar entity de domínio. O adapter faz o mapping.',
   },
   {
     title: 'Framework importado na camada de domínio',
     wrong: [
-      [{ text: '// ❌ Entity conhece NestJS — viola Dependency Rule', color: RED }],
+      [{ text: '// Entity conhece TypeORM — viola Dependency Rule', color: RED }],
       [{ text: 'import { Entity, Column } from "typeorm"', color: RED }],
       [{ text: 'import { IsEmail } from "class-validator"', color: RED }],
       [{ text: '', color: FG }],
       [{ text: '@Entity()  // decorator de ORM na entity de domínio!', color: RED }],
       [{ text: 'class User {', color: FG }],
-      [{ text: '  @Column()', color: RED }],
-      [{ text: '  @IsEmail()', color: RED }],
+      [{ text: '  @Column() @IsEmail()', color: RED }],
       [{ text: '  email: string', color: FG }],
       [{ text: '}', color: FG }],
     ],
     right: [
-      [{ text: '// ✅ Entity de domínio pura — sem decorator', color: GRN }],
-      [{ text: 'class User {  // zero imports externos', color: FG }],
-      [{ text: '  constructor(readonly email: Email) {}', color: GRN }],
+      [{ text: '// Entity de domínio pura — sem decorator', color: GRN }],
+      [{ text: 'class User {  // zero imports externos', color: GRN }],
+      [{ text: '  constructor(readonly email: Email) {}', color: FG }],
       [{ text: '}', color: FG }],
       [{ text: '', color: FG }],
-      [{ text: '// ✅ Entity de persistência separada — na infra', color: GRN }],
+      [{ text: '// Entity de persistência separada — na infra', color: GRN }],
       [{ text: 'import { Entity, Column } from "typeorm"', color: FG }],
       [{ text: '@Entity() class UserOrmEntity {', color: FG }],
       [{ text: '  @Column() email: string  // só na camada de infra', color: GRN }],
@@ -701,6 +689,9 @@ const CA_ANTIPATTERNS: AntiPattern[] = [
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VISUAL 6 — DecisionTree: onde colocar esse código?
+// Justificativa: a dúvida mais prática de quem está aprendendo Clean Arch é
+// "onde fica esse código?". A árvore de decisão torna o processo explícito
+// e memorizável — melhor que qualquer regra textual.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const DT_ROOT: DTNode = {
@@ -747,7 +738,7 @@ const DT_NODES: Record<string, DTNode> = {
   },
   'is-translation': {
     id: 'is-translation',
-    question: 'É conversão de dados entre formatos (HTTP ↔ domínio, ORM ↔ domínio)?',
+    question: 'É conversão de dados entre formatos (HTTP vs domínio, ORM vs domínio)?',
     children: [
       { label: 'Sim — traduz dados', nodeId: 'adapter-layer', color: ORG },
       { label: 'Não — é configuração/boot', nodeId: 'is-framework', color: SLT },
@@ -756,7 +747,7 @@ const DT_NODES: Record<string, DTNode> = {
   'adapter-layer': {
     id: 'adapter-layer',
     recommendation: 'Interface Adapters',
-    detail: 'Coloque no controller, presenter, repository ou gateway. Exemplos: HttpOrderController (HTTP → use case), PrismaOrderRepository (implements IOrderRepository), OrderPresenter (use case output → JSON), OrderMapper (domain ↔ ORM).',
+    detail: 'Coloque no controller, presenter, repository ou gateway. Exemplos: HttpOrderController (HTTP → use case), PrismaOrderRepository (implements IOrderRepository), OrderPresenter (use case output → JSON), OrderMapper (domain vs ORM).',
     color: ORG,
     icon: '◑',
   },
@@ -785,58 +776,80 @@ const DT_NODES: Record<string, DTNode> = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — ProgressionMap: jornada Clean Arch
+// VISUAL 7 — LayerStack: mapa de arquivos por camada
+// Justificativa: substitui o ProgressionMap. Clean Arch não tem progressão
+// linear — tem profundidade. O que faz sentido é um mapa de referência mostrando
+// quais arquivos concretos vivem em cada camada, com exemplos reais de NestJS.
+// Este é o visual que dev consulta durante a implementação.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const CA_LEVELS: ProgressionLevel[] = [
+const CA_LAYERS: Layer[] = [
   {
-    id: 'junior',
-    name: 'Iniciante',
-    label: 'Entende o conceito',
-    emoji: '🌱',
-    concepts: [
-      { name: 'As 4 camadas e seus nomes', tip: 'Memorize: Entities → Use Cases → Adapters → Frameworks. Dependência sempre aponta para dentro.' },
-      { name: 'Dependency Rule (conceito)', tip: 'Camada interna nunca importa camada externa. Entities não importam Prisma.' },
-      { name: 'Diferença Entity vs Service vs Controller', tip: 'Entity = negócio puro. Service/UseCase = orquestração. Controller = HTTP.' },
-      { name: 'Por que não acesso direto ao banco?', tip: 'Testabilidade. Trocar ORM sem tocar domínio. Velocidade de testes.' },
+    id: 'entities',
+    label: 'Entities & Value Objects',
+    sublabel: 'Camada 1 — Domain (núcleo)',
+    description: 'Lógica de negócio pura. Sem imports externos. Testável sem banco, sem HTTP, sem framework. Sobrevive a qualquer refactor tecnológico.',
+    code: 'order.entity.ts | money.vo.ts | cpf.vo.ts | order-created.event.ts',
+    color: IND,
+    icon: '⬤',
+    examples: [
+      'order.entity.ts',
+      'user.entity.ts',
+      'money.vo.ts',
+      'cpf.vo.ts',
+      'order-item.entity.ts',
+      'order-created.event.ts',
     ],
   },
   {
-    id: 'pleno',
-    name: 'Pleno',
-    label: 'Aplica com orientação',
-    emoji: '⚡',
-    concepts: [
-      { name: 'Ports & Adapters (interfaces como contratos)', tip: 'Use case define IOrderRepository. Prisma implementa. Fake implementa para teste.' },
-      { name: 'Mappers (domain ↔ persistence ↔ HTTP)', tip: 'Mapper converte entre formatos. domain.entity → orm.entity → http.response.' },
-      { name: 'DTOs de entrada e saída', tip: 'Input DTO para receber, Output DTO para retornar. Separam as fronteiras.' },
-      { name: 'Entity rica vs anêmica', tip: 'Entity rica encapsula invariantes. Se você faz order.status = X fora da entity, está errado.' },
-      { name: 'Testes unitários sem banco', tip: 'FakeRepository implementa a mesma interface do Prisma. Use case não percebe diferença.' },
+    id: 'usecases',
+    label: 'Use Cases & Ports',
+    sublabel: 'Camada 2 — Application',
+    description: 'Orquestra entities. Define interfaces (ports) que a infra implementa. Nunca importa Prisma, Express ou AWS SDK — só suas próprias interfaces.',
+    code: 'create-order.usecase.ts | order-repository.port.ts | create-order.input.ts',
+    color: TEAL,
+    icon: '◎',
+    examples: [
+      'create-order.usecase.ts',
+      'approve-payment.usecase.ts',
+      'order-repository.port.ts',
+      'email-service.port.ts',
+      'create-order.input.ts',
+      'create-order.output.ts',
     ],
   },
   {
-    id: 'senior',
-    name: 'Sênior',
-    label: 'Defende e adapta',
-    emoji: '🚀',
-    concepts: [
-      { name: 'Quando NÃO usar Clean Arch', tip: 'CRUD simples, MVPs, sistemas sem regra de negócio rica. Boilerplate não se paga.' },
-      { name: 'Domain Events e Event Sourcing', tip: 'OrderCreated, PaymentApproved — desacoplam bounded contexts via eventos imutáveis.' },
-      { name: 'Aggregate Root e consistência de transações', tip: 'Aggregate Root é a fronteira de consistência. Fora: eventual consistency.' },
-      { name: 'eslint-plugin-boundaries (enforçar deps)', tip: 'Bloqueia import de camada externa para interna no CI — sem exceção humana.' },
-      { name: 'Clean Arch vs Hexagonal vs DDD tático', tip: 'São variações do mesmo princípio. Hexagonal = Ports & Adapters. Clean = 4 camadas concêntricas. DDD = linguagem ubíqua + aggregates.' },
+    id: 'adapters',
+    label: 'Interface Adapters',
+    sublabel: 'Camada 3 — tradutores',
+    description: 'Implementam os ports. Controllers traduzem HTTP → use case. Repositories traduzem domínio → ORM. Se Prisma mudar para TypeORM, só esta camada muda.',
+    code: 'order.controller.ts | prisma-order.repository.ts | order-prisma.mapper.ts',
+    color: ORG,
+    icon: '◑',
+    examples: [
+      'order.controller.ts',
+      'order.presenter.ts',
+      'prisma-order.repository.ts',
+      'stripe-payment.gateway.ts',
+      'order-prisma.mapper.ts',
+      'user-orm.entity.ts',
     ],
   },
   {
-    id: 'especialista',
-    name: 'Especialista',
-    label: 'Arquiteta sistemas',
-    emoji: '🏆',
-    concepts: [
-      { name: 'Bounded Contexts e Context Maps', tip: 'Cada contexto tem seu modelo de domínio. Anticorruption Layer na fronteira.' },
-      { name: 'CQRS + Event Sourcing integration', tip: 'Command model usa Clean Arch. Query model usa projeções otimizadas para leitura.' },
-      { name: 'Modular Monolith como primeiro passo', tip: 'Módulos com Clean Arch interno. Depois extrair como microserviço se necessário.' },
-      { name: 'Trade-off analysis por contexto', tip: 'Qual o custo de boilerplate vs testabilidade? Defender com números e experiência.' },
+    id: 'frameworks',
+    label: 'Frameworks & Drivers',
+    sublabel: 'Camada 4 — Borda (detalhe plugável)',
+    description: 'Configuração de frameworks e drivers. O domínio não sabe que eles existem. Trocar NestJS por Express, Postgres por MongoDB, ou AWS por GCP não toca as camadas internas.',
+    code: 'order.module.ts | prisma.service.ts | app.module.ts | main.ts',
+    color: SLT,
+    icon: '○',
+    examples: [
+      'order.module.ts',
+      'app.module.ts',
+      'main.ts',
+      'prisma.service.ts',
+      'typeorm.config.ts',
+      'swagger.setup.ts',
     ],
   },
 ]
@@ -859,7 +872,7 @@ export default function CleanArchitectureVisuais() {
     {
       id: 'di-diff',
       title: 'Dependency Inversion na Prática',
-      subtitle: 'Antes vs depois: acoplado ao Prisma vs interface + adapter',
+      subtitle: 'DI, lean controller, entity rica, testes sem banco — código real antes e depois',
       accent: C,
       component: (
         <DiffViewer
@@ -899,7 +912,7 @@ export default function CleanArchitectureVisuais() {
     {
       id: 'antipatterns',
       title: 'Anti-patterns — o que não fazer',
-      subtitle: 'Use case com Prisma, controller gordo, entity anêmica, decorator de ORM no domínio',
+      subtitle: 'God Use Case, repository vazando ORM, decorator de framework no domínio',
       accent: C,
       component: (
         <AntiPatternsGallery
@@ -924,16 +937,15 @@ export default function CleanArchitectureVisuais() {
       ),
     },
     {
-      id: 'progression',
-      title: 'Jornada Clean Arch — Iniciante ao Especialista',
-      subtitle: 'O que dominar em cada nível para entrevistas e projetos reais',
+      id: 'layer-files',
+      title: 'Mapa de Arquivos por Camada',
+      subtitle: 'Quais arquivos NestJS ficam em cada camada — referência para implementação',
       accent: C,
       component: (
-        <ProgressionMap
-          levels={CA_LEVELS}
+        <LayerStack
+          layers={CA_LAYERS}
           accentColor={C}
           bgColor={BG}
-          cardColor={CARD}
         />
       ),
     },

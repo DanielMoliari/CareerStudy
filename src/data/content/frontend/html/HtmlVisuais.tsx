@@ -6,10 +6,10 @@ import { ConceptCarousel } from '@/components/visuals/ConceptCarousel'
 import type { Slide } from '@/components/visuals/ConceptCarousel'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
-import { ProgressionMap } from '@/components/visuals/ProgressionMap'
-import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
 import { CardCarousel } from '@/components/visuals/CardCarousel'
 import type { CarouselCard } from '@/components/visuals/CardCarousel'
+import { DecisionTree } from '@/components/visuals/DecisionTree'
+import type { DTNode } from '@/components/visuals/DecisionTree'
 
 // ── Paleta HTML ─────────────────────────────────────────────────────────────────
 const C      = '#E44D26'   // laranja HTML5
@@ -63,12 +63,6 @@ function CRPIllustration() {
 }
 
 function DeferAsyncIllustration() {
-  const bars = [
-    { label: 'Sem attr', parse: [0, 40], download: [40, 65], exec: [65, 80], total: 80, color: RED },
-    { label: 'async', parse1: [0, 40], download: [0, 30], exec: [40, 55], parse2: [55, 90], total: 90, color: AMB },
-    { label: 'defer', parse: [0, 90], download: [0, 30], exec: [90, 105], total: 105, color: GRN },
-  ]
-  void bars
   return (
     <div style={{ height: 200, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
       {[
@@ -91,27 +85,6 @@ function DeferAsyncIllustration() {
         </div>
       ))}
       <div style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>→ tempo (ms) — representação esquemática</div>
-    </div>
-  )
-}
-
-function PreloadIllustration() {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, height: 200, alignItems: 'center' }}>
-      {[
-        { label: 'preload', color: GRN, desc: 'recurso ATUAL\nalta prioridade\ndownload imediato', use: 'fonte crítica, img hero, CSS above-fold' },
-        { label: 'prefetch', color: SKY, desc: 'próxima ROTA\nbaixa prioridade\ndownload ocioso', use: 'próxima página do fluxo' },
-        { label: 'preconnect', color: AMB, desc: 'TCP+TLS antecipado\nsem baixar recurso\n150-300ms economizados', use: 'Google Fonts, CDN, APIs externas' },
-        { label: 'dns-prefetch', color: PRP, desc: 'só DNS\nmais leve\nsem TCP/TLS', use: 'origens menos prioritárias' },
-      ].map(item => (
-        <div key={item.label} style={{
-          background: `${item.color}10`, border: `1px solid ${item.color}50`, borderRadius: 8, padding: 12,
-        }}>
-          <div style={{ fontSize: 11, color: item.color, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", marginBottom: 4 }}>{item.label}</div>
-          <div style={{ fontSize: 9, color: FGMUTE, whiteSpace: 'pre-line', lineHeight: 1.5, marginBottom: 4 }}>{item.desc}</div>
-          <div style={{ fontSize: 9, color: FG, fontStyle: 'italic' }}>{item.use}</div>
-        </div>
-      ))}
     </div>
   )
 }
@@ -152,16 +125,6 @@ const CONCEPT_SLIDES: Slide[] = [
     ],
     gradient: [AMB, '#f97316'],
     illustration: <DeferAsyncIllustration />,
-  },
-  {
-    title: 'Resource Hints — preload, prefetch, preconnect',
-    paragraphs: [
-      'preload: recurso necessário AGORA, alta prioridade. Use para fontes críticas, CSS above-fold, imagem hero.',
-      'prefetch: recurso para a PRÓXIMA navegação. O browser baixa quando estiver ocioso — não urgente.',
-      'preconnect: estabelece TCP+TLS antecipadamente sem baixar recurso. Economiza 150-300ms de handshake.',
-    ],
-    gradient: [GRN, '#22c55e'],
-    illustration: <PreloadIllustration />,
   },
   {
     title: 'Parser Block vs Render Block',
@@ -287,7 +250,285 @@ const SEMANTIC_CARDS: CarouselCard[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 3 — Acessibilidade Interativa (componente customizado)
+// VISUAL 3 — DOM vs Accessibility Tree (componente customizado)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type ATNode = {
+  tag: string
+  text?: string
+  attrs?: string
+  // Como aparece no Accessibility Tree
+  role?: string
+  name?: string
+  // Se está exposto no AT
+  inAT: boolean
+  // Por que não está exposto (se inAT=false)
+  hiddenReason?: string
+  children?: ATNode[]
+}
+
+const SEMANTIC_TREE: ATNode = {
+  tag: 'html',
+  inAT: true,
+  role: 'document',
+  attrs: 'lang="pt-BR"',
+  children: [
+    {
+      tag: 'header',
+      inAT: true,
+      role: 'banner',
+      name: 'cabeçalho do site',
+      children: [
+        { tag: 'h1', text: 'Meu Blog', inAT: true, role: 'heading level=1', name: 'Meu Blog' },
+      ],
+    },
+    {
+      tag: 'nav',
+      inAT: true,
+      role: 'navigation',
+      name: 'principal',
+      attrs: 'aria-label="principal"',
+      children: [
+        { tag: 'a', text: 'Home', inAT: true, role: 'link', name: 'Home', attrs: 'href="/"' },
+        { tag: 'a', text: 'Sobre', inAT: true, role: 'link', name: 'Sobre', attrs: 'href="/sobre"' },
+      ],
+    },
+    {
+      tag: 'main',
+      inAT: true,
+      role: 'main',
+      children: [
+        { tag: 'h2', text: 'Posts recentes', inAT: true, role: 'heading level=2', name: 'Posts recentes' },
+        {
+          tag: 'article',
+          inAT: true,
+          role: 'article',
+          children: [
+            { tag: 'button', text: 'Curtir', inAT: true, role: 'button', name: 'Curtir' },
+            { tag: 'span', text: '(decoração)', inAT: false, hiddenReason: 'span sem semântica + sem texto significativo' },
+          ],
+        },
+      ],
+    },
+    {
+      tag: 'div',
+      attrs: 'aria-hidden="true"',
+      inAT: false,
+      hiddenReason: 'aria-hidden="true" — esconde do AT',
+      children: [
+        { tag: 'svg', text: '★', inAT: false, hiddenReason: 'pai com aria-hidden' },
+      ],
+    },
+  ],
+}
+
+const SOUP_TREE: ATNode = {
+  tag: 'html',
+  inAT: true,
+  role: 'document',
+  children: [
+    {
+      tag: 'div',
+      attrs: 'class="header"',
+      inAT: false,
+      hiddenReason: 'div sem role — não é landmark',
+      children: [
+        { tag: 'div', text: 'Meu Blog', inAT: false, hiddenReason: 'div sem heading — sem outline' },
+      ],
+    },
+    {
+      tag: 'div',
+      attrs: 'class="nav"',
+      inAT: false,
+      hiddenReason: 'div sem role — não é landmark',
+      children: [
+        { tag: 'span', text: 'Home', attrs: 'onclick=...', inAT: false, hiddenReason: 'span sem role — não focável' },
+        { tag: 'span', text: 'Sobre', attrs: 'onclick=...', inAT: false, hiddenReason: 'span sem role — não focável' },
+      ],
+    },
+    {
+      tag: 'div',
+      attrs: 'class="content"',
+      inAT: false,
+      hiddenReason: 'div sem role — não é landmark',
+      children: [
+        { tag: 'div', text: 'Posts recentes', inAT: false, hiddenReason: 'sem heading semântico' },
+        {
+          tag: 'div',
+          attrs: 'class="post"',
+          inAT: false,
+          hiddenReason: 'div sem role — não é article',
+          children: [
+            { tag: 'div', text: 'Curtir', attrs: 'onclick=...', inAT: false, hiddenReason: 'div com onclick não é botão' },
+          ],
+        },
+      ],
+    },
+  ],
+}
+
+function ATNodeRow({ node, depth, side }: { node: ATNode; depth: number; side: 'dom' | 'at' }) {
+  const indent = depth * 18
+  const isHidden = side === 'at' && !node.inAT
+
+  if (side === 'at' && !node.inAT) {
+    // No AT, nodes não expostos colapsam para um marcador visual
+    return null
+  }
+
+  const tagColor = node.inAT ? (side === 'at' ? GRN : C) : MUTE
+  const textColor = isHidden ? MUTE : FG
+
+  return (
+    <div>
+      <div style={{
+        paddingLeft: indent + 8,
+        paddingRight: 8,
+        paddingTop: 3,
+        paddingBottom: 3,
+        fontSize: 11,
+        fontFamily: "'JetBrains Mono',monospace",
+        color: textColor,
+        background: side === 'at' && node.role ? `${GRN}08` : 'transparent',
+        borderLeft: side === 'at' && node.role ? `2px solid ${GRN}40` : '2px solid transparent',
+        opacity: isHidden ? 0.5 : 1,
+      }}>
+        <span style={{ color: tagColor, fontWeight: 700 }}>&lt;{node.tag}</span>
+        {node.attrs && (
+          <span style={{ color: SKY, marginLeft: 4, fontSize: 10 }}>{' '}{node.attrs}</span>
+        )}
+        <span style={{ color: tagColor, fontWeight: 700 }}>&gt;</span>
+        {node.text && (
+          <span style={{ marginLeft: 6, color: FGMUTE }}>{node.text}</span>
+        )}
+        {side === 'at' && node.role && (
+          <span style={{ marginLeft: 8, fontSize: 10, color: GRN, fontWeight: 700 }}>
+            {'→ '}role=&quot;{node.role}&quot;{node.name && ` · name="${node.name}"`}
+          </span>
+        )}
+      </div>
+      {node.children?.map((child, i) => (
+        <ATNodeRow key={i} node={child} depth={depth + 1} side={side} />
+      ))}
+    </div>
+  )
+}
+
+function DOMHiddenSummary({ tree }: { tree: ATNode }) {
+  // Coletar todos os nodes ocultos para listá-los como motivo
+  const hidden: { tag: string; reason: string }[] = []
+  function walk(n: ATNode) {
+    if (!n.inAT && n.hiddenReason) {
+      hidden.push({ tag: n.tag, reason: n.hiddenReason })
+    }
+    n.children?.forEach(walk)
+  }
+  walk(tree)
+
+  if (hidden.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 12, padding: 10, background: `${RED}10`, border: `1px solid ${RED}40`, borderRadius: 6 }}>
+      <div style={{ fontSize: 9, color: RED, fontWeight: 700, marginBottom: 6, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>
+        {hidden.length} {hidden.length === 1 ? 'nó oculto' : 'nós ocultos'} do AT
+      </div>
+      {hidden.slice(0, 5).map((h, i) => (
+        <div key={i} style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", marginBottom: 2 }}>
+          <span style={{ color: RED }}>&lt;{h.tag}&gt;</span>
+          <span style={{ color: MUTE }}> — {h.reason}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function AccessibilityTreeVisual() {
+  const [mode, setMode] = useState<'semantic' | 'soup'>('semantic')
+  const tree = mode === 'semantic' ? SEMANTIC_TREE : SOUP_TREE
+
+  return (
+    <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>
+          VISUAL 3 — DOM vs ACCESSIBILITY TREE
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>O que o leitor de tela realmente vê</div>
+        <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.5 }}>
+          O Accessibility Tree é uma estrutura paralela ao DOM, derivada da semântica. Screen readers, Googlebot e tab navigation usam o AT — não o DOM. Compare HTML semântico vs div soup lado a lado.
+        </div>
+      </div>
+
+      {/* Toggle */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setMode('semantic')} style={{
+          padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700,
+          background: mode === 'semantic' ? `${GRN}25` : BG,
+          color: mode === 'semantic' ? GRN : FGMUTE,
+          borderWidth: 1, borderStyle: 'solid',
+          borderColor: mode === 'semantic' ? `${GRN}80` : LINE,
+        }}>
+          ✓ HTML Semântico
+        </button>
+        <button onClick={() => setMode('soup')} style={{
+          padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700,
+          background: mode === 'soup' ? `${RED}25` : BG,
+          color: mode === 'soup' ? RED : FGMUTE,
+          borderWidth: 1, borderStyle: 'solid',
+          borderColor: mode === 'soup' ? `${RED}80` : LINE,
+        }}>
+          ✗ Div Soup
+        </button>
+      </div>
+
+      {/* Lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* DOM */}
+        <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 16, minHeight: 320 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <span style={{ fontSize: 10, color: SKY, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em' }}>DOM TREE</span>
+            <span style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>document.querySelector(...)</span>
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 380 }}>
+            <ATNodeRow node={tree} depth={0} side="dom" />
+          </div>
+        </div>
+
+        {/* Accessibility Tree */}
+        <div style={{ background: BG, border: `1px solid ${mode === 'semantic' ? GRN : RED}40`, borderRadius: 10, padding: 16, minHeight: 320 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <span style={{ fontSize: 10, color: GRN, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em' }}>ACCESSIBILITY TREE</span>
+            <span style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>VoiceOver / NVDA / JAWS / Googlebot</span>
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 380 }}>
+            <ATNodeRow node={tree} depth={0} side="at" />
+          </div>
+          <DOMHiddenSummary tree={tree} />
+        </div>
+      </div>
+
+      {/* Conclusão dinâmica */}
+      <div style={{
+        marginTop: 16, padding: 14, borderRadius: 8,
+        background: mode === 'semantic' ? `${GRN}10` : `${RED}10`,
+        border: `1px solid ${mode === 'semantic' ? GRN : RED}40`,
+      }}>
+        <div style={{ fontSize: 10, color: mode === 'semantic' ? GRN : RED, fontWeight: 700, marginBottom: 4, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>
+          {mode === 'semantic' ? 'Leitor de tela narra' : 'Leitor de tela diz'}
+        </div>
+        <div style={{ fontSize: 12, color: FG, lineHeight: 1.6 }}>
+          {mode === 'semantic'
+            ? '"banner — Meu Blog, heading nível 1. navegação principal, link Home, link Sobre. main, heading nível 2 Posts recentes. article, botão Curtir."'
+            : '"clickable, Meu Blog. clickable, Home. clickable, Sobre. clickable, Posts recentes. clickable, Curtir." Sem landmarks, sem headings, sem botões — todos viram texto genérico clicável.'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 4 — Acessibilidade Checklist (componente customizado)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const A11Y_CHECKLIST = [
@@ -330,16 +571,14 @@ function A11YChecklist() {
 
   return (
     <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>
-          VISUAL 3 — ACESSIBILIDADE
+          VISUAL 4 — ACESSIBILIDADE
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>Checklist de Acessibilidade HTML</div>
         <div style={{ fontSize: 12, color: FGMUTE }}>Marque os itens que você já implementou. {A11Y_CHECKLIST.length} verificações no total.</div>
       </div>
 
-      {/* Progresso */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={{ fontSize: 11, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>{checked.size}/{A11Y_CHECKLIST.length} completos</span>
@@ -350,7 +589,6 @@ function A11YChecklist() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         {categories.map(cat => (
           <button key={cat} onClick={() => setFilter(cat)} style={{
@@ -366,7 +604,6 @@ function A11YChecklist() {
         ))}
       </div>
 
-      {/* Lista */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filtered.map(item => {
           const done = checked.has(item.id)
@@ -410,7 +647,279 @@ function A11YChecklist() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 4 — Meta Tags Builder
+// VISUAL 5 — Anatomia do <head> (componente customizado)
+// Específico de HTML: a ordem CORRETA dos elementos do head e por que cada um vai onde
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type HeadElement = {
+  id: string
+  order: number
+  tag: string
+  category: 'critical' | 'seo' | 'social' | 'hint' | 'asset' | 'data'
+  why: string
+  warning?: string
+}
+
+const HEAD_ELEMENTS: HeadElement[] = [
+  {
+    id: 'charset',
+    order: 1,
+    tag: '<meta charset="utf-8" />',
+    category: 'critical',
+    why: 'PRIMEIRO elemento absoluto. O browser começa a parsear o HTML antes de saber o charset — se não for definido nos primeiros 1024 bytes, ele pode escolher a codificação errada e re-parsear tudo.',
+    warning: 'Se vier depois de outros elementos com texto, caracteres especiais antes dele podem ser corrompidos.',
+  },
+  {
+    id: 'viewport',
+    order: 2,
+    tag: '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    category: 'critical',
+    why: 'Logo após o charset. Sem ele, browsers mobile usam viewport virtual de 980px e encolhem a página — quebra qualquer media query e responsive design.',
+    warning: 'Nunca use maximum-scale=1 ou user-scalable=no. Viola WCAG 1.4.4 (zoom é direito do usuário).',
+  },
+  {
+    id: 'title',
+    order: 3,
+    tag: '<title>Página · Site</title>',
+    category: 'seo',
+    why: 'Aparece na aba do browser, nos resultados de busca e nos compartilhamentos sociais (fallback). Precisa ser único por página, descritivo e ter < 60 caracteres para não ser truncado no SERP.',
+  },
+  {
+    id: 'description',
+    order: 4,
+    tag: '<meta name="description" content="..." />',
+    category: 'seo',
+    why: 'Snippet de 150-160 caracteres que aparece no resultado de busca. Não afeta ranking diretamente mas afeta CTR. Se ausente, o Google escolhe um trecho da página.',
+  },
+  {
+    id: 'canonical',
+    order: 5,
+    tag: '<link rel="canonical" href="https://..." />',
+    category: 'seo',
+    why: 'Indica ao Google a URL preferencial quando há duplicatas (parâmetros UTM, paginação, mobile/desktop). Sem canonical, o Google pode indexar a versão errada.',
+  },
+  {
+    id: 'preconnect',
+    order: 6,
+    tag: '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />',
+    category: 'hint',
+    why: 'ANTES de qualquer request à origem. Estabelece TCP+TLS handshake antecipado (economiza 150-300ms). Use para Google Fonts, CDNs, APIs externas que serão acessadas depois.',
+    warning: 'Para fontes cross-origin, sempre use crossorigin="anonymous" — sem isso o browser baixa a fonte duas vezes.',
+  },
+  {
+    id: 'preload',
+    order: 7,
+    tag: '<link rel="preload" as="font" href="..." crossorigin />',
+    category: 'hint',
+    why: 'Recursos críticos para o render inicial (fonte hero, imagem LCP, CSS crítico). Browser baixa em paralelo ao parsing com alta prioridade. SEMPRE use o atributo as="..." para priorização correta.',
+    warning: 'preload sem usar o recurso na mesma página gera warning no console. Use cirurgicamente.',
+  },
+  {
+    id: 'css',
+    order: 8,
+    tag: '<link rel="stylesheet" href="/main.css" />',
+    category: 'asset',
+    why: 'CSS bloqueia o RENDER — a tela fica branca até o CSSOM estar pronto. Por isso vem após preconnect e preload (que rodam em paralelo) e antes dos scripts (que ficam com defer).',
+  },
+  {
+    id: 'og',
+    order: 9,
+    tag: '<meta property="og:title|description|image|url" />',
+    category: 'social',
+    why: 'Open Graph controla o card de compartilhamento em redes sociais (Facebook, LinkedIn, WhatsApp, Telegram). Sem og:image, o link compartilhado fica sem preview visual — CTR cai drasticamente.',
+    warning: 'og:image deve ser ≥ 1200×630px e < 1MB. Caches agressivos de redes sociais — use cache-busting na URL ao atualizar.',
+  },
+  {
+    id: 'twitter',
+    order: 10,
+    tag: '<meta name="twitter:card" content="summary_large_image" />',
+    category: 'social',
+    why: 'Twitter tem namespace próprio mas lê og: como fallback. summary_large_image faz o card ocupar a largura total com imagem proeminente.',
+  },
+  {
+    id: 'jsonld',
+    order: 11,
+    tag: '<script type="application/ld+json">{ ... }</script>',
+    category: 'data',
+    why: 'Structured Data em JSON-LD comunica o significado semântico ao Google. Habilita rich results no SERP (estrelas, FAQs, breadcrumbs, eventos). Schema.org define os tipos.',
+  },
+  {
+    id: 'script',
+    order: 12,
+    tag: '<script src="/app.js" defer></script>',
+    category: 'asset',
+    why: 'POR ÚLTIMO no head, com defer. defer = baixa em paralelo, executa após o parse, ordem preservada. Sem defer/async, o parser para até o script terminar — pior cenário de performance.',
+    warning: 'NUNCA coloque <script> síncrono no head. Use defer (ou async para scripts independentes como analytics).',
+  },
+]
+
+const HEAD_CAT_COLOR: Record<HeadElement['category'], string> = {
+  critical: RED,
+  seo: AMB,
+  social: SKY,
+  hint: PRP,
+  asset: GRN,
+  data: C,
+}
+
+const HEAD_CAT_LABEL: Record<HeadElement['category'], string> = {
+  critical: 'crítico',
+  seo: 'SEO',
+  social: 'social',
+  hint: 'resource hint',
+  asset: 'asset',
+  data: 'structured data',
+}
+
+function HeadAnatomy() {
+  const [active, setActive] = useState(0)
+  const [filter, setFilter] = useState<HeadElement['category'] | 'all'>('all')
+
+  const filtered = filter === 'all' ? HEAD_ELEMENTS : HEAD_ELEMENTS.filter(e => e.category === filter)
+  const cats: Array<HeadElement['category'] | 'all'> = ['all', 'critical', 'seo', 'hint', 'social', 'asset', 'data']
+  const item = filtered[active] ?? filtered[0]
+
+  return (
+    <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>
+          VISUAL 5 — ANATOMIA DO &lt;head&gt;
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>A ordem CERTA dos elementos do head</div>
+        <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.5 }}>
+          A ordem do head não é arbitrária. charset precisa vir antes para o browser não re-parsear o HTML. preconnect antes do preload. CSS antes de scripts defer. Cada decisão tem impacto mensurável no Critical Rendering Path.
+        </div>
+      </div>
+
+      {/* Filtros por categoria */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+        {cats.map(cat => {
+          const color = cat === 'all' ? C : HEAD_CAT_COLOR[cat]
+          const label = cat === 'all' ? 'Todos' : HEAD_CAT_LABEL[cat]
+          const isActive = filter === cat
+          return (
+            <button key={cat} onClick={() => { setFilter(cat); setActive(0) }} style={{
+              padding: '4px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
+              fontFamily: "'JetBrains Mono',monospace", fontSize: 10, fontWeight: 700,
+              background: isActive ? `${color}25` : 'transparent',
+              color: isActive ? color : FGMUTE,
+              borderWidth: 1, borderStyle: 'solid',
+              borderColor: isActive ? `${color}60` : LINE,
+            }}>
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+        {/* Lista ordenada de elementos */}
+        <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontSize: 10, color: SKY, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em' }}>&lt;head&gt;</span>
+            <span style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>ordem importa</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {filtered.map((el, i) => {
+              const isActive = i === active
+              const color = HEAD_CAT_COLOR[el.category]
+              return (
+                <button key={el.id} onClick={() => setActive(i)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                  background: isActive ? `${color}18` : 'transparent',
+                  border: `1px solid ${isActive ? color + '70' : 'transparent'}`,
+                  textAlign: 'left' as const, width: '100%',
+                  fontFamily: "'JetBrains Mono',monospace",
+                  transition: 'all .15s',
+                }}>
+                  <span style={{
+                    fontSize: 10, color: isActive ? color : MUTE, fontWeight: 700,
+                    minWidth: 22, textAlign: 'right' as const,
+                  }}>
+                    {String(el.order).padStart(2, '0')}
+                  </span>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: 999,
+                    background: color, flexShrink: 0,
+                  }} />
+                  <span style={{
+                    fontSize: 10.5, color: isActive ? FG : FGMUTE,
+                    fontWeight: isActive ? 700 : 500,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}>
+                    {el.tag.length > 50 ? el.tag.slice(0, 47) + '...' : el.tag}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Detalhe do elemento selecionado */}
+        {item && (() => {
+          const color = HEAD_CAT_COLOR[item.category]
+          return (
+            <div style={{ background: BG, border: `1px solid ${color}50`, borderRadius: 10, padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{
+                  fontSize: 9, color, fontWeight: 700,
+                  fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.12em',
+                  textTransform: 'uppercase' as const,
+                  padding: '3px 8px', borderRadius: 4,
+                  background: `${color}20`, border: `1px solid ${color}40`,
+                }}>
+                  {HEAD_CAT_LABEL[item.category]}
+                </span>
+                <span style={{ fontSize: 9, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>posição #{item.order}</span>
+              </div>
+
+              <pre style={{
+                background: CARD, border: `1px solid ${LINE}`, borderRadius: 6,
+                padding: '10px 12px', margin: '0 0 14px',
+                fontSize: 11, color: SKY, fontFamily: "'JetBrains Mono',monospace",
+                overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+              }}>
+                {item.tag}
+              </pre>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{
+                  fontSize: 9, color: FGMUTE, fontWeight: 700,
+                  fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.12em',
+                  textTransform: 'uppercase' as const, marginBottom: 6,
+                }}>
+                  Por que aqui?
+                </div>
+                <div style={{ fontSize: 12, color: FG, lineHeight: 1.65 }}>{item.why}</div>
+              </div>
+
+              {item.warning && (
+                <div style={{
+                  background: `${AMB}15`, border: `1px solid ${AMB}50`,
+                  borderRadius: 6, padding: '10px 12px',
+                }}>
+                  <div style={{
+                    fontSize: 9, color: AMB, fontWeight: 700,
+                    fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.12em',
+                    marginBottom: 4,
+                  }}>
+                    ATENÇÃO
+                  </div>
+                  <div style={{ fontSize: 11, color: FGMUTE, lineHeight: 1.55 }}>{item.warning}</div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 6 — Meta Tags Builder
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function MetaTagsBuilder() {
@@ -445,13 +954,12 @@ function MetaTagsBuilder() {
   return (
     <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>VISUAL 4 — META TAGS BUILDER</div>
+        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>VISUAL 6 — META TAGS BUILDER</div>
         <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>Gerador de Meta Tags</div>
         <div style={{ fontSize: 12, color: FGMUTE }}>Preencha os campos e veja o código gerado em tempo real.</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Formulário */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[
             { label: 'Título', val: title, set: setTitle, min: 30, max: 60, placeholder: 'Título da página (30-60 chars)' },
@@ -483,7 +991,6 @@ function MetaTagsBuilder() {
             )
           })}
 
-          {/* Preview do card social */}
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", marginBottom: 8, letterSpacing: '.1em', textTransform: 'uppercase' }}>Preview social card</div>
             <div style={{ background: CARD, borderRadius: 10, overflow: 'hidden', border: `1px solid ${LINE}` }}>
@@ -504,7 +1011,6 @@ function MetaTagsBuilder() {
           </div>
         </div>
 
-        {/* Código gerado */}
         <div>
           <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", marginBottom: 8, letterSpacing: '.1em', textTransform: 'uppercase' }}>Código gerado</div>
           <pre style={{
@@ -522,15 +1028,15 @@ function MetaTagsBuilder() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 5 — Formulários Live Preview
+// VISUAL 7 — Formulários Live + Constraint Validation API
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const INPUT_TYPES = [
-  { type: 'text', label: 'text', color: C, desc: 'Texto livre', attrs: 'minlength="3" maxlength="50"', note: 'Base — sempre use placeholder descriptivo' },
+  { type: 'text', label: 'text', color: C, desc: 'Texto livre', attrs: 'minlength="3" maxlength="50"', note: 'Base — sempre use placeholder descritivo' },
   { type: 'email', label: 'email', color: SKY, desc: 'Valida formato de e-mail', attrs: 'required', note: 'Validação nativa — "x@y" não passa' },
   { type: 'password', label: 'password', color: PRP, desc: 'Obscurece o texto', attrs: 'minlength="8"', note: 'Sempre use autocomplete="new-password" em cadastro' },
   { type: 'number', label: 'number', color: GRN, desc: 'Teclado numérico + setas', attrs: 'min="0" max="100" step="5"', note: 'Use inputmode="numeric" para formato livre' },
-  { type: 'date', label: 'date', color: AMB, desc: 'Picker nativo de data', attrs: 'min="2020-01-01"', note: 'Formato ISO — behavior varia entre browsers' },
+  { type: 'date', label: 'date', color: AMB, desc: 'Picker nativo de data', attrs: 'min="2020-01-01"', note: 'Formato ISO — comportamento varia entre browsers' },
   { type: 'range', label: 'range', color: RED, desc: 'Slider', attrs: 'min="0" max="10" step="1"', note: 'Combine com output para mostrar valor atual' },
   { type: 'checkbox', label: 'checkbox', color: AMB, desc: 'Boolean — múltipla escolha', attrs: '', note: 'Use fieldset+legend para grupos de checkboxes' },
   { type: 'radio', label: 'radio', color: GRN, desc: 'Escolha única do grupo', attrs: 'name="opcao"', note: 'Mesmo name = mesmo grupo. Use fieldset+legend.' },
@@ -540,81 +1046,235 @@ const INPUT_TYPES = [
   { type: 'tel', label: 'tel', color: RED, desc: 'Teclado telefônico mobile', attrs: 'pattern="[0-9]{10,11}"', note: 'Não valida formato — use pattern' },
 ]
 
+const VALIDITY_STATES = [
+  { key: 'valueMissing', desc: 'Campo required vazio', trigger: 'required + valor vazio' },
+  { key: 'typeMismatch', desc: 'Formato errado para o type', trigger: 'type="email" com "abc"' },
+  { key: 'patternMismatch', desc: 'Não bate com o pattern regex', trigger: 'pattern="[A-Z]{3}" com "ab"' },
+  { key: 'tooShort', desc: 'Menor que minlength', trigger: 'minlength="8" com 5 chars' },
+  { key: 'tooLong', desc: 'Maior que maxlength', trigger: 'maxlength="10" com 15 chars' },
+  { key: 'rangeUnderflow', desc: 'Menor que min', trigger: 'type="number" min="0" com -5' },
+  { key: 'rangeOverflow', desc: 'Maior que max', trigger: 'type="number" max="100" com 200' },
+  { key: 'stepMismatch', desc: 'Não é múltiplo de step', trigger: 'step="5" com 7' },
+  { key: 'badInput', desc: 'Browser não consegue converter', trigger: 'type="number" com "abc"' },
+  { key: 'customError', desc: 'setCustomValidity() foi usado', trigger: 'input.setCustomValidity("erro")' },
+]
+
 function FormInputsGallery() {
   const [selected, setSelected] = useState(0)
+  const [tab, setTab] = useState<'types' | 'validation'>('types')
   const item = INPUT_TYPES[selected]
+  const [demoValue, setDemoValue] = useState('')
+  const [demoInfo, setDemoInfo] = useState<{ valid: boolean; states: string[] }>({ valid: true, states: [] })
+
+  const handleDemoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDemoValue(e.target.value)
+    const inp = e.target
+    const v = inp.validity
+    const active: string[] = []
+    if (v.valueMissing) active.push('valueMissing')
+    if (v.typeMismatch) active.push('typeMismatch')
+    if (v.patternMismatch) active.push('patternMismatch')
+    if (v.tooShort) active.push('tooShort')
+    if (v.tooLong) active.push('tooLong')
+    if (v.rangeUnderflow) active.push('rangeUnderflow')
+    if (v.rangeOverflow) active.push('rangeOverflow')
+    if (v.stepMismatch) active.push('stepMismatch')
+    if (v.badInput) active.push('badInput')
+    setDemoInfo({ valid: v.valid, states: active })
+  }
 
   return (
     <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>VISUAL 5 — FORMULÁRIOS</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>Galeria de Input Types</div>
-        <div style={{ fontSize: 12, color: FGMUTE }}>Selecione um tipo para ver detalhes e preview ao vivo.</div>
+        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>VISUAL 7 — FORMULÁRIOS</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>Input Types + Constraint Validation API</div>
+        <div style={{ fontSize: 12, color: FGMUTE }}>Tipos nativos com preview ao vivo e os 10 estados da ValidityState que o browser expõe sem JS.</div>
       </div>
 
-      {/* Grid de tipos */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-        {INPUT_TYPES.map((t, i) => (
-          <button key={t.type} onClick={() => setSelected(i)} style={{
-            padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: selected === i ? `${t.color}25` : BG,
-            borderWidth: 1, borderStyle: 'solid',
-            borderColor: selected === i ? `${t.color}80` : LINE,
-            color: selected === i ? t.color : FGMUTE,
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18, borderBottom: `1px solid ${LINE}` }}>
+        {[
+          { id: 'types', label: 'Input Types' },
+          { id: 'validation', label: 'Constraint Validation API' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id as 'types' | 'validation')} style={{
+            padding: '10px 16px', border: 'none', cursor: 'pointer',
+            background: 'transparent',
+            color: tab === t.id ? C : FGMUTE,
+            borderBottom: `2px solid ${tab === t.id ? C : 'transparent'}`,
             fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700,
+            marginBottom: -1,
           }}>
-            {t.type}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Detalhe do selecionado */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        <div style={{ background: BG, border: `2px solid ${item.color}50`, borderRadius: 10, padding: 20 }}>
-          <div style={{ fontSize: 12, color: item.color, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", marginBottom: 12 }}>type="{item.type}"</div>
-          <div style={{ fontSize: 13, color: FG, marginBottom: 8 }}>{item.desc}</div>
-          <div style={{ background: CARD, borderRadius: 6, padding: 10, marginBottom: 12 }}>
-            <pre style={{ fontSize: 10, color: SKY, fontFamily: "'JetBrains Mono',monospace", margin: 0, whiteSpace: 'pre-wrap' }}>
-              {`<input\n  type="${item.type}"\n  ${item.attrs ? item.attrs + '\n  ' : ''}name="${item.type}"\n/>`}
-            </pre>
+      {tab === 'types' ? (
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+            {INPUT_TYPES.map((t, i) => (
+              <button key={t.type} onClick={() => setSelected(i)} style={{
+                padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                background: selected === i ? `${t.color}25` : BG,
+                borderWidth: 1, borderStyle: 'solid',
+                borderColor: selected === i ? `${t.color}80` : LINE,
+                color: selected === i ? t.color : FGMUTE,
+                fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700,
+              }}>
+                {t.type}
+              </button>
+            ))}
           </div>
-          <div style={{ background: `${AMB}15`, border: `1px solid ${AMB}50`, borderRadius: 6, padding: 10 }}>
-            <div style={{ fontSize: 9, color: AMB, fontWeight: 700, marginBottom: 4, fontFamily: "'JetBrains Mono',monospace" }}>NOTA</div>
-            <div style={{ fontSize: 11, color: FGMUTE }}>{item.note}</div>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>Preview ao vivo</div>
-          <div style={{
-            background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 20,
-            flex: 1, display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            <label style={{ fontSize: 11, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>
-              Campo {item.type}
-            </label>
-            <input
-              type={item.type as React.HTMLInputTypeAttribute}
-              name={item.type}
-              placeholder={`type="${item.type}"`}
-              style={{
-                padding: '10px 14px', borderRadius: 6,
-                background: CARD, border: `1px solid ${item.color}60`,
-                color: FG, fontSize: 13, fontFamily: 'inherit',
-                outline: 'none', width: '100%', boxSizing: 'border-box' as const,
-                accentColor: item.color,
-              }}
-            />
-            <div style={{ fontSize: 10, color: FGMUTE }}>Tente interagir com o campo acima — ele é funcional.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ background: BG, border: `2px solid ${item.color}50`, borderRadius: 10, padding: 20 }}>
+              <div style={{ fontSize: 12, color: item.color, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", marginBottom: 12 }}>type=&quot;{item.type}&quot;</div>
+              <div style={{ fontSize: 13, color: FG, marginBottom: 8 }}>{item.desc}</div>
+              <div style={{ background: CARD, borderRadius: 6, padding: 10, marginBottom: 12 }}>
+                <pre style={{ fontSize: 10, color: SKY, fontFamily: "'JetBrains Mono',monospace", margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {`<input\n  type="${item.type}"\n  ${item.attrs ? item.attrs + '\n  ' : ''}name="${item.type}"\n/>`}
+                </pre>
+              </div>
+              <div style={{ background: `${AMB}15`, border: `1px solid ${AMB}50`, borderRadius: 6, padding: 10 }}>
+                <div style={{ fontSize: 9, color: AMB, fontWeight: 700, marginBottom: 4, fontFamily: "'JetBrains Mono',monospace" }}>NOTA</div>
+                <div style={{ fontSize: 11, color: FGMUTE }}>{item.note}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase' }}>Preview ao vivo</div>
+              <div style={{
+                background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 20,
+                flex: 1, display: 'flex', flexDirection: 'column', gap: 10,
+              }}>
+                <label style={{ fontSize: 11, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace" }}>
+                  Campo {item.type}
+                </label>
+                <input
+                  type={item.type as React.HTMLInputTypeAttribute}
+                  name={item.type}
+                  placeholder={`type="${item.type}"`}
+                  style={{
+                    padding: '10px 14px', borderRadius: 6,
+                    background: CARD, border: `1px solid ${item.color}60`,
+                    color: FG, fontSize: 13, fontFamily: 'inherit',
+                    outline: 'none', width: '100%', boxSizing: 'border-box' as const,
+                    accentColor: item.color,
+                  }}
+                />
+                <div style={{ fontSize: 10, color: FGMUTE }}>Tente interagir com o campo acima — ele é funcional.</div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          {/* Coluna esquerda: tabela ValidityState */}
+          <div>
+            <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+              ValidityState — propriedades
+            </div>
+            <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 12 }}>
+              {VALIDITY_STATES.map(v => {
+                const isActive = demoInfo.states.includes(v.key)
+                return (
+                  <div key={v.key} style={{
+                    padding: '8px 10px', borderRadius: 6, marginBottom: 4,
+                    background: isActive ? `${RED}15` : 'transparent',
+                    border: `1px solid ${isActive ? RED + '60' : 'transparent'}`,
+                    transition: 'all .15s',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700,
+                        color: isActive ? RED : SKY,
+                        fontFamily: "'JetBrains Mono',monospace",
+                      }}>
+                        {v.key}
+                      </span>
+                      <span style={{
+                        fontSize: 9, color: isActive ? RED : MUTE, fontWeight: 700,
+                        fontFamily: "'JetBrains Mono',monospace",
+                      }}>
+                        {isActive ? '● ATIVO' : '○'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: FGMUTE, marginTop: 2 }}>{v.desc}</div>
+                    <div style={{ fontSize: 9, color: MUTE, marginTop: 2, fontFamily: "'JetBrains Mono',monospace" }}>{v.trigger}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Coluna direita: campo demo */}
+          <div>
+            <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Demo ao vivo
+            </div>
+            <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 10, padding: 18 }}>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", display: 'block', marginBottom: 6 }}>
+                  type=&quot;email&quot; required minlength=&quot;6&quot; pattern=&quot;.+@empresa\.com&quot;
+                </label>
+                <input
+                  type="email"
+                  required
+                  minLength={6}
+                  pattern=".+@empresa\.com"
+                  value={demoValue}
+                  onChange={handleDemoChange}
+                  placeholder="seu@empresa.com"
+                  style={{
+                    padding: '10px 14px', borderRadius: 6,
+                    background: CARD,
+                    border: `2px solid ${demoInfo.valid ? GRN + '60' : RED + '60'}`,
+                    color: FG, fontSize: 13, fontFamily: 'inherit',
+                    outline: 'none', width: '100%', boxSizing: 'border-box' as const,
+                  }}
+                />
+              </div>
+
+              <div style={{
+                background: demoInfo.valid ? `${GRN}10` : `${RED}10`,
+                border: `1px solid ${demoInfo.valid ? GRN : RED}40`,
+                borderRadius: 6, padding: '10px 12px', marginBottom: 14,
+              }}>
+                <div style={{ fontSize: 10, color: demoInfo.valid ? GRN : RED, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace" }}>
+                  input.validity.valid = {String(demoInfo.valid)}
+                </div>
+                {demoInfo.states.length > 0 && (
+                  <div style={{ fontSize: 9, color: FGMUTE, marginTop: 6, fontFamily: "'JetBrains Mono',monospace" }}>
+                    Estados ativos: {demoInfo.states.join(', ')}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: 10, color: FGMUTE, fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                API completa
+              </div>
+              <pre style={{
+                background: CARD, border: `1px solid ${LINE}`, borderRadius: 6,
+                padding: '10px 12px', margin: 0,
+                fontSize: 10, color: SKY, fontFamily: "'JetBrains Mono',monospace",
+                lineHeight: 1.65,
+              }}>{`input.validity         // ValidityState
+input.validationMessage // string
+input.checkValidity()  // dispara invalid event
+input.reportValidity() // mostra tooltip nativo
+input.setCustomValidity("erro")
+                       // marca como inválido`}</pre>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 6 — Anti-patterns HTML (AntiPatternsGallery)
+// VISUAL 8 — Anti-patterns HTML (AntiPatternsGallery)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const HTML_ANTIPATTERNS: AntiPattern[] = [
@@ -777,194 +1437,376 @@ const HTML_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — HTML5 APIs (CardCarousel adaptado)
+// VISUAL 9 — Imagens Otimizadas (DecisionTree)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const HTML5_API_CARDS: CarouselCard[] = [
-  {
-    name: 'Canvas API',
-    signature: 'const ctx = canvas.getContext("2d")',
-    emoji: '🎨',
-    color: C,
-    use: [
-      'Jogos 2D e simulações de física',
-      'Edição de imagens no browser (filtros, crop)',
-      'Visualizações com 10k+ elementos dinâmicos',
-      'Processamento de vídeo frame a frame',
+const IMG_DECISION_NODES: Record<string, DTNode> = {
+  start: {
+    id: 'start',
+    question: 'Onde a imagem aparece na página?',
+    detail: 'A primeira pergunta é sempre sobre a posição: above-the-fold (visível no carregamento) ou below-the-fold (precisa rolar para ver).',
+    icon: '🖼',
+    children: [
+      { label: 'Hero / above-the-fold (LCP)', nodeId: 'hero', color: C },
+      { label: 'Below-the-fold (precisa rolar)', nodeId: 'below', color: SKY },
     ],
-    dontUse: 'Para gráficos de dados estáticos (use SVG — acessível) ou UI interativa (sem DOM interno, sem eventos nativos).',
-    difficulty: 3,
   },
-  {
-    name: 'Web Storage',
-    signature: 'localStorage.setItem(key, value)',
-    emoji: '💾',
-    color: SKY,
-    use: [
-      'localStorage: persistência entre sessões (preferências, carrinho)',
-      'sessionStorage: dados da sessão atual (wizard de formulário)',
-      'Ambos: apenas strings — JSON.stringify/parse para objetos',
+  hero: {
+    id: 'hero',
+    question: 'É a maior imagem visível inicialmente (provável LCP)?',
+    detail: 'O LCP (Largest Contentful Paint) é o elemento maior visível ao carregar — geralmente é a imagem hero. Receber prioridade máxima é essencial para Core Web Vitals.',
+    icon: '🎯',
+    children: [
+      { label: 'Sim — é o elemento LCP', nodeId: 'lcp', color: C },
+      { label: 'Não — é uma imagem above-the-fold mas pequena', nodeId: 'aboveSmall', color: AMB },
     ],
-    dontUse: 'Para dados sensíveis (tokens, senhas) — não é seguro. Para grandes volumes (limite ~5MB). Sempre sincronos — bloqueiam o main thread.',
-    difficulty: 1,
   },
-  {
-    name: 'Geolocation API',
-    signature: 'navigator.geolocation.getCurrentPosition(cb)',
-    emoji: '📍',
+  lcp: {
+    id: 'lcp',
+    recommendation: 'fetchpriority="high" + preload no <head>',
+    detail: 'Para imagem LCP: NUNCA loading="lazy". Use fetchpriority="high" para alta prioridade. Adicione <link rel="preload" as="image"> no head para download paralelo ao parser. Defina width/height para evitar CLS.',
     color: GRN,
-    use: [
-      'Apps de entrega e logística',
-      'Busca de locais próximos',
-      'Check-in e experiências baseadas em localização',
-    ],
-    dontUse: 'Sem tratamento de erro (permissão negada é frequente). Sem HTTPS (obrigatório em produção). Sem indicador de loading (GPS pode demorar).',
-    difficulty: 2,
+    icon: '🚀',
   },
-  {
-    name: 'Drag & Drop API',
-    signature: 'el.addEventListener("dragstart", handler)',
-    emoji: '🎯',
+  aboveSmall: {
+    id: 'aboveSmall',
+    recommendation: 'loading="eager" (default) + width/height',
+    detail: 'Use loading="eager" (que é o default — basta não colocar lazy). Defina width e height para evitar layout shift. Não precisa de fetchpriority="high" — reservado para o LCP.',
+    color: SKY,
+    icon: '✓',
+  },
+  below: {
+    id: 'below',
+    question: 'Quantas variações de tamanho/formato você precisa?',
+    detail: 'A escolha entre srcset e <picture> depende da intenção: o browser decide ou você decide?',
+    icon: '📐',
+    children: [
+      { label: 'Mesma imagem em diferentes resoluções', nodeId: 'srcset', color: SKY },
+      { label: 'Imagens diferentes por viewport (art direction)', nodeId: 'picture', color: PRP },
+      { label: 'Uma única imagem', nodeId: 'lazy', color: GRN },
+    ],
+  },
+  srcset: {
+    id: 'srcset',
+    recommendation: '<img srcset="..." sizes="..." loading="lazy">',
+    detail: 'srcset declara múltiplas resoluções (ex: "img-480w.jpg 480w, img-800w.jpg 800w"). sizes informa qual será o tamanho exibido em cada viewport (ex: "(max-width: 600px) 100vw, 50vw"). O BROWSER decide qual baixar com base em densidade de pixel e largura.',
+    color: SKY,
+    icon: '🔁',
+  },
+  picture: {
+    id: 'picture',
+    recommendation: '<picture> com múltiplos <source>',
+    detail: 'Use <picture> para art direction: imagens com composições diferentes por viewport (ex: foto larga no desktop, retrato no mobile). Você decide qual carregar via media queries em <source>. O <img> dentro é o fallback obrigatório com alt.',
     color: PRP,
-    use: [
-      'Upload por drag de arquivo na área designada',
-      'Reordenação de listas e kanban boards',
-      'Construtores de UI drag-and-drop (low-code tools)',
-    ],
-    dontUse: 'Sem fallback para touch — a API nativa não funciona em mobile. Para UX crítica, use bibliotecas como dnd-kit que abstraem touch e mouse.',
-    difficulty: 3,
+    icon: '🎨',
   },
-  {
-    name: 'Web Workers',
-    signature: 'const worker = new Worker("worker.js")',
-    emoji: '⚙',
-    color: AMB,
-    use: [
-      'Processamento pesado sem travar a UI (parsing de CSV, crypto)',
-      'Cálculos científicos e de machine learning no browser',
-      'Background sync e service worker patterns',
-    ],
-    dontUse: 'Para tarefas rápidas — overhead de criação do worker não compensa. Não têm acesso ao DOM — comunicação é via postMessage.',
-    difficulty: 3,
-  },
-  {
-    name: 'Intersection Observer',
-    signature: 'new IntersectionObserver(callback, options)',
-    emoji: '👁',
+  lazy: {
+    id: 'lazy',
+    recommendation: '<img loading="lazy" decoding="async">',
+    detail: 'Para imagens below-the-fold: loading="lazy" adia o download até estarem próximas da viewport. decoding="async" decodifica fora do main thread. Sempre defina width e height para evitar CLS quando a imagem aparecer.',
     color: GRN,
-    use: [
-      'Lazy loading de imagens (base do loading="lazy" nativo)',
-      'Infinite scroll sem polling de scroll event',
-      'Animações on-enter (revelar elementos ao rolar)',
-      'Tracking de viewability de ads',
-    ],
-    dontUse: 'Quando você precisa de posição exata — retorna apenas se o elemento está ou não na viewport, não coordenadas.',
-    difficulty: 2,
+    icon: '⚡',
   },
-  {
-    name: 'Custom Elements (Web Components)',
-    signature: 'customElements.define("my-el", MyClass)',
-    emoji: '🧩',
-    color: C,
-    use: [
-      'Criar elementos HTML reutilizáveis sem framework',
-      'Design systems que funcionam em qualquer stack',
-      'Widgets encapsulados com Shadow DOM',
+}
+
+const IMG_ROOT = IMG_DECISION_NODES.start
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — Resource Hints (DecisionTree)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HINT_DECISION_NODES: Record<string, DTNode> = {
+  start: {
+    id: 'start',
+    question: 'O recurso é necessário para esta página ou para a próxima?',
+    detail: 'A primeira divisão é temporal: o recurso é usado AGORA (página atual) ou DEPOIS (próxima navegação)?',
+    icon: '🌐',
+    children: [
+      { label: 'Esta página (atual)', nodeId: 'now', color: C },
+      { label: 'Próxima navegação (futura)', nodeId: 'future', color: PRP },
+      { label: 'Apenas conexão a uma origem', nodeId: 'origin', color: AMB },
     ],
-    dontUse: 'Para SPAs onde um framework já gerencia o componente tree. Web Components brilham em design systems cross-framework, não em apps React/Vue.',
-    difficulty: 3,
   },
-  {
-    name: 'Dialog nativo',
-    signature: 'dialog.showModal() / dialog.close()',
-    emoji: '💬',
+  now: {
+    id: 'now',
+    question: 'É um recurso crítico do render inicial?',
+    detail: 'Recursos críticos: fonte que aparece na hero, CSS above-the-fold, imagem LCP, scripts essenciais.',
+    icon: '⏱',
+    children: [
+      { label: 'Sim — fonte/imagem/script crítico', nodeId: 'preload', color: GRN },
+      { label: 'Não — pode esperar', nodeId: 'noHint', color: FGMUTE },
+    ],
+  },
+  preload: {
+    id: 'preload',
+    recommendation: '<link rel="preload" as="..." href="...">',
+    detail: 'preload força download imediato com alta prioridade. SEMPRE use o atributo as="..." (font, image, script, style) para o browser priorizar corretamente. Para fontes cross-origin, use crossorigin="anonymous" — sem isso o browser baixa duas vezes.',
+    color: GRN,
+    icon: '🚀',
+  },
+  noHint: {
+    id: 'noHint',
+    recommendation: 'Sem hint — deixe o browser priorizar',
+    detail: 'Não use hints para tudo. preload em recursos não críticos rouba banda dos críticos. Se não há urgência, deixe o browser usar sua heurística padrão. Hints são bisturis, não martelos.',
+    color: FGMUTE,
+    icon: '✋',
+  },
+  future: {
+    id: 'future',
+    question: 'É uma rota completa ou um recurso específico?',
+    detail: 'O alvo do prefetch pode ser uma página inteira (HTML) ou um asset específico (script, image).',
+    icon: '🔮',
+    children: [
+      { label: 'Próxima página/rota provável', nodeId: 'prefetch', color: PRP },
+      { label: 'Asset específico para próxima rota', nodeId: 'prefetchAsset', color: SKY },
+    ],
+  },
+  prefetch: {
+    id: 'prefetch',
+    recommendation: '<link rel="prefetch" href="/proxima-pagina">',
+    detail: 'prefetch baixa em prioridade BAIXA, durante idle do browser. Ideal para rotas que o usuário provavelmente acessará (ex: próximo passo de um wizard, link em destaque). Sem warning se não usar — diferente de preload.',
+    color: PRP,
+    icon: '🔮',
+  },
+  prefetchAsset: {
+    id: 'prefetchAsset',
+    recommendation: '<link rel="prefetch" as="script" href="/next-bundle.js">',
+    detail: 'Mesmo conceito: baixa em idle para a próxima rota. Use as="..." quando souber o tipo. Útil para chunks de rotas específicas (ex: bundle do checkout em e-commerce, baixado quando o usuário está no carrinho).',
     color: SKY,
-    use: [
-      'Modais e alertas — sem library, focus trap grátis',
-      'showModal() bloqueia interação com fundo (inert)',
-      'Acessível nativamente — role="dialog" implícito',
+    icon: '📦',
+  },
+  origin: {
+    id: 'origin',
+    question: 'Quão certo você está que vai usar essa origem?',
+    detail: 'preconnect estabelece TCP+TLS antecipadamente (custa recursos). dns-prefetch é mais leve, só resolve DNS.',
+    icon: '🌐',
+    children: [
+      { label: 'Certo — usarei recursos dessa origem', nodeId: 'preconnect', color: AMB },
+      { label: 'Possível — só por garantia', nodeId: 'dnsPrefetch', color: SKY },
     ],
-    dontUse: 'Para toasts ou notificações — dialog bloqueia o fundo. Para browser antigos sem polyfill (IE não suporta). Styling é limitado no Firefox.',
-    difficulty: 1,
+  },
+  preconnect: {
+    id: 'preconnect',
+    recommendation: '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">',
+    detail: 'preconnect faz handshake TCP + TLS sem baixar recurso. Economiza 150-300ms por origem. Use para Google Fonts (gstatic), CDN da app, APIs de terceiros. Para origens cross-origin com credentials, adicione crossorigin.',
+    color: AMB,
+    icon: '🤝',
+  },
+  dnsPrefetch: {
+    id: 'dnsPrefetch',
+    recommendation: '<link rel="dns-prefetch" href="https://...">',
+    detail: 'Apenas resolve o DNS — sem TCP nem TLS. Mais leve que preconnect. Use para origens menos prioritárias ou que talvez sejam usadas. Combine com preconnect como fallback para browsers que não suportam preconnect.',
+    color: SKY,
+    icon: '📡',
+  },
+}
+
+const HINT_ROOT = HINT_DECISION_NODES.start
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 11 — Web Components (componente customizado)
+// Específico de HTML: template + slot + shadow DOM e o que fica encapsulado
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type WCStep = {
+  id: string
+  title: string
+  caption: string
+  template: string
+  consumer: string
+  rendered: string
+  highlightTemplate?: number[]
+  highlightConsumer?: number[]
+  encapsulationNote: string
+}
+
+const WC_STEPS: WCStep[] = [
+  {
+    id: 'template',
+    title: '1. <template> — A planta do componente',
+    caption: 'O template é parsed pelo browser, mas seu conteúdo NÃO é renderizado. Estilos não aplicam, scripts não executam, imagens não baixam — fica inerte até ser instanciado.',
+    template: `<template id="user-card">
+  <style>
+    .card { padding: 16px; background: #1e293b; }
+    .name { color: #ef4444; font-weight: bold; }
+  </style>
+  <div class="card">
+    <span class="name">Nome do usuário</span>
+  </div>
+</template>`,
+    consumer: '',
+    rendered: '(nada visível — template é inerte)',
+    encapsulationNote: 'O conteúdo do <template> existe no DOM mas não é renderizado. Você precisa cloneNode(true) e attach a algum lugar para ele aparecer.',
+  },
+  {
+    id: 'custom-element',
+    title: '2. customElements.define() — Registrar o tag novo',
+    caption: 'Custom Element é uma classe que estende HTMLElement. O nome registrado precisa ter um hífen (kebab-case). connectedCallback dispara quando o elemento é inserido no DOM.',
+    template: `<template id="user-card">
+  <style>:host { display: block; }</style>
+  <div class="card">
+    <slot name="name">Anônimo</slot>
+  </div>
+</template>`,
+    consumer: `class UserCard extends HTMLElement {
+  connectedCallback() {
+    const tmpl = document
+      .getElementById('user-card')
+    const clone = tmpl.content
+      .cloneNode(true)
+    this.attachShadow({ mode: 'open' })
+      .appendChild(clone)
+  }
+}
+customElements.define(
+  'user-card', UserCard
+)`,
+    rendered: `<user-card></user-card>
+→ "Anônimo" (slot fallback)`,
+    encapsulationNote: 'customElements.define associa o nome <user-card> à classe UserCard. Toda vez que o browser encontra essa tag no HTML, instancia a classe e chama connectedCallback.',
+  },
+  {
+    id: 'shadow-dom',
+    title: '3. Shadow DOM — Encapsulamento total',
+    caption: 'attachShadow({mode: "open"}) cria uma árvore DOM PARALELA dentro do elemento. CSS interno não vaza para fora. CSS externo não entra. document.querySelector NÃO acessa elementos do shadow DOM.',
+    template: `<template id="user-card">
+  <style>
+    .name { color: #ef4444; }
+  </style>
+  <div class="card">
+    <span class="name">
+      <slot name="name"></slot>
+    </span>
+  </div>
+</template>`,
+    consumer: `// Página principal
+<style>
+  .name { color: blue; } /* não afeta */
+</style>
+
+<user-card>
+  <span slot="name">Daniel</span>
+</user-card>`,
+    rendered: `Daniel
+(em vermelho, não azul —
+ CSS externo não atravessa
+ o shadow boundary)`,
+    encapsulationNote: 'Shadow DOM é um boundary real. CSS externo não entra (use ::part ou custom properties para customização). CSS interno não vaza. Por isso Web Components funcionam em qualquer framework.',
+  },
+  {
+    id: 'slots',
+    title: '4. <slot> — Composição com children',
+    caption: 'Slots permitem que o consumidor injete conteúdo dentro do shadow DOM, mantendo o encapsulamento. Análogo a children no React. Slots têm fallback — se nada for passado, mostra o conteúdo padrão.',
+    template: `<template id="user-card">
+  <div class="card">
+    <slot name="avatar">👤</slot>
+    <h3>
+      <slot name="name">Anônimo</slot>
+    </h3>
+    <slot>(sem bio)</slot>
+  </div>
+</template>`,
+    consumer: `<user-card>
+  <img slot="avatar" src="me.jpg">
+  <span slot="name">Daniel</span>
+  Engenheiro full-stack.
+</user-card>`,
+    rendered: `[me.jpg]
+Daniel
+Engenheiro full-stack.`,
+    encapsulationNote: 'O conteúdo passado pelo consumer continua no light DOM (acessível via querySelector externo). O slot apenas o renderiza dentro do shadow DOM no local onde foi declarado.',
   },
 ]
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — Do Zero ao Sênior (ProgressionMap)
-// ═══════════════════════════════════════════════════════════════════════════════
+function WebComponentsVisual() {
+  const [step, setStep] = useState(0)
+  const current = WC_STEPS[step]
 
-const HTML_PROGRESSION: ProgressionLevel[] = [
-  {
-    id: 'fundamentos',
-    name: 'Fundamentos',
-    label: 'Nível 1',
-    emoji: '🌱',
-    concepts: [
-      { name: 'DOCTYPE e modos de renderização', tip: 'DOCTYPE html = modo padrão. Sem DOCTYPE = quirks mode com CSS box model do IE5.' },
-      { name: 'Elementos block vs inline vs inline-block', tip: 'Block ocupa linha inteira. Inline flui no texto. Inline-block mistura os dois.' },
-      { name: 'Hierarquia de headings h1-h6', tip: 'São estrutura de documento, não estilo. Nunca pule de h1 para h3.' },
-      { name: 'Links e âncoras (href, target, rel)', tip: 'target="_blank" sem rel="noopener noreferrer" é vulnerabilidade de segurança.' },
-      { name: 'Tabelas (thead, tbody, th scope)', tip: 'th com scope="col"/"row" conecta cabeçalho às células — essencial para leitores de tela.' },
-      { name: 'Imagens (src, alt, width, height)', tip: 'width/height previne layout shift (CLS). alt="" para decorativas, descritivo para informativas.' },
-    ],
-  },
-  {
-    id: 'semantica',
-    name: 'HTML Semântico',
-    label: 'Nível 2',
-    emoji: '🏗',
-    concepts: [
-      { name: 'main, article, section, aside, nav', tip: 'Landmarks que leitores de tela e crawlers usam para navegar a página.' },
-      { name: 'header e footer (múltiplos por página)', tip: 'Não são únicos — podem aparecer em article, section, etc.' },
-      { name: 'figure e figcaption', tip: 'Para qualquer mídia com legenda: imagem, código, gráfico SVG, tabela.' },
-      { name: 'time com datetime ISO 8601', tip: 'Machine-readable. "há 3 dias" + datetime="2024-06-12" é a combinação certa.' },
-      { name: 'details e summary (accordion nativo)', tip: 'Accordion sem JS. Acessível por padrão. Animate com CSS max-height.' },
-      { name: 'address, mark, abbr, cite', tip: 'Elementos de texto semântico raramente usados mas que importam em contexto correto.' },
-    ],
-  },
-  {
-    id: 'formularios',
-    name: 'Formulários',
-    label: 'Nível 3',
-    emoji: '📝',
-    concepts: [
-      { name: 'label for/id ou label wrapper', tip: 'Dois métodos de associar label ao input. Ambos criam clique no label = foco no input.' },
-      { name: 'fieldset e legend para grupos', tip: 'Agrupa campos relacionados. Legend é o nome do grupo — lido por screen readers.' },
-      { name: 'Validação nativa (required, pattern, min/max)', tip: 'Zero JS. Funciona com leitores de tela. Use novalidate só quando você mesmo gerencia erros.' },
-      { name: 'Constraint Validation API', tip: 'input.validity, input.setCustomValidity(), form.reportValidity() — poder de JS com semântica nativa.' },
-      { name: 'autocomplete e inputmode', tip: 'autocomplete melhora UX e é exigido pela WCAG. inputmode controla teclado mobile sem mudar tipo.' },
-      { name: 'datalist para autocomplete livre', tip: 'Diferente de select: o usuário pode digitar qualquer valor, as opções são sugestões.' },
-    ],
-  },
-  {
-    id: 'a11y',
-    name: 'Acessibilidade',
-    label: 'Nível 4',
-    emoji: '♿',
-    concepts: [
-      { name: 'Accessibility Tree vs DOM', tip: 'O AT é o que leitores de tela usam. ARIA modifica o AT sem mudar o DOM visual.' },
-      { name: 'ARIA: roles, properties, states', tip: 'Role = o que é. Property = info estática. State = condição dinâmica (aria-expanded).' },
-      { name: 'tabindex 0 e -1', tip: '0 = entra no Tab. -1 = focável via JS mas não via Tab. Nunca use valores positivos.' },
-      { name: 'Focus management em SPAs', tip: 'Após navegação: mover foco ao h1 ou main. Ao abrir modal: mover para primeiro focável.' },
-      { name: 'Focus trap em modais', tip: 'Tab e Shift+Tab devem ciclar dentro do modal. Escape fecha. devolver foco ao trigger.' },
-      { name: 'aria-live para regiões dinâmicas', tip: 'assertive = interrompe. polite = anuncia na próxima pausa. Notificações de status.' },
-    ],
-  },
-  {
-    id: 'performance',
-    name: 'Performance & APIs Avançadas',
-    label: 'Nível 5',
-    emoji: '🚀',
-    concepts: [
-      { name: 'Critical Rendering Path completo', tip: 'HTML → DOM → CSSOM → Render Tree → Layout → Paint → Composite.' },
-      { name: 'defer vs async vs type="module"', tip: 'defer: após parse. async: assim que baixar. module: defer por padrão + strict mode.' },
-      { name: 'preload, prefetch, preconnect', tip: 'preload = agora. prefetch = próxima rota. preconnect = TCP+TLS antecipado.' },
-      { name: 'fetchpriority e loading="lazy"', tip: 'fetchpriority="high" na img LCP. loading="lazy" em tudo EXCETO above-the-fold.' },
-      { name: 'Web Components (Custom Elements + Shadow DOM)', tip: 'customElements.define. shadowRoot.attachShadow. Slots para composição.' },
-      { name: 'Structured data JSON-LD', tip: 'script type="application/ld+json". Schema.org. Rich results no Google.' },
-    ],
-  },
-]
+  return (
+    <div style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: C, fontWeight: 700, letterSpacing: '.15em', textTransform: 'uppercase', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>
+          VISUAL 11 — WEB COMPONENTS
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: FG, marginBottom: 4 }}>template + custom element + shadow DOM + slot</div>
+        <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.5 }}>
+          As 4 APIs nativas que formam Web Components. Acompanhe a construção de um {'<user-card>'} do zero — template inerte, registro do custom element, encapsulamento via shadow DOM e composição via slots.
+        </div>
+      </div>
+
+      {/* Stepper */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 18, overflowX: 'auto' }}>
+        {WC_STEPS.map((s, i) => (
+          <button key={s.id} onClick={() => setStep(i)} style={{
+            padding: '8px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: i === step ? `${C}25` : BG,
+            borderWidth: 1, borderStyle: 'solid',
+            borderColor: i === step ? `${C}60` : LINE,
+            color: i === step ? C : FGMUTE,
+            fontFamily: "'JetBrains Mono',monospace", fontSize: 10, fontWeight: 700,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}>
+            {s.title.split('—')[0].trim()}
+          </button>
+        ))}
+      </div>
+
+      {/* Caption */}
+      <div style={{
+        background: `${C}10`, border: `1px solid ${C}40`, borderRadius: 8,
+        padding: '12px 16px', marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 13, color: FG, fontWeight: 700, marginBottom: 4 }}>{current.title}</div>
+        <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.55 }}>{current.caption}</div>
+      </div>
+
+      {/* 3 colunas: Template | Consumer | Rendered */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+        {[
+          { label: 'TEMPLATE / DEFINIÇÃO', color: SKY, content: current.template },
+          { label: 'CONSUMER (uso)', color: AMB, content: current.consumer || '(nenhum consumer ainda)' },
+          { label: 'O QUE RENDERIZA', color: GRN, content: current.rendered },
+        ].map(col => (
+          <div key={col.label} style={{
+            background: BG, border: `1px solid ${col.color}40`, borderRadius: 8,
+            padding: 14, minHeight: 220,
+          }}>
+            <div style={{
+              fontSize: 9, color: col.color, fontWeight: 700,
+              fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.12em',
+              marginBottom: 10,
+            }}>
+              {col.label}
+            </div>
+            <pre style={{
+              margin: 0, fontSize: 10, lineHeight: 1.55,
+              color: FG, fontFamily: "'JetBrains Mono',monospace",
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              {col.content}
+            </pre>
+          </div>
+        ))}
+      </div>
+
+      {/* Nota sobre encapsulamento */}
+      <div style={{
+        background: `${PRP}10`, border: `1px solid ${PRP}50`, borderRadius: 8,
+        padding: '12px 16px',
+      }}>
+        <div style={{
+          fontSize: 9, color: PRP, fontWeight: 700,
+          fontFamily: "'JetBrains Mono',monospace", letterSpacing: '.12em',
+          marginBottom: 6,
+        }}>
+          ENCAPSULAMENTO
+        </div>
+        <div style={{ fontSize: 12, color: FGMUTE, lineHeight: 1.6 }}>{current.encapsulationNote}</div>
+      </div>
+    </div>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SHELL
@@ -987,7 +1829,7 @@ export default function HtmlVisuais() {
           cardColor={CARD}
           label="VISUAL 1 — CRITICAL RENDERING PATH"
           heading="Como o Browser Renderiza"
-          description="Quatro slides sobre o caminho do HTML bruto até os pixels na tela."
+          description="Três slides sobre o caminho do HTML bruto até os pixels na tela."
         />
       ),
     },
@@ -1010,11 +1852,25 @@ export default function HtmlVisuais() {
       ),
     },
     {
+      id: 'a11y-tree',
+      title: 'Accessibility Tree',
+      subtitle: 'DOM vs AT',
+      accent: GRN,
+      component: <AccessibilityTreeVisual />,
+    },
+    {
       id: 'a11y',
       title: 'Acessibilidade',
       subtitle: 'Checklist',
       accent: GRN,
       component: <A11YChecklist />,
+    },
+    {
+      id: 'head',
+      title: 'Anatomia do <head>',
+      subtitle: 'Ordem certa',
+      accent: C,
+      component: <HeadAnatomy />,
     },
     {
       id: 'meta',
@@ -1026,7 +1882,7 @@ export default function HtmlVisuais() {
     {
       id: 'forms',
       title: 'Formulários',
-      subtitle: 'Input Types',
+      subtitle: 'Inputs + Validação',
       accent: PRP,
       component: <FormInputsGallery />,
     },
@@ -1043,7 +1899,7 @@ export default function HtmlVisuais() {
           errorColor={RED}
           successColor={GRN}
           warningColor={AMB}
-          label="VISUAL 6 — ANTI-PATTERNS HTML"
+          label="VISUAL 8 — ANTI-PATTERNS HTML"
           heading="Os 8 Erros Mais Comuns de HTML"
           description="Div soup, imagens sem alt, labels desconectados, headings fora de ordem e mais."
           wrongLabel="Errado"
@@ -1053,40 +1909,45 @@ export default function HtmlVisuais() {
       ),
     },
     {
-      id: 'apis',
-      title: 'HTML5 APIs',
-      subtitle: 'APIs Modernas',
-      accent: AMB,
+      id: 'imagens',
+      title: 'Imagens Otimizadas',
+      subtitle: 'Decision Tree',
+      accent: SKY,
       component: (
-        <CardCarousel
-          cards={HTML5_API_CARDS}
-          bgColor={BG}
+        <DecisionTree
+          root={IMG_ROOT}
+          nodes={IMG_DECISION_NODES}
           accentColor={C}
-          label="VISUAL 7 — HTML5 APIS"
-          heading="APIs Nativas do Browser"
-          description="Canvas, Web Storage, Geolocation, Web Workers, Intersection Observer e mais."
-          useLabel="Quando usar"
-          dontUseLabel="Cuidado"
+          bgColor={BG}
+          cardColor={CARD}
+          title="VISUAL 9 — Imagens Otimizadas"
+          description="Quando usar fetchpriority, srcset, picture, loading='lazy' e decoding. Responda às perguntas para chegar à recomendação."
         />
       ),
     },
     {
-      id: 'roadmap',
-      title: 'Do Zero ao Sênior',
-      subtitle: 'Progressão',
+      id: 'hints',
+      title: 'Resource Hints',
+      subtitle: 'preload / prefetch',
       accent: AMB,
       component: (
-        <ProgressionMap
-          levels={HTML_PROGRESSION}
+        <DecisionTree
+          root={HINT_ROOT}
+          nodes={HINT_DECISION_NODES}
           accentColor={C}
           bgColor={BG}
           cardColor={CARD}
-          label="VISUAL 8 — ROADMAP HTML"
-          heading="Do Zero ao Sênior em HTML"
-          description={`Cinco níveis de progressão. Marque o que você já domina. ${HTML_PROGRESSION.reduce((a, l) => a + l.concepts.length, 0)} conceitos no total.`}
-          hintText="Marque conforme estuda. Não é uma checklist exaustiva — é um mapa para identificar sua próxima fronteira de aprendizado."
+          title="VISUAL 10 — Resource Hints"
+          description="Quando usar preload, prefetch, preconnect ou dns-prefetch. Pergunte se o recurso é AGORA ou DEPOIS, e qual a urgência."
         />
       ),
+    },
+    {
+      id: 'web-components',
+      title: 'Web Components',
+      subtitle: 'template + shadow DOM',
+      accent: PRP,
+      component: <WebComponentsVisual />,
     },
   ]
 

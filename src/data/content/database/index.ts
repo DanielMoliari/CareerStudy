@@ -1,5 +1,5 @@
 import type { SkillContentMap } from '@/types'
-import postgresql from './postgresql'
+import postgresql from './postgresql/postgresql'
 import explainAnalyze from './explain-analyze'
 import mvcc from './mvcc'
 import bTreeLsmTree from './b-tree-lsm-tree'

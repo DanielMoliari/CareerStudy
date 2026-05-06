@@ -13,6 +13,8 @@ import { buildComparativeRefPdf } from '@/components/pdfs/ComparativeRefPdf'
 import type { CompOption, CompCriterion, CompScenario } from '@/components/pdfs/ComparativeRefPdf'
 import { buildQuickRefPdf } from '@/components/pdfs/QuickRefPdf'
 import type { QuickRefColumn } from '@/components/pdfs/QuickRefPdf'
+import { buildSecurityChecklistPdf } from '@/components/pdfs/SecurityChecklistPdf'
+import type { SecurityCheck } from '@/components/pdfs/SecurityChecklistPdf'
 
 // ── Paleta AWS ────────────────────────────────────────────────────────────────
 const C = '#FF9900'
@@ -70,6 +72,16 @@ const PDF_CARDS: PdfCard[] = [
     description: 'Mapa mental dos serviços AWS organizados por domínio: computação, storage, banco de dados, rede, segurança, mensageria, observabilidade e AI/ML. Com checklist de entrevista.',
     icon: '05',
     goal: 'Mapeamento mental',
+  },
+  {
+    id: 'security',
+    title: 'Security Checklist AWS',
+    subtitle: 'Checklist de segurança por camada — IAM, rede, dados, logging',
+    type: 'security',
+    pages: 3,
+    description: 'Checklist de segurança AWS organizado por camada: IAM (least privilege, MFA, roles), rede (VPC, SG, NACL, endpoints), dados (S3 público, KMS, Secrets Manager), logging (CloudTrail, GuardDuty, Config) e computação (imagens, env vars, patches). Ideal para revisão pré-deploy e entrevistas de segurança.',
+    icon: '06',
+    goal: 'Checklist de segurança',
   },
 ]
 
@@ -428,6 +440,38 @@ const MINDMAP_CATEGORIES: MindmapCategory[] = [
   },
 ]
 
+// ── Dados: Security Checklist ─────────────────────────────────────────────────
+
+const SECURITY_CHECKS: SecurityCheck[] = [
+  // IAM
+  { category: 'IAM', severity: 'critical', item: 'Nunca usar root user para operações do dia a dia', description: 'Crie IAM users ou use SSO. Root user só para tarefas que exigem root (alterar billing, fechar conta).', remediation: 'Habilite MFA na root account e guarde as credenciais offline.' },
+  { category: 'IAM', severity: 'critical', item: 'MFA obrigatório para todos os usuários com acesso à console', description: 'Sem MFA, comprometimento de senha = comprometimento da conta inteira.', remediation: 'Use IAM policy para negar ações se MFA não estiver presente: aws:MultiFactorAuthPresent = true.' },
+  { category: 'IAM', severity: 'critical', item: 'Serviços usam IAM Roles, nunca Access Keys hardcoded', description: 'Access Keys hardcoded aparecem em git history, logs e processos. Vazamento é irreversível.', remediation: 'EC2, Lambda, ECS assumem Role automaticamente via instance metadata. Nunca configure AWS_ACCESS_KEY_ID em código.' },
+  { category: 'IAM', severity: 'high', item: 'Least privilege: nenhuma policy com AdministratorAccess em produção', description: 'Escopo excessivo de permissões amplifica o impacto de qualquer comprometimento.', remediation: 'Use IAM Access Analyzer para identificar permissões não utilizadas. Remova ações e recursos desnecessários.' },
+  { category: 'IAM', severity: 'high', item: 'SCPs (Service Control Policies) no AWS Organizations', description: 'SCPs definem o teto máximo de permissões para contas filhas — enforcement de segurança centralizado.', remediation: 'Bloqueie regiões não utilizadas, serviços não aprovados e ações perigosas (ec2:TerminateInstances sem tag).' },
+  { category: 'IAM', severity: 'medium', item: 'Rotação de Access Keys a cada 90 dias no máximo', description: 'Access Keys de longa duração aumentam janela de exposição em caso de vazamento.', remediation: 'Use IAM Credential Report para identificar keys antigas. Prefira Roles e SSO que eliminam o problema.' },
+  // Rede
+  { category: 'Rede', severity: 'critical', item: 'Nenhum banco de dados em subnet pública', description: 'RDS, ElastiCache e DynamoDB com VPC Endpoint devem estar em subnets privadas sem rota para IGW.', remediation: 'Subnet privada: route table sem 0.0.0.0/0 → IGW. SG permite só tráfego da subnet de aplicação.' },
+  { category: 'Rede', severity: 'high', item: 'Security Groups com princípio de menor acesso', description: 'SGs com 0.0.0.0/0 em portas sensíveis (22, 3306, 5432, 6379) são um convite a ataques.', remediation: 'SSH via AWS Systems Manager Session Manager (sem porta 22 aberta). Banco: source = SG da aplicação, não CIDR.' },
+  { category: 'Rede', severity: 'high', item: 'VPC Endpoints para serviços AWS (S3, DynamoDB, SSM)', description: 'Sem VPC Endpoint, tráfego para S3/DynamoDB sai pelo NAT Gateway — custo e exposição à internet.', remediation: 'S3 Gateway Endpoint é gratuito. Interface Endpoints para SSM, Secrets Manager e outros serviços usados em VPC.' },
+  { category: 'Rede', severity: 'medium', item: 'WAF habilitado no CloudFront e ALB em produção', description: 'WAF bloqueia SQL injection, XSS, rate limiting e ameaças conhecidas do OWASP Top 10 na borda.', remediation: 'Use AWS Managed Rules como baseline. Adicione rate-based rules para proteger endpoints de autenticação.' },
+  // Dados
+  { category: 'Dados', severity: 'critical', item: 'S3 Block Public Access ativo em todas as buckets', description: 'Dados públicos acidentalmente expostos causam violações de LGPD/GDPR e multas regulatórias.', remediation: 'aws s3api put-public-access-block --bucket BUCKET --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"' },
+  { category: 'Dados', severity: 'critical', item: 'Secrets no Secrets Manager, não em variáveis de ambiente plaintext', description: 'Env vars aparecem em logs, processos, task definitions e dumps de memória.', remediation: 'Use Secrets Manager com rotação automática. Lambda e ECS buscam secrets via SDK antes de cada execução.' },
+  { category: 'Dados', severity: 'high', item: 'KMS para criptografia de dados em repouso (RDS, S3, EBS, DynamoDB)', description: 'Dados em repouso sem criptografia ficam expostos em caso de acesso físico ou comprometimento de storage.', remediation: 'Habilite criptografia na criação do recurso — não é possível adicionar depois no RDS. Use Customer Managed Key para controle de rotação.' },
+  { category: 'Dados', severity: 'high', item: 'Delete protection habilitado em RDS e DynamoDB de produção', description: 'Deleção acidental de banco de dados em produção é um dos incidentes mais destrutivos e irreversíveis.', remediation: 'RDS: deletion_protection = true. DynamoDB: protection via resource policy. Requer operação explícita de desabilitação antes de deletar.' },
+  { category: 'Dados', severity: 'medium', item: 'Backup automatizado configurado com retenção adequada', description: 'Sem backup configurado, uma falha ou deleção acidental pode ser permanente.', remediation: 'RDS: backup_retention_period mínimo 7 dias. S3: versioning + lifecycle para objetos críticos. Teste restore regularmente.' },
+  // Logging e Detecção
+  { category: 'Logging', severity: 'critical', item: 'CloudTrail habilitado em todas as regiões com log integrity', description: 'CloudTrail registra cada chamada de API AWS — é a auditoria de segurança da conta. Sem ele, impossível investigar incidentes.', remediation: 'CloudTrail multi-region com log file validation. Logs em S3 com Object Lock para proteger contra adulteração.' },
+  { category: 'Logging', severity: 'high', item: 'GuardDuty habilitado para detecção de ameaças com ML', description: 'GuardDuty analisa VPC Flow Logs, DNS logs e CloudTrail em tempo real para detectar comportamentos suspeitos.', remediation: 'Habilite GuardDuty em todas as contas e regiões ativas. Integre findings com EventBridge para alertas automáticos no Slack/PagerDuty.' },
+  { category: 'Logging', severity: 'high', item: 'CloudWatch Logs com retention policy definida', description: 'Logs sem retenção crescem indefinidamente — custo crescente e dados de PII retidos mais tempo que necessário.', remediation: 'Defina retenção baseada em compliance: 90 dias operacional, 1 ano para auditoria, 7 anos para financeiro. Never Expire é o padrão e deve ser substituído.' },
+  { category: 'Logging', severity: 'medium', item: 'AWS Config habilitado para compliance contínuo', description: 'Config rastreia mudanças de configuração e avalia compliance contra regras definidas.', remediation: 'Use Config Rules para detectar automaticamente: SG com porta 22 aberta, buckets públicos, instâncias sem criptografia.' },
+  // Computação
+  { category: 'Computação', severity: 'high', item: 'Imagens Docker sem vulnerabilidades críticas no ECR', description: 'Imagens base desatualizadas contêm CVEs conhecidos exploráveis por atacantes.', remediation: 'Habilite ECR Enhanced Scanning (Inspector). Bloqueie deploy de imagens com CRITICAL/HIGH no pipeline CI/CD.' },
+  { category: 'Computação', severity: 'high', item: 'Lambda sem permissões de execução excessivas', description: 'Lambda com policy AdministratorAccess pode escalar privilégios para comprometer toda a conta.', remediation: 'Cada Lambda tem uma execution role com apenas as permissões que precisa. Use IAM Access Analyzer para verificar.' },
+  { category: 'Computação', severity: 'medium', item: 'EC2 com IMDSv2 obrigatório (não IMDSv1)', description: 'IMDSv1 é vulnerável a SSRF — um atacante pode roubar credenciais da instance metadata via request forjado.', remediation: 'aws ec2 modify-instance-metadata-options --instance-id i-xxx --http-tokens required. Bloqueie IMDSv1 via SCP.' },
+]
+
 // ── Builders de PDF ───────────────────────────────────────────────────────────
 
 const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
@@ -487,6 +531,15 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     skillName: 'AWS',
     accentColor: C,
     stackLabel: 'Cloud',
+  }),
+
+  security: () => buildSecurityChecklistPdf({
+    checks: SECURITY_CHECKS,
+    accentColor: C,
+    skillName: 'AWS',
+    stackLabel: 'Cloud',
+    coverTitle: 'AWS Security Checklist',
+    targetAudience: 'Desenvolvedor Backend / DevOps / Arquiteto de Soluções',
   }),
 
   mindmap: () => buildMindmapPdf({
