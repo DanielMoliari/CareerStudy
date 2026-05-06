@@ -284,3 +284,24 @@ section { margin-bottom: 48px; }
   body { background: #fff; color: #000; }
   .topnav, .back { display: none; }
 }
+
+/* Scrollbar fino — aplicado globalmente na app */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.10) transparent;
+}
+*::-webkit-scrollbar { height: 3px; width: 3px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.10);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.22);
+}
+
+/* Classe utilitária para forçar scrollbar ainda mais discreto */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.10) transparent;
+}
