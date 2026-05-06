@@ -1,5 +1,5 @@
 import type { SkillContentMap } from '@/types'
-import agenticWorkflows from './agentic-workflows'
+import agenticWorkflows from './agentic-workflows/agentic-workflows'
 import rag from './rag'
 import functionCalling from './function-calling'
 import mcp from './mcp'

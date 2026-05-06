@@ -21,6 +21,10 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'clean-architecture': dynamic(() => import('@/data/content/arch/clean-architecture/CleanArchitectureVisuais'), { ssr: false }),
   'terraform': dynamic(() => import('@/data/content/cloud/terraform/TerraformVisuais'), { ssr: false }),
   'playwright': dynamic(() => import('@/data/content/devops/playwright/PlaywrightVisuais'), { ssr: false }),
+  'agentic-workflows': dynamic(() => import('@/data/content/ai/agentic-workflows/AgenticWorkflowsVisuais'), { ssr: false }),
+  'microservices': dynamic(() => import('@/data/content/arch/microservices/MicroservicesVisuais'), { ssr: false }),
+  'ddd': dynamic(() => import('@/data/content/arch/ddd/DddVisuais'), { ssr: false }),
+  'solid': dynamic(() => import('@/data/content/arch/solid/SolidVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -44,5 +48,9 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'clean-architecture': dynamic(() => import('@/data/content/arch/clean-architecture/CleanArchitecturePdfs'), { ssr: false }),
   'terraform': dynamic(() => import('@/data/content/cloud/terraform/TerraformPdfs'), { ssr: false }),
   'playwright': dynamic(() => import('@/data/content/devops/playwright/PlaywrightPdfs'), { ssr: false }),
+  'agentic-workflows': dynamic(() => import('@/data/content/ai/agentic-workflows/AgenticWorkflowsPdfs'), { ssr: false }),
+  'microservices': dynamic(() => import('@/data/content/arch/microservices/MicroservicesPdfs'), { ssr: false }),
+  'ddd': dynamic(() => import('@/data/content/arch/ddd/DddPdfs'), { ssr: false }),
+  'solid': dynamic(() => import('@/data/content/arch/solid/SolidPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
