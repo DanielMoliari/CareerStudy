@@ -1,14 +1,10 @@
 'use client'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Nav from '@/components/Nav'
 import { SKILL_BY_SLUG } from '@/data/skills'
 import { getTechIdentity } from '@/data/tech-identity'
-
-const VISUAL_COMPONENTS: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactVisuais'), { ssr: false }),
-}
+import { VISUAL_REGISTRY } from '@/data/skill-components'
 
 export default function VisuaisPage() {
   const params = useParams()
@@ -27,7 +23,7 @@ export default function VisuaisPage() {
     )
   }
 
-  const VisualComp = VISUAL_COMPONENTS[slug] ?? null
+  const VisualComp = VISUAL_REGISTRY[slug] ?? null
 
   return (
     <>

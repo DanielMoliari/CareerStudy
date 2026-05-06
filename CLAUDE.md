@@ -30,7 +30,9 @@ src/
     Nav.tsx           — Navegação top (usa usePathname + useProgress)
     ProgressBar.tsx   — Barra multi-segmento de progresso
   data/
-    skills.ts         — CATEGORIES, ALL_SKILLS, SKILL_BY_SLUG, DEPENDENCIES, iconUrl()
+    skills.ts             — CATEGORIES, ALL_SKILLS, SKILL_BY_SLUG, DEPENDENCIES, iconUrl()
+    skill-components.ts   — VISUAL_REGISTRY e PDF_REGISTRY: mapeiam slug → componente de visuais/PDFs
+    tech-identity.ts      — cores, personalidade e estilo visual de cada tech
     content/
       index.ts        — Agrega todos os domínios (não alterar)
       meta.ts         — AUTO-GERADO: índice leve de todas as skills (score, campos presentes)
@@ -63,10 +65,11 @@ CONTEXT.md            — Origem das skills, decisões, gaps identificados
 **SEMPRE** seguir esse fluxo ao criar ou enriquecer qualquer skill:
 
 1. **Ler `src/data/content/meta.ts`** — arquivo de ~10KB que mostra score/campos de todas as 218 skills. Use para entender o que está incompleto sem abrir arquivos grandes.
-2. **Ler apenas o arquivo da skill alvo** — ex: `src/data/content/frontend/vue.ts` (~80KB) em vez de ler o arquivo monolítico inteiro.
+2. **Ler apenas o arquivo da skill alvo** — ex: `src/data/content/frontend/vue.ts` (~80KB) em vez de ler o arquivo monolítico inteiro. Skills com visuais/PDFs estão em pastas: ex: `src/data/content/frontend/react/react.ts`.
 3. **Editar o arquivo individual** da skill diretamente.
-4. **Rodar `node scripts/generate-meta.js`** após qualquer criação ou enriquecimento de skill para manter o `meta.ts` atualizado.
-5. **Rodar `npx tsc --noEmit`** para confirmar zero erros TypeScript.
+4. **Se a skill tiver ou ganhar visuais/PDFs:** criar ou editar `{Slug}Visuais.tsx` e `{Slug}Pdfs.tsx` na pasta da skill, e registrar o slug em `src/data/skill-components.ts` (VISUAL_REGISTRY e PDF_REGISTRY). Ver `VISUALS_GUIDE.md` para o passo a passo completo.
+5. **Rodar `node scripts/generate-meta.js`** após qualquer criação ou enriquecimento de skill para manter o `meta.ts` atualizado.
+6. **Rodar `npx tsc --noEmit`** para confirmar zero erros TypeScript.
 
 > ⚠️ Nunca ler os arquivos `index.ts` das pastas para buscar conteúdo — eles só re-exportam. O conteúdo está nos arquivos individuais.
 

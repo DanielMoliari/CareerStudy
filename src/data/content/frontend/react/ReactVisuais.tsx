@@ -1,11 +1,28 @@
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { VisuaisShell } from '@/components/visuals/VisuaisShell'
 import type { VisualDef } from '@/components/visuals/VisuaisNav'
+import { ConceptCarousel } from '@/components/visuals/ConceptCarousel'
+import type { Slide } from '@/components/visuals/ConceptCarousel'
+import { TreeExplorer } from '@/components/visuals/TreeExplorer'
+import type { TreeNode, TreeNodeTypeMeta } from '@/components/visuals/TreeExplorer'
+import { ReRenderSimulator } from '@/components/visuals/ReRenderSimulator'
+import type { RRNode, Scenario } from '@/components/visuals/ReRenderSimulator'
+import { HookTimeline } from '@/components/visuals/HookTimeline'
+import type { TimelinePhase } from '@/components/visuals/HookTimeline'
+import { CardCarousel } from '@/components/visuals/CardCarousel'
+import type { CarouselCard } from '@/components/visuals/CardCarousel'
+import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
+import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
+import { PriorityPanel } from '@/components/visuals/PriorityPanel'
+import type { PriorityInfo } from '@/components/visuals/PriorityPanel'
+import { ProgressionMap } from '@/components/visuals/ProgressionMap'
+import type { ProgressionLevel } from '@/components/visuals/ProgressionMap'
+import { FeaturesCarousel } from '@/components/visuals/FeaturesCarousel'
+import type { Feature } from '@/components/visuals/FeaturesCarousel'
 
-// ── Paleta global ───────────────────────────────────────────────────────────────
+// ── Paleta React ─────────────────────────────────────────────────────────────────
 const C      = '#61DAFB'   // React aqua
-const C_DIM  = '#21b8e3'
 const BG     = '#0f172a'   // navy
 const CARD   = '#1e293b'
 const CARD2  = '#243044'
@@ -22,18 +39,10 @@ const PINK   = '#f472b6'
 const GOLD   = '#fbbf24'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 1 — "Como o React Pensa" — Carrossel de Conceitos Fundamentais
+// VISUAL 1 — Ilustrações do carrossel de conceitos
 // ═══════════════════════════════════════════════════════════════════════════════
 
-type Slide = {
-  title: string
-  paragraphs: string[]
-  gradient: [string, string]
-  illustration: React.ReactNode
-}
-
 function SlideIllustrationLibrary() {
-  // Slide 1: React é uma biblioteca de UI
   return (
     <div style={{ position: 'relative', width: '100%', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 60 }}>
       <div style={{
@@ -329,6 +338,8 @@ function SlideIllustrationConcurrent() {
   )
 }
 
+// ── VISUAL 1 — Dados do Carrossel de Conceitos ──────────────────────────────────
+
 const CONCEPT_SLIDES: Slide[] = [
   {
     title: 'React é uma biblioteca de UI',
@@ -412,135 +423,9 @@ const CONCEPT_SLIDES: Slide[] = [
   },
 ]
 
-function ConceptCarousel() {
-  const [idx, setIdx] = useState(0)
-  const slide = CONCEPT_SLIDES[idx]
-  const next = () => setIdx(i => (i + 1) % CONCEPT_SLIDES.length)
-  const prev = () => setIdx(i => (i - 1 + CONCEPT_SLIDES.length) % CONCEPT_SLIDES.length)
+// ── VISUAL 2 — Árvore Fiber ───────────────────────────────────────────────────────
 
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: C, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 1 — CONCEITOS FUNDAMENTAIS
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Como o React Pensa
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Oito slides essenciais. Os mesmos conceitos que separam quem usa React de quem entende React.
-        </p>
-      </div>
-
-      <div style={{
-        position: 'relative',
-        height: 460,
-        background: BG,
-        border: `1px solid ${slide.gradient[0]}30`,
-        borderRadius: 18,
-        padding: 36,
-        backgroundImage: `radial-gradient(ellipse at top right, ${slide.gradient[0]}10 0%, transparent 60%), radial-gradient(ellipse at bottom left, ${slide.gradient[1]}08 0%, transparent 60%)`,
-        boxShadow: `0 0 50px ${slide.gradient[0]}15`,
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', top: 24, right: 36,
-          fontSize: 13, fontWeight: 700, color: MUTE,
-          letterSpacing: '.2em',
-        }}>
-          {String(idx + 1).padStart(2, '0')} / {String(CONCEPT_SLIDES.length).padStart(2, '0')}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 36, height: '100%', alignItems: 'center' }}>
-          <div>
-            <h2 style={{
-              fontSize: 30, fontWeight: 900, lineHeight: 1.1,
-              margin: '0 0 22px',
-              background: `linear-gradient(135deg, ${slide.gradient[0]}, ${slide.gradient[1]})`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>
-              {slide.title}
-            </h2>
-            {slide.paragraphs.map((p, i) => (
-              <p key={i} style={{
-                color: FGMUTE, fontSize: 12.5, lineHeight: 1.75,
-                margin: '0 0 12px',
-              }}>
-                {p}
-              </p>
-            ))}
-          </div>
-
-          <div style={{
-            background: `${CARD}80`,
-            borderRadius: 14, padding: 24,
-            border: `1px solid ${LINE}80`,
-            backdropFilter: 'blur(8px)',
-          }}>
-            {slide.illustration}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }}>
-        <button onClick={prev} style={{
-          width: 52, height: 52, borderRadius: '50%',
-          border: `2px solid ${C}50`, background: `${C}15`,
-          color: C, fontSize: 22, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all .2s',
-        }}>
-          ◀
-        </button>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          {CONCEPT_SLIDES.map((_, i) => (
-            <button key={i}
-              onClick={() => setIdx(i)}
-              style={{
-                width: i === idx ? 32 : 10, height: 10, borderRadius: 5,
-                border: 'none', background: i === idx ? C : LINE,
-                cursor: 'pointer', transition: 'all .3s',
-                padding: 0,
-              }}
-            />
-          ))}
-        </div>
-
-        <button onClick={next} style={{
-          width: 52, height: 52, borderRadius: '50%',
-          border: `2px solid ${C}50`, background: `${C}15`,
-          color: C, fontSize: 22, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all .2s',
-        }}>
-          ▶
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 2 — Árvore Fiber — Explorador Visual
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type FiberNode = {
-  id: string
-  name: string
-  type: 'host' | 'component' | 'context' | 'memo'
-  props?: string[]
-  state?: string[]
-  children?: FiberNode[]
-  tooltip: string
-  tip?: string
-}
-
-const FIBER_TREE: FiberNode = {
+const FIBER_TREE: TreeNode = {
   id: 'root', name: 'createRoot', type: 'host',
   tooltip: 'Ponto de entrada do React 18. Habilita o Concurrent Mode. Substitui o antigo ReactDOM.render(). É aqui que a "fundação" é lançada.',
   tip: 'Em entrevista: cite que createRoot habilita useTransition, automatic batching e Suspense para SSR.',
@@ -597,215 +482,14 @@ const FIBER_TREE: FiberNode = {
   ],
 }
 
-const TYPE_COLOR: Record<string, string> = {
-  host: MUTE, component: C, context: AMB, memo: GRN,
-}
-const TYPE_LABEL: Record<string, string> = {
-  host: 'Host', component: 'Component', context: 'Context', memo: 'Memo',
-}
-const TYPE_ICON: Record<string, string> = {
-  host: '⚓', component: '◆', context: '◎', memo: '⚡',
-}
-const TYPE_DESC: Record<string, string> = {
-  host: 'Nó DOM nativo (div, span, input...)',
-  component: 'Função React padrão',
-  context: 'Provedor de contexto global',
-  memo: 'Envolvido em React.memo',
+const FIBER_TYPE_MAP: Record<string, TreeNodeTypeMeta> = {
+  host:      { color: MUTE, label: 'Host',      icon: '⚓', desc: 'Nó DOM nativo (div, span, input...)' },
+  component: { color: C,    label: 'Component', icon: '◆', desc: 'Função React padrão' },
+  context:   { color: AMB,  label: 'Context',   icon: '◎', desc: 'Provedor de contexto global' },
+  memo:      { color: GRN,  label: 'Memo',      icon: '⚡', desc: 'Envolvido em React.memo' },
 }
 
-function findNode(tree: FiberNode, id: string): FiberNode | null {
-  if (tree.id === id) return tree
-  for (const c of tree.children ?? []) {
-    const r = findNode(c, id)
-    if (r) return r
-  }
-  return null
-}
-
-function FiberNodeBox({ node, depth, selected, onSelect }: {
-  node: FiberNode; depth: number; selected: string | null; onSelect: (id: string) => void
-}) {
-  const color = TYPE_COLOR[node.type]
-  const isSelected = selected === node.id
-  const indent = depth * 28
-
-  return (
-    <div style={{ marginLeft: indent }}>
-      <div
-        onClick={() => onSelect(node.id)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 18px', borderRadius: 12, marginBottom: 10,
-          cursor: 'pointer', userSelect: 'none',
-          border: `2px solid ${isSelected ? color : LINE}`,
-          background: isSelected ? `${color}25` : CARD2,
-          transition: 'all .2s',
-          boxShadow: isSelected ? `0 0 16px ${color}50` : 'none',
-          minWidth: 240,
-          minHeight: 48,
-        }}
-      >
-        <span style={{ fontSize: 22, lineHeight: 1, filter: isSelected ? 'none' : 'grayscale(0.4)' }}>
-          {TYPE_ICON[node.type]}
-        </span>
-        <div style={{ flex: 1 }}>
-          <div style={{ color: isSelected ? color : FG, fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>
-            {node.name}
-          </div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
-            <span style={{
-              fontSize: 10, padding: '2px 7px', borderRadius: 4,
-              background: `${color}25`, border: `1px solid ${color}60`, color, fontWeight: 700,
-            }}>
-              {TYPE_LABEL[node.type]}
-            </span>
-            {node.state?.map(s => (
-              <span key={s} style={{
-                fontSize: 10, padding: '2px 7px', borderRadius: 4,
-                background: 'rgba(239,68,68,.18)', border: '1px solid rgba(239,68,68,.5)',
-                color: RED, fontWeight: 700,
-              }}>
-                state:{s}
-              </span>
-            ))}
-            {node.props?.map(p => (
-              <span key={p} style={{
-                fontSize: 10, padding: '2px 7px', borderRadius: 4,
-                background: 'rgba(167,139,250,.15)', border: '1px solid rgba(167,139,250,.4)',
-                color: PRP, fontWeight: 700,
-              }}>
-                {p}
-              </span>
-            ))}
-          </div>
-        </div>
-        {isSelected && <span style={{ fontSize: 22, color }}>›</span>}
-      </div>
-      <div style={{ position: 'relative' }}>
-        {node.children?.length ? (
-          <div style={{
-            position: 'absolute', left: 12, top: 0, bottom: 10,
-            width: 2, background: LINE, borderRadius: 1,
-          }} />
-        ) : null}
-        {node.children?.map(child => (
-          <FiberNodeBox key={child.id} node={child} depth={depth + 1} selected={selected} onSelect={onSelect} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FiberExplorer() {
-  const [selected, setSelected] = useState<string | null>('app')
-  const node = selected ? findNode(FIBER_TREE, selected) : null
-
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: C, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 2 — ÁRVORE FIBER
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Explorador da Casa React
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Cada componente é um cômodo. Clique para inspecionar. Hierarquia, tipos e dicas de entrevista revelam como React organiza sua árvore.
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
-        <div style={{
-          background: BG, border: `1px solid ${LINE}`, borderRadius: 14,
-          padding: 28, overflowX: 'auto',
-          backgroundImage: `radial-gradient(circle at 20% 20%, ${C}08 0%, transparent 50%)`,
-          minHeight: 440,
-        }}>
-          <FiberNodeBox node={FIBER_TREE} depth={0} selected={selected} onSelect={setSelected} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {node ? (
-            <>
-              <div style={{
-                background: `${TYPE_COLOR[node.type]}18`,
-                border: `2px solid ${TYPE_COLOR[node.type]}60`,
-                borderRadius: 14, padding: 22,
-                boxShadow: `0 0 24px ${TYPE_COLOR[node.type]}22`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <span style={{ fontSize: 34 }}>{TYPE_ICON[node.type]}</span>
-                  <div>
-                    <div style={{ color: TYPE_COLOR[node.type], fontSize: 20, fontWeight: 800, lineHeight: 1 }}>{node.name}</div>
-                    <span style={{
-                      display: 'inline-block', marginTop: 6,
-                      fontSize: 10, padding: '3px 10px', borderRadius: 6,
-                      background: `${TYPE_COLOR[node.type]}30`,
-                      color: TYPE_COLOR[node.type], fontWeight: 800, letterSpacing: '.05em',
-                    }}>
-                      {TYPE_LABEL[node.type].toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                <p style={{ color: FG, fontSize: 13, lineHeight: 1.8, margin: 0 }}>{node.tooltip}</p>
-              </div>
-
-              {node.tip && (
-                <div style={{
-                  background: `${GOLD}12`, border: `1.5px solid ${GOLD}50`,
-                  borderRadius: 12, padding: 16,
-                }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
-                    color: GOLD, fontSize: 11, fontWeight: 800, letterSpacing: '.1em',
-                  }}>
-                    <span style={{ fontSize: 16 }}>💡</span>
-                    DICA DE ENTREVISTA
-                  </div>
-                  <p style={{ color: FG, fontSize: 12, lineHeight: 1.7, margin: 0 }}>{node.tip}</p>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ background: CARD2, border: `1px solid ${LINE}`, borderRadius: 14, padding: 20 }}>
-              <p style={{ color: MUTE, fontSize: 13, margin: 0, textAlign: 'center' }}>
-                ← Clique num componente para inspecionar
-              </p>
-            </div>
-          )}
-
-          <div style={{ background: CARD2, border: `1px solid ${LINE}`, borderRadius: 14, padding: 20 }}>
-            <div style={{ color: FGMUTE, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 14 }}>
-              LEGENDA DE TIPOS
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {Object.entries(TYPE_LABEL).map(([k]) => (
-                <div key={k} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 14px', borderRadius: 10,
-                  background: `${TYPE_COLOR[k]}12`,
-                  border: `1.5px solid ${TYPE_COLOR[k]}40`,
-                }}>
-                  <span style={{ fontSize: 20 }}>{TYPE_ICON[k]}</span>
-                  <div>
-                    <div style={{ color: TYPE_COLOR[k], fontSize: 13, fontWeight: 700 }}>{TYPE_LABEL[k]}</div>
-                    <div style={{ color: FGMUTE, fontSize: 11, marginTop: 2 }}>{TYPE_DESC[k]}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 3 — Re-render Cascade — "Propagação de Fogo"
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type RRNode = { id: string; name: string; isMemo?: boolean; children?: string[] }
+// ── VISUAL 3 — Re-render Cascade ─────────────────────────────────────────────────
 
 const RR_NODES: RRNode[] = [
   { id: 'App',        name: 'App',         children: ['Header', 'Main'] },
@@ -825,19 +509,7 @@ const RR_NODES: RRNode[] = [
   { id: 'Post3',      name: 'Post',        isMemo: true },
 ]
 
-function getDescendants(id: string, nodes: RRNode[]): Set<string> {
-  const map = new Map(nodes.map(n => [n.id, n]))
-  const result = new Set<string>()
-  function walk(nid: string) {
-    const n = map.get(nid)
-    if (!n) return
-    for (const c of n.children ?? []) { result.add(c); walk(c) }
-  }
-  walk(id)
-  return result
-}
-
-const SCENARIOS = [
+const RR_SCENARIOS: Scenario[] = [
   {
     label: 'App setState()',
     emoji: '🔥', trigger: 'App',
@@ -858,206 +530,9 @@ const SCENARIOS = [
   },
 ]
 
-function ReRenderSimulator() {
-  const [scenario, setScenario] = useState(0)
-  const [highlighted, setHighlighted] = useState<Set<string>>(new Set())
-  const [memoBlocked, setMemoBlocked] = useState<Set<string>>(new Set())
-  const [running, setRunning] = useState(false)
-  const [blockCount, setBlockCount] = useState(0)
+// ── VISUAL 4 — Hook Lifecycle Timeline ───────────────────────────────────────────
 
-  const runScenario = useCallback((idx: number) => {
-    if (running) return
-    setRunning(true)
-    const sc = SCENARIOS[idx]
-    const desc = getDescendants(sc.trigger, RR_NODES)
-
-    const blocked = new Set<string>()
-    for (const nid of desc) {
-      const n = RR_NODES.find(x => x.id === nid)
-      if (n?.isMemo) {
-        blocked.add(nid)
-        const subDesc = getDescendants(nid, RR_NODES)
-        for (const s of subDesc) blocked.add(s)
-      }
-    }
-
-    const finalTriggered = new Set([sc.trigger])
-    for (const nid of desc) {
-      if (!blocked.has(nid)) finalTriggered.add(nid)
-    }
-
-    setHighlighted(new Set())
-    setMemoBlocked(new Set())
-
-    setTimeout(() => {
-      setHighlighted(finalTriggered)
-      setMemoBlocked(blocked)
-      setBlockCount(c => c + blocked.size)
-      setRunning(false)
-    }, 80)
-  }, [running])
-
-  function RRBox({ node, depth }: { node: RRNode; depth: number }) {
-    const isHit = highlighted.has(node.id)
-    const isBlocked = memoBlocked.has(node.id)
-    const borderColor = isHit ? RED : isBlocked ? GRN : LINE
-    const bgColor = isHit ? 'rgba(239,68,68,.22)' : isBlocked ? 'rgba(74,222,128,.14)' : CARD2
-    const textColor = isHit ? '#fca5a5' : isBlocked ? '#86efac' : FGMUTE
-    const glow = isHit ? '0 0 22px rgba(239,68,68,.6)' : isBlocked ? '0 0 18px rgba(74,222,128,.4)' : 'none'
-
-    return (
-      <div style={{ marginLeft: depth * 26 }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10,
-          padding: '12px 18px', borderRadius: 10, marginBottom: 8,
-          border: `2px solid ${borderColor}`,
-          background: bgColor,
-          transition: 'all .4s',
-          boxShadow: glow,
-          minWidth: 160,
-        }}>
-          {node.isMemo && (
-            <span style={{
-              fontSize: 10, fontWeight: 800,
-              color: isBlocked ? GRN : '#4ade8099',
-              border: `1.5px solid ${isBlocked ? GRN : '#4ade8050'}`,
-              borderRadius: 4, padding: '1px 6px',
-            }}>memo</span>
-          )}
-          <span style={{ fontSize: 13, color: textColor, fontWeight: isHit ? 800 : 500 }}>
-            {node.name}
-          </span>
-          {isHit && <span style={{ fontSize: 16, animation: 'spin .6s linear infinite' }}>🔥</span>}
-          {isBlocked && <span style={{ fontSize: 14 }}>🛡️</span>}
-        </div>
-        {node.children?.map(cid => {
-          const child = RR_NODES.find(x => x.id === cid)
-          return child ? <RRBox key={cid} node={child} depth={depth + 1} /> : null
-        })}
-      </div>
-    )
-  }
-
-  const root = RR_NODES.find(x => x.id === 'App')!
-  const sc = SCENARIOS[scenario]
-
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: RED, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 3 — CASCATA DE RE-RENDERS
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Propagação de Fogo
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Escolha um cenário e veja o fogo do re-render descendo a árvore. memo é seu escudo verde.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        {SCENARIOS.map((s, i) => (
-          <button key={i}
-            onClick={() => { setScenario(i); runScenario(i) }}
-            style={{
-              padding: '12px 24px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-              border: `2px solid ${scenario === i ? s.color : LINE}`,
-              background: scenario === i ? `${s.color}22` : CARD2,
-              color: scenario === i ? s.color : FGMUTE,
-              cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all .2s',
-              boxShadow: scenario === i ? `0 0 16px ${s.color}40` : 'none',
-            }}
-          >
-            {s.emoji} {s.label}
-          </button>
-        ))}
-
-        <div style={{
-          marginLeft: 'auto',
-          padding: '10px 18px', borderRadius: 10,
-          background: `${GRN}12`, border: `2px solid ${GRN}50`,
-        }}>
-          <div style={{ fontSize: 9, color: GRN, fontWeight: 800, letterSpacing: '.1em', marginBottom: 2 }}>
-            RE-RENDERS EVITADOS
-          </div>
-          <div style={{ fontSize: 22, color: GRN, fontWeight: 900, fontFamily: "'JetBrains Mono', monospace" }}>
-            🛡️ {blockCount}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 24, alignItems: 'start' }}>
-        <div style={{
-          background: BG, border: `1px solid ${LINE}`, borderRadius: 14,
-          padding: 28,
-          backgroundImage: `radial-gradient(circle at 80% 80%, ${RED}08 0%, transparent 60%)`,
-        }}>
-          <RRBox node={root} depth={0} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            background: `${sc.color}15`, border: `2px solid ${sc.color}50`,
-            borderRadius: 14, padding: 20,
-            boxShadow: `0 0 20px ${sc.color}20`,
-          }}>
-            <div style={{ color: sc.color, fontSize: 16, fontWeight: 800, marginBottom: 10 }}>
-              {sc.emoji} {sc.label}
-            </div>
-            <p style={{ color: FG, fontSize: 13, lineHeight: 1.8, margin: 0 }}>{sc.desc}</p>
-          </div>
-
-          <div style={{ background: CARD2, border: `1px solid ${LINE}`, borderRadius: 14, padding: 20 }}>
-            <div style={{ color: FGMUTE, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 14 }}>LEGENDA</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 36, height: 22, borderRadius: 6,
-                  background: 'rgba(239,68,68,.22)', border: `2px solid ${RED}`,
-                  boxShadow: `0 0 10px ${RED}55`, flexShrink: 0,
-                }} />
-                <span style={{ color: FG, fontSize: 12 }}>Re-renderizou</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 36, height: 22, borderRadius: 6,
-                  background: 'rgba(74,222,128,.14)', border: `2px solid ${GRN}`,
-                  boxShadow: `0 0 10px ${GRN}44`, flexShrink: 0,
-                }} />
-                <span style={{ color: FG, fontSize: 12 }}>Bloqueado por memo</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 36, height: 22, borderRadius: 6,
-                  background: CARD2, border: `2px solid ${LINE}`, flexShrink: 0,
-                }} />
-                <span style={{ color: FG, fontSize: 12 }}>Não afetado</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 4 — Hook Lifecycle — Timeline Visual (Estações)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type SeasonEvent = {
-  id: string
-  emoji: string
-  name: string
-  color: string
-  short: string
-  detail: string
-  code: { text: string; color?: string }[][]
-}
-
-const SEASONS: SeasonEvent[] = [
+const HOOK_PHASES: TimelinePhase[] = [
   {
     id: 'render', emoji: '🌱', name: 'Render', color: GRN, short: 'A função roda',
     detail: 'O componente é executado como uma função pura. JSX é gerado em memória. Nenhum efeito colateral deve acontecer aqui — apenas leitura de props/state e cálculo do output.',
@@ -1130,156 +605,9 @@ const SEASONS: SeasonEvent[] = [
   },
 ]
 
-function HookTimeline() {
-  const [activeId, setActiveId] = useState<string | null>('effect')
-  const active = SEASONS.find(s => s.id === activeId)
+// ── VISUAL 5 — Hooks de Bolso ─────────────────────────────────────────────────────
 
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: GRN, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 4 — HOOK LIFECYCLE
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Timeline das Estações
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Cada fase do ciclo de vida é uma estação. Clique para ver explicação detalhada e código.
-        </p>
-      </div>
-
-      <div style={{
-        position: 'relative', padding: '40px 0 60px',
-        background: BG, borderRadius: 16, border: `1px solid ${LINE}`,
-        backgroundImage: `radial-gradient(ellipse at center, ${C}08 0%, transparent 70%)`,
-        marginBottom: 24,
-      }}>
-        <div style={{
-          position: 'absolute',
-          left: '4%', right: '4%',
-          top: '50%', height: 4,
-          background: `linear-gradient(90deg, ${GRN}, ${SKY}, ${AMB}, ${PRP}, ${PINK}, ${C}, ${RED})`,
-          borderRadius: 2, transform: 'translateY(-2px)',
-          boxShadow: '0 0 16px rgba(97,218,251,.4)',
-        }} />
-
-        <div style={{
-          position: 'relative',
-          display: 'flex', justifyContent: 'space-around',
-          padding: '0 4%',
-        }}>
-          {SEASONS.map((s) => {
-            const isActive = activeId === s.id
-            return (
-              <div key={s.id}
-                onClick={() => setActiveId(isActive ? null : s.id)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  cursor: 'pointer', position: 'relative',
-                }}
-              >
-                <div style={{
-                  width: 80, height: 80, borderRadius: '50%',
-                  background: isActive ? `${s.color}30` : CARD2,
-                  border: `4px solid ${isActive ? s.color : `${s.color}70`}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 36,
-                  transition: 'all .25s',
-                  boxShadow: isActive ? `0 0 30px ${s.color}80` : `0 0 12px ${s.color}30`,
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                  zIndex: 2,
-                }}>
-                  {s.emoji}
-                </div>
-                <div style={{
-                  marginTop: 14, textAlign: 'center',
-                  color: isActive ? s.color : FG,
-                  fontSize: 14, fontWeight: 800,
-                  transition: 'color .2s',
-                }}>
-                  {s.name}
-                </div>
-                <div style={{
-                  marginTop: 4, fontSize: 10,
-                  color: isActive ? s.color : FGMUTE,
-                  textAlign: 'center', maxWidth: 90,
-                }}>
-                  {s.short}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {active ? (
-        <div style={{
-          background: `${active.color}10`, border: `2px solid ${active.color}50`,
-          borderRadius: 14, padding: 24,
-          boxShadow: `0 0 30px ${active.color}15`,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24,
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-              <span style={{ fontSize: 38 }}>{active.emoji}</span>
-              <div>
-                <div style={{ color: active.color, fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{active.name}</div>
-                <div style={{ color: FGMUTE, fontSize: 12, marginTop: 4 }}>{active.short}</div>
-              </div>
-            </div>
-            <p style={{ color: FG, fontSize: 13.5, lineHeight: 1.85, margin: 0 }}>{active.detail}</p>
-          </div>
-
-          <div style={{
-            background: BG, border: `1px solid ${LINE}`, borderRadius: 10,
-            padding: 18, fontSize: 12, lineHeight: 1.8,
-            fontFamily: "'JetBrains Mono', monospace",
-            overflowX: 'auto',
-          }}>
-            <div style={{
-              fontSize: 9, color: MUTE, letterSpacing: '.15em',
-              marginBottom: 10, fontWeight: 700,
-            }}>
-              EXEMPLO DE CÓDIGO
-            </div>
-            {active.code.map((line, i) => (
-              <div key={i} style={{ color: FG, whiteSpace: 'pre' }}>
-                {line.map((tok, j) => (
-                  <span key={j} style={{ color: tok.color || FG }}>{tok.text}</span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div style={{
-          background: CARD2, border: `1px dashed ${LINE}`,
-          borderRadius: 14, padding: 24, textAlign: 'center',
-        }}>
-          <p style={{ color: MUTE, fontSize: 13, margin: 0 }}>
-            Clique numa estação da timeline para ver explicação e código
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 5 — "Os Hooks em 60 Segundos" — Carrossel de Cards
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type HookCard = {
-  name: string
-  signature: string
-  emoji: string
-  color: string
-  use: string[]
-  dontUse: string
-  difficulty: 1 | 2 | 3
-}
-
-const HOOK_CARDS: HookCard[] = [
+const HOOK_CARDS: CarouselCard[] = [
   {
     name: 'useState', emoji: '📦', color: C, difficulty: 1,
     signature: 'const [v, setV] = useState(initial)',
@@ -1360,159 +688,7 @@ const HOOK_CARDS: HookCard[] = [
   },
 ]
 
-function HookCarousel() {
-  const [idx, setIdx] = useState(0)
-  const card = HOOK_CARDS[idx]
-  const next = () => setIdx(i => (i + 1) % HOOK_CARDS.length)
-  const prev = () => setIdx(i => (i - 1 + HOOK_CARDS.length) % HOOK_CARDS.length)
-
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: SKY, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 5 — HOOKS DE BOLSO
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Os Hooks em 60 Segundos
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Dez hooks essenciais. Quando usar, quando não usar e dificuldade — em um cartão.
-        </p>
-      </div>
-
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 18,
-        justifyContent: 'center',
-      }}>
-        <button onClick={prev} style={{
-          width: 52, height: 52, borderRadius: '50%',
-          border: `2px solid ${card.color}50`, background: `${card.color}15`,
-          color: card.color, fontSize: 22, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-          flexShrink: 0,
-        }}>
-          ◀
-        </button>
-
-        <div style={{
-          width: 420, height: 360,
-          background: `linear-gradient(160deg, ${card.color}18 0%, ${BG} 70%)`,
-          border: `2px solid ${card.color}60`,
-          borderRadius: 18, padding: 28,
-          boxShadow: `0 0 40px ${card.color}25`,
-          display: 'flex', flexDirection: 'column',
-          position: 'relative',
-          transition: 'all .3s',
-        }}>
-          <div style={{
-            position: 'absolute', top: 18, right: 22,
-            display: 'flex', gap: 4,
-          }}>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <span key={i} style={{
-                fontSize: 16,
-                opacity: i < card.difficulty ? 1 : 0.2,
-                filter: i < card.difficulty ? 'none' : 'grayscale(1)',
-              }}>
-                🔥
-              </span>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-            <div style={{ fontSize: 60, lineHeight: 1 }}>{card.emoji}</div>
-            <div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: card.color, lineHeight: 1, fontFamily: "'JetBrains Mono', monospace" }}>
-                {card.name}
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            background: BG, border: `1px solid ${LINE}`,
-            borderRadius: 8, padding: '10px 14px',
-            fontSize: 11.5, color: FG,
-            fontFamily: "'JetBrains Mono', monospace",
-            marginBottom: 16,
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-          }}>
-            {card.signature}
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 9, color: GRN, fontWeight: 800, letterSpacing: '.15em', marginBottom: 8 }}>
-              ✓ QUANDO USAR
-            </div>
-            {card.use.map((u, i) => (
-              <div key={i} style={{ color: FG, fontSize: 12, lineHeight: 1.6, paddingLeft: 4 }}>
-                • {u}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <div style={{ fontSize: 9, color: RED, fontWeight: 800, letterSpacing: '.15em', marginBottom: 6 }}>
-              ✗ QUANDO NÃO USAR
-            </div>
-            <div style={{ color: '#fca5a5', fontSize: 12, lineHeight: 1.6, paddingLeft: 4 }}>
-              • {card.dontUse}
-            </div>
-          </div>
-
-          <div style={{
-            position: 'absolute', bottom: 14, right: 22,
-            fontSize: 11, color: MUTE, fontWeight: 700,
-            letterSpacing: '.15em',
-          }}>
-            {String(idx + 1).padStart(2, '0')} / {String(HOOK_CARDS.length).padStart(2, '0')}
-          </div>
-        </div>
-
-        <button onClick={next} style={{
-          width: 52, height: 52, borderRadius: '50%',
-          border: `2px solid ${card.color}50`, background: `${card.color}15`,
-          color: card.color, fontSize: 22, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-          flexShrink: 0,
-        }}>
-          ▶
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 24, flexWrap: 'wrap' }}>
-        {HOOK_CARDS.map((h, i) => (
-          <button key={i}
-            onClick={() => setIdx(i)}
-            style={{
-              padding: '6px 12px', fontSize: 11,
-              border: `1.5px solid ${i === idx ? h.color : LINE}`,
-              background: i === idx ? `${h.color}25` : 'transparent',
-              color: i === idx ? h.color : FGMUTE,
-              borderRadius: 6, cursor: 'pointer',
-              fontFamily: 'inherit', fontWeight: 700,
-              transition: 'all .15s',
-            }}
-          >
-            {h.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 6 — Anti-patterns — "Galeria do Horror"
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type CodeLine = { text: string; color?: string }[]
-type AntiPattern = {
-  title: string
-  wrong: CodeLine[]
-  right: CodeLine[]
-  why: string
-}
+// ── VISUAL 6 — Anti-patterns ──────────────────────────────────────────────────────
 
 const ANTI_PATTERNS: AntiPattern[] = [
   {
@@ -1663,379 +839,19 @@ const ANTI_PATTERNS: AntiPattern[] = [
   },
 ]
 
-function HighlightedCode({ code, bg, border }: { code: CodeLine[]; bg: string; border: string }) {
-  return (
-    <pre style={{
-      background: bg, border: `1px solid ${border}`, borderRadius: 8,
-      padding: 12, margin: 0, fontSize: 11, lineHeight: 1.7,
-      fontFamily: "'JetBrains Mono', monospace",
-      color: FG, overflowX: 'auto', whiteSpace: 'pre',
-    }}>
-      {code.map((line, i) => (
-        <div key={i}>
-          {line.map((tok, j) => (
-            <span key={j} style={{ color: tok.color || FG }}>{tok.text}</span>
-          ))}
-        </div>
-      ))}
-    </pre>
-  )
+// ── VISUAL 7 — Concurrent Mode Priorities ────────────────────────────────────────
+
+const CONCURRENT_PRIORITIES: Record<string, PriorityInfo> = {
+  urgent: { color: RED,  emoji: '🔥', label: 'URGENTE', weight: 30 },
+  normal: { color: SKY,  emoji: '⚡', label: 'NORMAL',  weight: 12 },
+  low:    { color: MUTE, emoji: '🐢', label: 'BAIXA',   weight: 6  },
 }
 
-function AntiPatternsGallery() {
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: RED, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 6 — ANTI-PATTERNS
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Galeria do Horror
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Oito armadilhas comuns. À esquerda o erro, à direita a versão correta. Errado vs Certo, sempre lado a lado.
-        </p>
-      </div>
+const CONCURRENT_ORDER = ['urgent', 'normal', 'low']
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 18 }}>
-        {ANTI_PATTERNS.map((p, idx) => (
-          <div key={idx} style={{
-            background: CARD2, border: `1px solid ${LINE}`,
-            borderRadius: 14, overflow: 'hidden',
-          }}>
-            <div style={{
-              padding: '12px 18px',
-              background: `linear-gradient(90deg, ${RED}30, ${RED}10)`,
-              borderBottom: `1px solid ${RED}30`,
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 18 }}>⚠️</span>
-              <span style={{ color: '#fca5a5', fontSize: 13, fontWeight: 800, letterSpacing: '.02em' }}>
-                {p.title}
-              </span>
-            </div>
+// ── VISUAL 8 — Progressão de nível ───────────────────────────────────────────────
 
-            <div style={{ padding: 16 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 9, color: RED, fontWeight: 800,
-                letterSpacing: '.15em', marginBottom: 8,
-              }}>
-                ✗ ERRADO
-              </div>
-              <HighlightedCode code={p.wrong} bg="rgba(239,68,68,.06)" border={`${RED}30`} />
-
-              <div style={{ textAlign: 'center', margin: '12px 0', color: GRN, fontSize: 18 }}>
-                ↓
-              </div>
-
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 9, color: GRN, fontWeight: 800,
-                letterSpacing: '.15em', marginBottom: 8,
-              }}>
-                ✓ CERTO
-              </div>
-              <HighlightedCode code={p.right} bg="rgba(74,222,128,.06)" border={`${GRN}30`} />
-
-              <div style={{
-                marginTop: 14, padding: '10px 14px',
-                background: BG, border: `1px solid ${LINE}`,
-                borderRadius: 8,
-              }}>
-                <div style={{
-                  fontSize: 9, color: AMB, fontWeight: 800,
-                  letterSpacing: '.15em', marginBottom: 6,
-                }}>
-                  POR QUE ISSO MATA PERFORMANCE?
-                </div>
-                <p style={{ color: FGMUTE, fontSize: 11.5, lineHeight: 1.6, margin: 0 }}>
-                  {p.why}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 7 — Concurrent Mode — "Painel de Prioridades"
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type Priority = 'urgent' | 'normal' | 'low'
-type Task = {
-  id: number
-  priority: Priority
-  label: string
-  progress: number
-  done: boolean
-  startedAt?: number
-}
-
-const PRIO_INFO: Record<Priority, { color: string; emoji: string; label: string; weight: number }> = {
-  urgent: { color: RED, emoji: '🔥', label: 'URGENTE',  weight: 30 },
-  normal: { color: SKY, emoji: '⚡', label: 'NORMAL',   weight: 12 },
-  low:    { color: MUTE, emoji: '🐢', label: 'BAIXA',    weight: 6 },
-}
-
-let TASK_ID = 0
-
-function ConcurrentMode() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [log, setLog] = useState<string[]>([])
-  const [running, setRunning] = useState(false)
-  const tasksRef = useRef<Task[]>([])
-  tasksRef.current = tasks
-
-  function addTask(priority: Priority) {
-    TASK_ID += 1
-    const newTask: Task = {
-      id: TASK_ID,
-      priority,
-      label: `${PRIO_INFO[priority].label} #${TASK_ID}`,
-      progress: 0,
-      done: false,
-    }
-    setTasks(prev => [...prev, newTask])
-    setLog(prev => [`+ Tarefa enfileirada: ${newTask.label}`, ...prev].slice(0, 8))
-  }
-
-  useEffect(() => {
-    if (running) return
-    if (tasks.some(t => !t.done)) {
-      setRunning(true)
-    }
-  }, [tasks, running])
-
-  useEffect(() => {
-    if (!running) return
-    const interval = setInterval(() => {
-      setTasks(prev => {
-        const pending = prev.filter(t => !t.done)
-        if (pending.length === 0) {
-          setRunning(false)
-          return prev
-        }
-        // Scheduler: urgente primeiro
-        const order: Priority[] = ['urgent', 'normal', 'low']
-        let target: Task | null = null
-        for (const p of order) {
-          const found = pending.find(t => t.priority === p)
-          if (found) { target = found; break }
-        }
-        if (!target) return prev
-
-        const t = target
-        const inc = PRIO_INFO[t.priority].weight
-        return prev.map(x => {
-          if (x.id !== t.id) return x
-          const newProg = Math.min(100, x.progress + inc)
-          if (newProg >= 100 && !x.done) {
-            setLog(L => [`✓ Concluído: ${x.label}`, ...L].slice(0, 8))
-            return { ...x, progress: 100, done: true }
-          }
-          return { ...x, progress: newProg }
-        })
-      })
-    }, 180)
-    return () => clearInterval(interval)
-  }, [running])
-
-  function clear() {
-    setTasks([])
-    setLog([])
-    setRunning(false)
-  }
-
-  const queues = (Object.keys(PRIO_INFO) as Priority[]).map(p => ({
-    priority: p,
-    tasks: tasks.filter(t => t.priority === p),
-    info: PRIO_INFO[p],
-  }))
-
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: PRP, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 7 — CONCURRENT MODE
-        </div>
-        <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-          Painel de Prioridades
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Adicione tarefas em filas diferentes e veja o scheduler do React priorizar urgentes. Como useTransition funciona por dentro.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        {(Object.keys(PRIO_INFO) as Priority[]).map(p => {
-          const info = PRIO_INFO[p]
-          return (
-            <button key={p}
-              onClick={() => addTask(p)}
-              style={{
-                padding: '12px 20px', borderRadius: 10,
-                border: `2px solid ${info.color}`,
-                background: `${info.color}20`,
-                color: info.color, fontSize: 13, fontWeight: 800,
-                cursor: 'pointer', fontFamily: 'inherit',
-                boxShadow: `0 0 12px ${info.color}30`,
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 18 }}>{info.emoji}</span>
-              <span>+ {info.label}</span>
-            </button>
-          )
-        })}
-
-        <button onClick={clear} style={{
-          marginLeft: 'auto',
-          padding: '10px 18px', borderRadius: 10,
-          border: `1.5px solid ${LINE}`,
-          background: 'transparent', color: FGMUTE,
-          fontSize: 12, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          🗑 limpar
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
-        {queues.map(q => (
-          <div key={q.priority} style={{
-            background: `${q.info.color}10`,
-            border: `2px solid ${q.info.color}40`,
-            borderRadius: 14, padding: 16,
-            minHeight: 280,
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 14, paddingBottom: 12,
-              borderBottom: `1px solid ${q.info.color}30`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 22 }}>{q.info.emoji}</span>
-                <div>
-                  <div style={{ color: q.info.color, fontSize: 13, fontWeight: 800, letterSpacing: '.05em' }}>
-                    {q.info.label}
-                  </div>
-                  <div style={{ color: FGMUTE, fontSize: 9 }}>peso: {q.info.weight}</div>
-                </div>
-              </div>
-              <div style={{
-                padding: '4px 10px', borderRadius: 6,
-                background: `${q.info.color}25`,
-                color: q.info.color, fontSize: 12, fontWeight: 800,
-              }}>
-                {q.tasks.filter(t => !t.done).length}
-              </div>
-            </div>
-
-            {q.tasks.length === 0 ? (
-              <div style={{
-                padding: 24, textAlign: 'center',
-                color: MUTE, fontSize: 11,
-              }}>
-                vazio
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {q.tasks.map(t => (
-                  <div key={t.id} style={{
-                    background: t.done ? `${GRN}10` : BG,
-                    border: `1px solid ${t.done ? GRN : LINE}`,
-                    borderRadius: 8, padding: 10,
-                    transition: 'all .2s',
-                    opacity: t.done ? 0.6 : 1,
-                  }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      fontSize: 11, marginBottom: 6,
-                    }}>
-                      <span style={{ color: t.done ? GRN : FG, fontWeight: 700 }}>
-                        {t.done ? '✓' : '○'} {t.label}
-                      </span>
-                      <span style={{ color: FGMUTE, fontSize: 10 }}>
-                        {Math.round(t.progress)}%
-                      </span>
-                    </div>
-                    <div style={{
-                      height: 4, background: CARD2, borderRadius: 2,
-                      overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${t.progress}%`,
-                        background: t.done ? GRN : q.info.color,
-                        transition: 'width .15s linear',
-                        boxShadow: `0 0 8px ${t.done ? GRN : q.info.color}60`,
-                      }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div style={{
-        background: BG, border: `1px solid ${LINE}`,
-        borderRadius: 12, padding: 18,
-      }}>
-        <div style={{
-          fontSize: 10, color: PRP, letterSpacing: '.15em',
-          textTransform: 'uppercase', fontWeight: 800, marginBottom: 10,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: running ? GRN : MUTE,
-            boxShadow: running ? `0 0 8px ${GRN}` : 'none',
-            animation: running ? 'pulse 1s ease-in-out infinite' : 'none',
-          }} />
-          SCHEDULER LOG
-          {running && <span style={{ color: GRN, fontSize: 9 }}>processando...</span>}
-        </div>
-        <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-        {log.length === 0 ? (
-          <p style={{ color: MUTE, fontSize: 12, margin: 0 }}>
-            Adicione tarefas para ver o scheduler em ação...
-          </p>
-        ) : (
-          log.map((l, i) => (
-            <div key={i} style={{
-              fontSize: 11, lineHeight: 1.8,
-              color: i === 0 ? FG : MUTE,
-              fontWeight: i === 0 ? 700 : 400,
-            }}>
-              {l}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 8 — "Do Zero ao Sênior" — Mapa de Progressão
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type Concept = { name: string; tip: string }
-type Level = {
-  id: string
-  name: string
-  label: string
-  emoji: string
-  concepts: Concept[]
-}
-
-const LEVELS: Level[] = [
+const PROGRESSION_LEVELS: ProgressionLevel[] = [
   {
     id: 'iniciante', name: 'Iniciante', label: '01', emoji: '🌱',
     concepts: [
@@ -2102,343 +918,242 @@ const LEVELS: Level[] = [
   },
 ]
 
-const TOTAL_CONCEPTS = LEVELS.reduce((acc, l) => acc + l.concepts.length, 0)
+// ── VISUAL 9 — React 19 features ──────────────────────────────────────────────────
 
-function ProgressionMap() {
-  const [known, setKnown] = useState<Set<string>>(new Set())
-  const [tooltip, setTooltip] = useState<{ levelId: string; concept: string } | null>(null)
-
-  function toggle(key: string) {
-    setKnown(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: '.15em', color: C, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-            VISUAL 8 — ROADMAP
-          </div>
-          <h3 style={{ color: FG, fontSize: 26, fontWeight: 800, margin: '0 0 8px', lineHeight: 1 }}>
-            Do Zero ao Sênior
-          </h3>
-          <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-            Cinco ilhas de progressão. Marque o que você já domina. {TOTAL_CONCEPTS} conceitos no total.
-          </p>
-        </div>
-
-        <div style={{
-          padding: '14px 22px', borderRadius: 12,
-          background: `${C}12`,
-          border: `1px solid ${LINE}`,
-          textAlign: 'center', minWidth: 200,
-        }}>
-          <div style={{ fontSize: 9, color: C, fontWeight: 800, letterSpacing: '.15em', marginBottom: 4 }}>
-            VOCÊ DOMINA
-          </div>
-          <div style={{ fontSize: 28, color: FG, fontWeight: 900, lineHeight: 1 }}>
-            {known.size} <span style={{ fontSize: 16, color: FGMUTE }}>/ {TOTAL_CONCEPTS}</span>
-          </div>
-          <div style={{
-            marginTop: 8, height: 4, background: BG,
-            borderRadius: 2, overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%', width: `${(known.size / TOTAL_CONCEPTS) * 100}%`,
-              background: C,
-              transition: 'width .3s',
-            }} />
-          </div>
-        </div>
-      </div>
-
-      <div style={{ position: 'relative', overflowX: 'auto', paddingBottom: 8 }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))',
-          gap: 12, position: 'relative', zIndex: 1,
-        }}>
-          {LEVELS.map((lvl) => {
-            const knownInLevel = lvl.concepts.filter(c => known.has(`${lvl.id}.${c.name}`)).length
-            const allKnown = knownInLevel === lvl.concepts.length
-
-            return (
-              <div key={lvl.id} style={{
-                background: CARD,
-                border: `1px solid ${allKnown ? C : LINE}`,
-                borderTop: `2px solid ${allKnown ? C : LINE}`,
-                borderRadius: 10, padding: 16,
-                paddingTop: 40,
-                marginTop: 28,
-                transition: 'border-color .3s',
-                position: 'relative',
-              }}>
-                {/* Emoji circle — fica acima da borda superior do card */}
-                <div style={{
-                  position: 'absolute', top: -24, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: CARD,
-                  border: `1px solid ${allKnown ? C : LINE}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22,
-                }}>
-                  {lvl.emoji}
-                </div>
-
-                <div style={{ marginBottom: 14, textAlign: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: allKnown ? C : MUTE,
-                      fontFamily: "'JetBrains Mono', monospace", letterSpacing: '.1em',
-                    }}>{lvl.label}</span>
-                  </div>
-                  <div style={{ color: allKnown ? C : FG, fontSize: 14, fontWeight: 700, lineHeight: 1 }}>
-                    {lvl.name}
-                  </div>
-                  <div style={{ color: FGMUTE, fontSize: 10, marginTop: 4 }}>
-                    {knownInLevel} / {lvl.concepts.length} dominados
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {lvl.concepts.map(c => {
-                    const key = `${lvl.id}.${c.name}`
-                    const isKnown = known.has(key)
-                    const isHovered = tooltip?.levelId === lvl.id && tooltip?.concept === c.name
-
-                    return (
-                      <div key={c.name} style={{ position: 'relative' }}>
-                        <button
-                          onClick={() => toggle(key)}
-                          onMouseEnter={() => setTooltip({ levelId: lvl.id, concept: c.name })}
-                          onMouseLeave={() => setTooltip(null)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            width: '100%', textAlign: 'left',
-                            padding: '7px 10px', borderRadius: 6,
-                            border: `1px solid ${isKnown ? `${C}60` : LINE}`,
-                            background: isKnown ? `${C}12` : 'transparent',
-                            color: isKnown ? C : FGMUTE,
-                            fontSize: 11, fontWeight: isKnown ? 600 : 400,
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'all .15s',
-                          }}
-                        >
-                          <span style={{
-                            width: 12, height: 12, borderRadius: 3,
-                            border: `1px solid ${isKnown ? C : LINE}`,
-                            background: isKnown ? C : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 8, color: BG, fontWeight: 900,
-                            flexShrink: 0,
-                          }}>
-                            {isKnown ? '✓' : ''}
-                          </span>
-                          <span>{c.name}</span>
-                        </button>
-
-                        {isHovered && (
-                          <div style={{
-                            position: 'absolute', top: '100%', left: '50%',
-                            transform: 'translateX(-50%)',
-                            marginTop: 6, zIndex: 10,
-                            background: CARD, border: `1px solid ${LINE}`,
-                            borderTop: `2px solid ${C}`,
-                            borderRadius: 8, padding: '8px 12px',
-                            fontSize: 11, color: FGMUTE, lineHeight: 1.5,
-                            width: 210,
-                            boxShadow: '0 4px 16px rgba(0,0,0,.4)',
-                            pointerEvents: 'none',
-                          }}>
-                            {c.tip}
-                            <div style={{
-                              position: 'absolute', top: -6, left: '50%',
-                              transform: 'translateX(-50%) rotate(45deg)',
-                              width: 10, height: 10,
-                              background: CARD,
-                              borderTop: `1px solid ${LINE}`,
-                              borderLeft: `1px solid ${LINE}`,
-                            }} />
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div style={{
-        marginTop: 20, padding: '12px 16px',
-        background: `${C}08`, border: `1px solid ${LINE}`,
-        borderLeft: `2px solid ${C}`,
-        borderRadius: 6,
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-      }}>
-        <p style={{ color: FGMUTE, fontSize: 12, lineHeight: 1.7, margin: 0 }}>
-          <strong style={{ color: FG }}>Marque conforme estuda.</strong> Passe o mouse sobre cada conceito para ver a dica curta.
-          Não é uma checklist exaustiva — é um mapa para identificar onde está sua próxima fronteira de aprendizado.
-        </p>
-      </div>
-    </div>
-  )
-}
+const REACT_19_FEATURES: Feature[] = [
+  {
+    tag: 'API SIMPLIFICADA',
+    name: 'ref como prop',
+    color: C,
+    before: 'const Input = forwardRef((props, ref) => (\n  <input ref={ref} {...props} />\n))',
+    after: 'const Input = ({ ref, ...props }) => (\n  <input ref={ref} {...props} />\n)',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'forwardRef não é mais necessário. ref vira uma prop comum como qualquer outra.',
+  },
+  {
+    tag: 'NOVO HOOK',
+    name: 'use()',
+    color: PRP,
+    before: 'useEffect(() => {\n  fetchUser().then(setUser)\n}, [])',
+    after: 'const user = use(fetchUser())\n// render suspende até resolver',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'Lê Promises e Context em render — funciona em condicionais. Integra com Suspense.',
+  },
+  {
+    tag: 'NOVO HOOK',
+    name: 'useOptimistic',
+    color: AMB,
+    before: 'const [loading, setLoading] = useState(false)\nconst [items, setItems] = useState([])\n// + lógica de rollback manual',
+    after: 'const [items, addItem] = useOptimistic(\n  serverItems,\n  (state, newItem) => [...state, newItem]\n)',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'UI otimista em uma linha. Mostra resultado esperado imediatamente, reverte se o servidor rejeitar.',
+  },
+  {
+    tag: 'NOVO HOOK',
+    name: 'useActionState',
+    color: SKY,
+    before: 'const [state, setState] = useState(null)\nconst [pending, setPending] = useState(false)\nasync function submit(e) {\n  e.preventDefault()\n  setPending(true)\n  ...',
+    after: 'const [error, action, pending] =\n  useActionState(serverAction, null)\n\n<form action={action}>',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'Gerencia state + loading de actions. Elimina o trio useState/isPending/useEffect para forms.',
+  },
+  {
+    tag: 'MELHORADO',
+    name: 'Context direto',
+    color: GRN,
+    before: '<ThemeContext.Provider value={theme}>\n  {children}\n</ThemeContext.Provider>',
+    after: '<ThemeContext value={theme}>\n  {children}\n</ThemeContext>',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'Não precisa mais de .Provider. O próprio Context é usado como componente.',
+  },
+  {
+    tag: 'MELHORADO',
+    name: 'Limpeza de refs',
+    color: PINK,
+    before: 'useEffect(() => {\n  // ...\n  return () => { ref.current = null }\n}, [])',
+    after: '<div ref={(node) => {\n  // setup\n  return () => { /* cleanup */ }\n}} />',
+    beforeLabel: 'ANTES (React 18)',
+    afterLabel: 'DEPOIS (React 19)',
+    desc: 'Callback refs agora suportam função de cleanup — mesmo padrão do useEffect.',
+  },
+]
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VISUAL 9 — React 19 — Novidades
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function ReactNineteen() {
-  const features = [
-    {
-      tag: 'API SIMPLIFICADA',
-      name: 'ref como prop',
-      color: C,
-      before: 'const Input = forwardRef((props, ref) => (\n  <input ref={ref} {...props} />\n))',
-      after: 'const Input = ({ ref, ...props }) => (\n  <input ref={ref} {...props} />\n)',
-      desc: 'forwardRef não é mais necessário. ref vira uma prop comum como qualquer outra.',
-    },
-    {
-      tag: 'NOVO HOOK',
-      name: 'use()',
-      color: PRP,
-      before: 'useEffect(() => {\n  fetchUser().then(setUser)\n}, [])',
-      after: 'const user = use(fetchUser())\n// render suspende até resolver',
-      desc: 'Lê Promises e Context em render — funciona em condicionais. Integra com Suspense.',
-    },
-    {
-      tag: 'NOVO HOOK',
-      name: 'useOptimistic',
-      color: AMB,
-      before: 'const [loading, setLoading] = useState(false)\nconst [items, setItems] = useState([])\n// + lógica de rollback manual',
-      after: 'const [items, addItem] = useOptimistic(\n  serverItems,\n  (state, newItem) => [...state, newItem]\n)',
-      desc: 'UI otimista em uma linha. Mostra resultado esperado imediatamente, reverte se o servidor rejeitar.',
-    },
-    {
-      tag: 'NOVO HOOK',
-      name: 'useActionState',
-      color: SKY,
-      before: 'const [state, setState] = useState(null)\nconst [pending, setPending] = useState(false)\nasync function submit(e) {\n  e.preventDefault()\n  setPending(true)\n  ...',
-      after: 'const [error, action, pending] =\n  useActionState(serverAction, null)\n\n<form action={action}>',
-      desc: 'Gerencia state + loading de actions. Elimina o trio useState/isPending/useEffect para forms.',
-    },
-    {
-      tag: 'MELHORADO',
-      name: 'Context direto',
-      color: GRN,
-      before: '<ThemeContext.Provider value={theme}>\n  {children}\n</ThemeContext.Provider>',
-      after: '<ThemeContext value={theme}>\n  {children}\n</ThemeContext>',
-      desc: 'Não precisa mais de .Provider. O próprio Context é usado como componente.',
-    },
-    {
-      tag: 'MELHORADO',
-      name: 'Limpeza de refs',
-      color: PINK,
-      before: 'useEffect(() => {\n  // ...\n  return () => { ref.current = null }\n}, [])',
-      after: '<div ref={(node) => {\n  // setup\n  return () => { /* cleanup */ }\n}} />',
-      desc: 'Callback refs agora suportam função de cleanup — mesmo padrão do useEffect.',
-    },
-  ]
-
-  const [selected, setSelected] = useState(0)
-  const feat = features[selected]
-
-  return (
-    <div style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, letterSpacing: '.15em', color: C, textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>
-          VISUAL 9 — REACT 19
-        </div>
-        <h3 style={{ color: FG, fontSize: 24, fontWeight: 800, margin: '0 0 6px', lineHeight: 1 }}>
-          O que mudou no React 19
-        </h3>
-        <p style={{ color: FGMUTE, fontSize: 13, margin: 0 }}>
-          Selecione uma feature para ver antes/depois.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-        {features.map((f, i) => (
-          <button
-            key={f.name}
-            onClick={() => setSelected(i)}
-            style={{
-              padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: selected === i ? 700 : 400,
-              border: `1px solid ${selected === i ? f.color : LINE}`,
-              background: selected === i ? `${f.color}18` : 'transparent',
-              color: selected === i ? f.color : FGMUTE,
-              cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-            }}
-          >
-            {f.name}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-        <div style={{
-          background: BG, border: `1px solid ${LINE}`, borderLeft: `3px solid #f87171`,
-          borderRadius: 8, padding: 16,
-        }}>
-          <div style={{ fontSize: 9, color: '#f87171', fontWeight: 700, letterSpacing: '.12em', marginBottom: 10 }}>ANTES (React 18)</div>
-          <pre style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
-            color: FGMUTE, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-          }}>{feat.before}</pre>
-        </div>
-        <div style={{
-          background: BG, border: `1px solid ${LINE}`, borderLeft: `3px solid ${feat.color}`,
-          borderRadius: 8, padding: 16,
-        }}>
-          <div style={{ fontSize: 9, color: feat.color, fontWeight: 700, letterSpacing: '.12em', marginBottom: 10 }}>DEPOIS (React 19)</div>
-          <pre style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5,
-            color: FG, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-          }}>{feat.after}</pre>
-        </div>
-      </div>
-
-      <div style={{
-        padding: '12px 16px', background: `${feat.color}10`,
-        border: `1px solid ${feat.color}40`, borderRadius: 8,
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-      }}>
-        <div style={{
-          fontSize: 9, fontWeight: 800, color: feat.color, letterSpacing: '.12em',
-          background: `${feat.color}20`, padding: '3px 8px', borderRadius: 4, flexShrink: 0, marginTop: 2,
-        }}>{feat.tag}</div>
-        <p style={{ color: FGMUTE, fontSize: 13, lineHeight: 1.65, margin: 0 }}>{feat.desc}</p>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SHELL
+// SHELL — monta os visuais genéricos com dados do React
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function ReactVisuais() {
   const [active, setActive] = useState(0)
 
   const visuals: VisualDef[] = [
-    { id: 'concepts',   title: 'Como o React Pensa', subtitle: 'Fundamentos',        accent: C,    component: <ConceptCarousel /> },
-    { id: 'fiber',      title: 'Árvore Fiber',        subtitle: 'Componentes',        accent: C,    component: <FiberExplorer /> },
-    { id: 'rerender',   title: 'Re-renders',          subtitle: 'Cascata e memo',     accent: RED,  component: <ReRenderSimulator /> },
-    { id: 'lifecycle',  title: 'Hook Lifecycle',      subtitle: 'Timeline',           accent: GRN,  component: <HookTimeline /> },
-    { id: 'hooks',      title: 'Hooks',               subtitle: 'Os 10 essenciais',   accent: SKY,  component: <HookCarousel /> },
-    { id: 'antipat',    title: 'Anti-patterns',       subtitle: 'Errado vs certo',    accent: RED,  component: <AntiPatternsGallery /> },
-    { id: 'concurrent', title: 'Concurrent Mode',     subtitle: 'Prioridades',        accent: PRP,  component: <ConcurrentMode /> },
-    { id: 'roadmap',    title: 'Do Zero ao Sênior',   subtitle: 'Progressão',         accent: GOLD, component: <ProgressionMap /> },
-    { id: 'react19',    title: 'React 19',             subtitle: 'O que mudou',        accent: C,    component: <ReactNineteen /> },
+    {
+      id: 'concepts',
+      title: 'Como o React Pensa',
+      subtitle: 'Fundamentos',
+      accent: C,
+      component: (
+        <ConceptCarousel
+          slides={CONCEPT_SLIDES}
+          accentColor={C}
+          bgColor={BG}
+          cardColor={CARD}
+          label="VISUAL 1 — CONCEITOS FUNDAMENTAIS"
+          heading="Como o React Pensa"
+          description="Oito slides essenciais. Os mesmos conceitos que separam quem usa React de quem entende React."
+        />
+      ),
+    },
+    {
+      id: 'fiber',
+      title: 'Árvore Fiber',
+      subtitle: 'Componentes',
+      accent: C,
+      component: (
+        <TreeExplorer
+          tree={FIBER_TREE}
+          typeMap={FIBER_TYPE_MAP}
+          accentColor={C}
+          bgColor={BG}
+          cardColor={CARD}
+          card2Color={CARD2}
+          goldColor={GOLD}
+          defaultSelected="app"
+          label="VISUAL 2 — ÁRVORE FIBER"
+          heading="Explorador da Casa React"
+          description="Cada componente é um cômodo. Clique para inspecionar. Hierarquia, tipos e dicas de entrevista revelam como React organiza sua árvore."
+        />
+      ),
+    },
+    {
+      id: 'rerender',
+      title: 'Re-renders',
+      subtitle: 'Cascata e memo',
+      accent: RED,
+      component: (
+        <ReRenderSimulator
+          nodes={RR_NODES}
+          scenarios={RR_SCENARIOS}
+          accentColor={RED}
+          fireColor={RED}
+          safeColor={GRN}
+          bgColor={BG}
+          card2Color={CARD2}
+          label="VISUAL 3 — CASCATA DE RE-RENDERS"
+          heading="Propagação de Fogo"
+          description="Escolha um cenário e veja o fogo do re-render descendo a árvore. memo é seu escudo verde."
+        />
+      ),
+    },
+    {
+      id: 'lifecycle',
+      title: 'Hook Lifecycle',
+      subtitle: 'Timeline',
+      accent: GRN,
+      component: (
+        <HookTimeline
+          phases={HOOK_PHASES}
+          accentColor={GRN}
+          bgColor={BG}
+          gradientColors={[GRN, SKY, AMB, PRP, PINK, C, RED]}
+          defaultActive="effect"
+          label="VISUAL 4 — HOOK LIFECYCLE"
+          heading="Timeline das Estações"
+          description="Cada fase do ciclo de vida é uma estação. Clique para ver explicação detalhada e código."
+        />
+      ),
+    },
+    {
+      id: 'hooks',
+      title: 'Hooks',
+      subtitle: 'Os 10 essenciais',
+      accent: SKY,
+      component: (
+        <CardCarousel
+          cards={HOOK_CARDS}
+          bgColor={BG}
+          accentColor={SKY}
+          label="VISUAL 5 — HOOKS DE BOLSO"
+          heading="Os Hooks em 60 Segundos"
+          description="Dez hooks essenciais. Quando usar, quando não usar e dificuldade — em um cartão."
+        />
+      ),
+    },
+    {
+      id: 'antipat',
+      title: 'Anti-patterns',
+      subtitle: 'Errado vs certo',
+      accent: RED,
+      component: (
+        <AntiPatternsGallery
+          patterns={ANTI_PATTERNS}
+          accentColor={RED}
+          bgColor={BG}
+          errorColor={RED}
+          successColor={GRN}
+          warningColor={AMB}
+          label="VISUAL 6 — ANTI-PATTERNS"
+          heading="Galeria do Horror"
+          description="Oito armadilhas comuns. À esquerda o erro, à direita a versão correta. Errado vs Certo, sempre lado a lado."
+        />
+      ),
+    },
+    {
+      id: 'concurrent',
+      title: 'Concurrent Mode',
+      subtitle: 'Prioridades',
+      accent: PRP,
+      component: (
+        <PriorityPanel
+          priorities={CONCURRENT_PRIORITIES}
+          priorityOrder={CONCURRENT_ORDER}
+          accentColor={PRP}
+          bgColor={BG}
+          label="VISUAL 7 — CONCURRENT MODE"
+          heading="Painel de Prioridades"
+          description="Adicione tarefas em filas diferentes e veja o scheduler do React priorizar urgentes. Como useTransition funciona por dentro."
+        />
+      ),
+    },
+    {
+      id: 'roadmap',
+      title: 'Do Zero ao Sênior',
+      subtitle: 'Progressão',
+      accent: GOLD,
+      component: (
+        <ProgressionMap
+          levels={PROGRESSION_LEVELS}
+          accentColor={GOLD}
+          bgColor={BG}
+          cardColor={CARD}
+          label="VISUAL 8 — ROADMAP"
+          heading="Do Zero ao Sênior"
+          description={`Cinco ilhas de progressão. Marque o que você já domina. ${PROGRESSION_LEVELS.reduce((a, l) => a + l.concepts.length, 0)} conceitos no total.`}
+          hintText="Marque conforme estuda. Passe o mouse sobre cada conceito para ver a dica curta. Não é uma checklist exaustiva — é um mapa para identificar onde está sua próxima fronteira de aprendizado."
+        />
+      ),
+    },
+    {
+      id: 'react19',
+      title: 'React 19',
+      subtitle: 'O que mudou',
+      accent: C,
+      component: (
+        <FeaturesCarousel
+          features={REACT_19_FEATURES}
+          accentColor={C}
+          bgColor={BG}
+          label="VISUAL 9 — REACT 19"
+          heading="O que mudou no React 19"
+          description="Selecione uma feature para ver antes/depois."
+          beforeColor="#f87171"
+        />
+      ),
+    },
   ]
 
   return <VisuaisShell visuals={visuals} active={active} onChange={setActive} />

@@ -1,6 +1,6 @@
 import type { SkillContentMap } from '@/types'
 import react from './react/react'
-import typescript from './typescript'
+import typescript from './typescript/typescript'
 import nextJs from './next-js'
 import vue from './vue'
 import tailwindCss from './tailwind-css'

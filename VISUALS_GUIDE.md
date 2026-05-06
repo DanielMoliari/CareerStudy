@@ -27,10 +27,13 @@ Antes de entregar qualquer skill, responda mentalmente:
 
 ---
 
-## Estrutura de arquivos por skill (após reestruturação)
+## Estrutura de arquivos por skill
 
-> ⚠️ A reestruturação ainda não foi feita para todas as skills — está em stand-by.
-> Quando feita, cada skill terá uma pasta própria:
+Existem dois padrões atualmente em uso:
+
+### Skills com visuais/PDFs — pasta própria
+
+Skills que já possuem visuais e PDFs são reestruturadas em uma pasta:
 
 ```
 src/data/content/{domain}/{slug}/
@@ -39,11 +42,19 @@ src/data/content/{domain}/{slug}/
   {Slug}Pdfs.tsx     ← PDFs específicos desta skill
 ```
 
-Enquanto a reestruturação não acontece, os `.tsx` de visuais e PDFs ficam em:
+**Exemplo real:** `src/data/content/frontend/react/` contém `react.ts`, `ReactVisuais.tsx` e `ReactPdfs.tsx`.
+
+### Skills ainda flat — arquivo único
+
+A grande maioria das 218 skills ainda é um arquivo `.ts` único sem visuais nem PDFs:
+
 ```
-src/components/visuals/{slug}/
-src/components/pdfs/{slug}/
+src/data/content/{domain}/{slug}.ts
 ```
+
+**Exemplo:** `src/data/content/frontend/vue.ts`, `src/data/content/backend/node-js.ts`, etc.
+
+Ao adicionar visuais/PDFs a uma skill flat, o primeiro passo é converter para o formato de pasta (ver seção "Como adicionar visuais/PDFs a uma nova skill").
 
 ---
 
@@ -111,26 +122,72 @@ Desktop only — sem preocupação com mobile.
 - **Animação de conceito** — CSS animation ou React state para mostrar algo acontecendo (ex: Event Loop)
 
 ### Componentes shared
-Componentes genéricos e reutilizáveis ficam em:
+
+Todos os componentes genéricos e reutilizáveis ficam diretamente em:
 ```
-src/components/visuals/shared/
-src/components/pdfs/shared/
+src/components/visuals/   ← componentes de visuais
+src/components/pdfs/      ← builders de PDF
+src/components/index.ts   ← COMPONENT_CATALOG com descrição, props e usedBy de cada componente
 ```
 
-**Regra fundamental:** os componentes shared existentes (criados para o React) são ponto de partida, não limite.
-Ao implementar uma nova skill, se ela precisar de um tipo de visual ou PDF que ainda não existe como shared:
-1. Crie o novo componente shared genérico (parametrizado, sem hardcode da skill)
-2. Use-o na skill nova
-3. Retroativamente, qualquer skill que se beneficiar pode reutilizá-lo
+#### Componentes de visuais disponíveis hoje
 
-A lista de shared cresce organicamente conforme novas skills são implementadas.
+| Componente | Arquivo | Descrição |
+|------------|---------|-----------|
+| `VisuaisShell` | `visuals/VisuaisShell.tsx` | Wrapper principal: renderiza a nav lateral e o painel de conteúdo ativo. Todo `*Visuais.tsx` deve usar este componente como raiz. |
+| `VisuaisNav` | `visuals/VisuaisNav.tsx` | Navegação por tabs entre os visuais da skill. Usado internamente pelo `VisuaisShell`. |
+| `ConceptCarousel` | `visuals/ConceptCarousel.tsx` | Carrossel de slides com ilustração `ReactNode` à direita e texto estruturado à esquerda. Ideal para introduzir conceitos encadeados. |
+| `TreeExplorer` | `visuals/TreeExplorer.tsx` | Explorador de árvore interativa com seleção de nó e painel de detalhes. Ideal para hierarquias como Fiber tree, DOM ou AST. |
+| `ReRenderSimulator` | `visuals/ReRenderSimulator.tsx` | Grafo com propagação animada de re-renders por cenário. Útil para demonstrar `memo`, `useMemo`, `useCallback` e prop drilling. |
+| `HookTimeline` | `visuals/HookTimeline.tsx` | Timeline horizontal de fases/estações com código de exemplo por fase. Ideal para lifecycles, pipelines e fases de build. |
+| `CardCarousel` | `visuals/CardCarousel.tsx` | Carrossel de cards com nome, assinatura, emoji, casos de uso e quando não usar. Ideal para comparar APIs similares lado a lado. |
+| `AntiPatternsGallery` | `visuals/AntiPatternsGallery.tsx` | Galeria com diff visual (errado × correto) e explicação técnica. Use para code review, boas práticas e armadilhas. |
+| `PriorityPanel` | `visuals/PriorityPanel.tsx` | Painel de filas com conceitos agrupados por nível (essencial/importante/bônus) e animação. Ideal para planos de estudo e guias pré-entrevista. |
+| `ProgressionMap` | `visuals/ProgressionMap.tsx` | Mapa de progressão em níveis (junior → especialista) com conceitos por nível e tooltip. |
+| `FeaturesCarousel` | `visuals/FeaturesCarousel.tsx` | Carrossel de novidades/features com diff before/after. Use para versões, migrações e comparações de API. |
+
+#### Builders de PDF disponíveis hoje
+
+| Componente | Arquivo | Descrição |
+|------------|---------|-----------|
+| `QAReviewPdf` | `pdfs/QAReviewPdf.tsx` | PDF de Q&A para recuperação ativa — perguntas com nível, resposta em HTML rico e dica. |
+| `CheatsheetPdf` | `pdfs/CheatsheetPdf.tsx` | PDF de referência rápida com seções densas e escaneáveis. |
+| `MnemonicsPdf` | `pdfs/MnemonicsPdf.tsx` | PDF de mnemônicos com cartões de memorização: truque verbal, expansão e âncora cognitiva. |
+| `AntipatternsPdf` | `pdfs/AntipatternsPdf.tsx` | PDF de anti-patterns com código errado × correto usando `CodeToken[]` para highlight. |
+| `MindmapPdf` | `pdfs/MindmapPdf.tsx` | PDF de mind map com categorias (tags essencial/avançado/normal) e página de checklist. |
+| `CoverPage` | `pdfs/CoverPage.tsx` | Capa genérica de PDF com identidade visual da tech. Usada internamente pelos builders. |
+| `PdfModal` | `pdfs/PdfModal.tsx` | Modal de preview + download. Renderiza o PDF via `@react-pdf/renderer`. |
+| `PdfCards` | `pdfs/PdfCards.tsx` | `HeroCard` e `CollectionCard` — cards de entrada para a página `/pdfs` da skill. |
+| `types.ts` | `pdfs/types.ts` | Tipos compartilhados: `PdfType`, `PdfCard`, `PdfBuilderFn`. |
+
+#### Registry de visuais e PDFs por skill
+
+O arquivo `src/data/skill-components.ts` é o registry central que mapeia slug → componente:
+
+```ts
+// src/data/skill-components.ts
+export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
+  react: dynamic(() => import('@/data/content/frontend/react/ReactVisuais')),
+  // adicionar novas skills aqui
+}
+
+export const PDF_REGISTRY: Record<string, React.ComponentType> = {
+  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs')),
+  // adicionar novas skills aqui
+}
+```
+
+As rotas `/skill/[slug]/visuais` e `/skill/[slug]/pdfs` consomem esses registries para carregar o componente correto da skill.
+
+**Regra fundamental:** os componentes existentes são ponto de partida, não limite.
+Ao implementar uma nova skill, se ela precisar de um visual ou PDF que ainda não existe:
+1. Crie o novo componente genérico (parametrizado, sem hardcode da skill) em `src/components/visuals/` ou `src/components/pdfs/`
+2. Documente-o no `COMPONENT_CATALOG` em `src/components/index.ts`
+3. Use-o na skill nova
+4. Retroativamente, qualquer skill que se beneficiar pode reutilizá-lo
+
+A lista de componentes cresce organicamente conforme novas skills são implementadas.
 Nunca force uma skill a usar um componente que não se encaixa naturalmente no seu conteúdo.
-
-Visuais específicos de uma skill ficam junto da skill (após reestruturação) ou em:
-```
-src/components/visuals/{slug}/
-src/components/pdfs/{slug}/
-```
 
 ### Critério de qualidade
 Cada visual deve:
@@ -163,6 +220,108 @@ Possibilidade documentada mas não implementada:
 - Uso: apenas para ilustrações artísticas/metafóricas, NÃO para diagramas técnicos
 - Diagramas técnicos (fluxos, grafos, arquitetura) devem ser feitos em SVG/HTML/React
 - Implementar só se necessário após a estrutura manual estar madura
+
+---
+
+## Como adicionar visuais/PDFs a uma nova skill
+
+Passo a passo para reestruturar uma skill flat e adicionar visuais e PDFs:
+
+### 1. Converter a skill para o formato de pasta
+
+```bash
+# Exemplo para a skill "vue" no domínio "frontend"
+mkdir src/data/content/frontend/vue
+mv src/data/content/frontend/vue.ts src/data/content/frontend/vue/vue.ts
+```
+
+Atualizar o import em `src/data/content/frontend/index.ts`:
+```ts
+// antes:
+import { vue } from './vue'
+// depois:
+import { vue } from './vue/vue'
+```
+
+### 2. Criar o arquivo de visuais
+
+Criar `src/data/content/{domain}/{slug}/{Slug}Visuais.tsx` seguindo o padrão do React:
+
+```tsx
+'use client'
+import React, { useState } from 'react'
+import VisuaisShell from '@/components/visuals/VisuaisShell'
+import ConceptCarousel from '@/components/visuals/ConceptCarousel'
+// importar outros componentes conforme necessário
+
+export default function VueVisuais() {
+  const [active, setActive] = useState(0)
+
+  const visuals = [
+    {
+      label: 'Fundamentos',
+      content: <ConceptCarousel slides={[...]} accentColor="#42b883" bgColor="#1a1a2e" cardColor="#16213e" />,
+    },
+    // adicionar outros visuais
+  ]
+
+  return <VisuaisShell visuals={visuals} active={active} onChange={setActive} />
+}
+```
+
+Usar as cores de `src/data/tech-identity.ts` para a skill em questão.
+
+### 3. Criar o arquivo de PDFs
+
+Criar `src/data/content/{domain}/{slug}/{Slug}Pdfs.tsx` seguindo o padrão do React:
+
+```tsx
+'use client'
+import React from 'react'
+import { PdfCards, HeroCard, CollectionCard } from '@/components/pdfs/PdfCards'
+import PdfModal from '@/components/pdfs/PdfModal'
+import QAReviewPdf from '@/components/pdfs/QAReviewPdf'
+// importar outros builders conforme necessário
+
+export default function VuePdfs() {
+  // montar os dados dos PDFs com base no conteúdo da skill
+  return (
+    <PdfCards>
+      <HeroCard
+        title="Q&A Review"
+        description="..."
+        pdfComponent={<QAReviewPdf qa={[...]} accentColor="#42b883" skillName="Vue.js" stackLabel="Frontend" />}
+      />
+      {/* adicionar outros cards */}
+    </PdfCards>
+  )
+}
+```
+
+### 4. Registrar no registry central
+
+Adicionar as entradas em `src/data/skill-components.ts`:
+
+```ts
+export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
+  react: dynamic(() => import('@/data/content/frontend/react/ReactVisuais'), { ssr: false }),
+  vue: dynamic(() => import('@/data/content/frontend/vue/VueVisuais'), { ssr: false }),  // ← novo
+}
+
+export const PDF_REGISTRY: Record<string, React.ComponentType> = {
+  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs'), { ssr: false }),
+  vue: dynamic(() => import('@/data/content/frontend/vue/VuePdfs'), { ssr: false }),  // ← novo
+}
+```
+
+### 5. Verificar
+
+```bash
+node scripts/generate-meta.js   # atualiza meta.ts
+npx tsc --noEmit                # confirma zero erros TypeScript
+```
+
+Acessar `http://localhost:3000/skill/{slug}/visuais` e `/skill/{slug}/pdfs` para confirmar que tudo carrega.
 
 ---
 

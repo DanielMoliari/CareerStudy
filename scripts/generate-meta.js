@@ -40,21 +40,61 @@ function audit(content) {
   return { qaCount, diagrams, mnemonics, hasCheatsheet, hasMindmap, exercises, videos, resources, codeExamples, score };
 }
 
+/**
+ * Converte um slug em PascalCase para compor nomes de arquivo de visuais/PDFs.
+ * Ex: 'react' → 'React', 'next-js' → 'NextJs', 'node-js' → 'NodeJs'
+ */
+function slugToPascal(slug) {
+  return slug
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
+
 const entries = [];
 
 for (const domain of DOMAINS) {
   const dir = path.join(BASE, domain);
-  const files = fs.readdirSync(dir)
-    .filter(f => f !== 'index.ts' && f.endsWith('.ts'))
-    .sort();
+  const items = fs.readdirSync(dir).sort();
 
-  for (const file of files) {
-    const slug    = file.replace(/\.ts$/, '');
-    const relFile = `${domain}/${slug}`;
-    const content = fs.readFileSync(path.join(dir, file), 'utf8');
-    const sizeKb  = Math.round(fs.statSync(path.join(dir, file)).size / 1024);
-    const metrics = audit(content);
-    entries.push({ slug, domain, file: relFile, sizeKb, ...metrics });
+  // Skills flat: arquivos .ts no diretório do domínio (exceto index.ts)
+  const flatFiles = items.filter(f => f !== 'index.ts' && f.endsWith('.ts'));
+
+  // Skills em pasta: subdiretórios que contêm um {slug}/{slug}.ts
+  const subDirs = items.filter(f => {
+    const fullPath = path.join(dir, f);
+    return fs.statSync(fullPath).isDirectory();
+  });
+
+  // Processar skills flat
+  for (const file of flatFiles) {
+    const slug      = file.replace(/\.ts$/, '');
+    const relFile   = `${domain}/${slug}`;
+    const skillDir  = dir;
+    const skillPath = path.join(dir, file);
+    const content   = fs.readFileSync(skillPath, 'utf8');
+    const sizeKb    = Math.round(fs.statSync(skillPath).size / 1024);
+    const metrics   = audit(content);
+    const pascal    = slugToPascal(slug);
+    const hasVisuais = fs.existsSync(path.join(skillDir, `${pascal}Visuais.tsx`));
+    const hasPdfs    = fs.existsSync(path.join(skillDir, `${pascal}Pdfs.tsx`));
+    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, ...metrics });
+  }
+
+  // Processar skills em pasta ({slug}/{slug}.ts)
+  for (const subDir of subDirs) {
+    const slug      = subDir;
+    const skillDir  = path.join(dir, subDir);
+    const skillPath = path.join(skillDir, `${slug}.ts`);
+    if (!fs.existsSync(skillPath)) continue; // pasta sem skill principal — ignorar
+    const relFile   = `${domain}/${slug}`;
+    const content   = fs.readFileSync(skillPath, 'utf8');
+    const sizeKb    = Math.round(fs.statSync(skillPath).size / 1024);
+    const metrics   = audit(content);
+    const pascal    = slugToPascal(slug);
+    const hasVisuais = fs.existsSync(path.join(skillDir, `${pascal}Visuais.tsx`));
+    const hasPdfs    = fs.existsSync(path.join(skillDir, `${pascal}Pdfs.tsx`));
+    entries.push({ slug, domain, file: relFile, sizeKb, hasVisuais, hasPdfs, ...metrics });
   }
 }
 
@@ -77,6 +117,8 @@ const lines = [
   `  videos: number`,
   `  resources: number`,
   `  codeExamples: number`,
+  `  hasVisuais: boolean`,
+  `  hasPdfs: boolean`,
   `}`,
   ``,
   `export const SKILL_META: Record<string, SkillMeta> = {`,
@@ -84,7 +126,7 @@ const lines = [
 
 for (const e of entries) {
   lines.push(
-    `  '${e.slug}': { domain: '${e.domain}', file: '${e.file}', sizeKb: ${e.sizeKb}, score: ${e.score}, qaCount: ${e.qaCount}, diagrams: ${e.diagrams}, mnemonics: ${e.mnemonics}, hasCheatsheet: ${e.hasCheatsheet}, hasMindmap: ${e.hasMindmap}, exercises: ${e.exercises}, videos: ${e.videos}, resources: ${e.resources}, codeExamples: ${e.codeExamples} },`
+    `  '${e.slug}': { domain: '${e.domain}', file: '${e.file}', sizeKb: ${e.sizeKb}, score: ${e.score}, qaCount: ${e.qaCount}, diagrams: ${e.diagrams}, mnemonics: ${e.mnemonics}, hasCheatsheet: ${e.hasCheatsheet}, hasMindmap: ${e.hasMindmap}, exercises: ${e.exercises}, videos: ${e.videos}, resources: ${e.resources}, codeExamples: ${e.codeExamples}, hasVisuais: ${e.hasVisuais}, hasPdfs: ${e.hasPdfs} },`
   );
 }
 

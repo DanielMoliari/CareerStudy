@@ -1,14 +1,10 @@
 'use client'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Nav from '@/components/Nav'
 import { SKILL_BY_SLUG } from '@/data/skills'
 import { getTechIdentity } from '@/data/tech-identity'
-
-const PDF_COMPONENTS: Record<string, React.ComponentType> = {
-  react: dynamic(() => import('@/data/content/frontend/react/ReactPdfs'), { ssr: false }),
-}
+import { PDF_REGISTRY } from '@/data/skill-components'
 
 export default function PdfsPage() {
   const params = useParams()
@@ -27,7 +23,7 @@ export default function PdfsPage() {
     )
   }
 
-  const PdfComp = PDF_COMPONENTS[slug] ?? null
+  const PdfComp = PDF_REGISTRY[slug] ?? null
 
   return (
     <>

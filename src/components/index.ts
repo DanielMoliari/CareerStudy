@@ -166,6 +166,454 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
     ],
     usedBy: ['react'],
   },
+
+  // ── Novos visuais genéricos ────────────────────────────────────────────────
+
+  FlowDiagram: {
+    module: 'visuals/FlowDiagram',
+    description:
+      'Diagrama de fluxo interativo com nós e arestas clicáveis. ' +
+      'Ideal para processos, pipelines e sequências de decisão.',
+    props: [
+      'nodes: FlowNode[]',
+      'edges: FlowEdge[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  LayerStack: {
+    module: 'visuals/LayerStack',
+    description:
+      'Visualização de camadas empilhadas (ex: OSI, arquitetura em camadas, stack de tecnologias). ' +
+      'Cada camada tem cor, título, subtítulo e exemplos.',
+    props: [
+      'layers: Layer[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  RequestResponseFlow: {
+    module: 'visuals/RequestResponseFlow',
+    description:
+      'Animação de request/response entre cliente e servidor com passos intermediários. ' +
+      'Ideal para HTTP, REST, GraphQL e protocolos de comunicação.',
+    props: [
+      'steps: RequestStep[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  StateMachineExplorer: {
+    module: 'visuals/StateMachineExplorer',
+    description:
+      'Explorador interativo de máquina de estados com transições animadas e painel de detalhes. ' +
+      'Use para lifecycle de componentes, estados de conexão ou fluxos de autenticação.',
+    props: [
+      'states: MachineState[]',
+      'transitions: Transition[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ArchitectureDiagram: {
+    module: 'visuals/ArchitectureDiagram',
+    description:
+      'Diagrama de arquitetura com blocos, conexões e legendas. ' +
+      'Ideal para microservices, monolitos, sistemas distribuídos e arquiteturas cloud.',
+    props: [
+      'blocks: ArchBlock[]',
+      'connections: ArchConnection[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ComparisonTable: {
+    module: 'visuals/ComparisonTable',
+    description:
+      'Tabela comparativa interativa com destaque de vencedor por linha e filtro por categoria. ' +
+      'Use para X vs Y, feature matrix ou análise de trade-offs.',
+    props: [
+      'options: CompOption[]',
+      'criteria: CompCriterion[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  DecisionTree: {
+    module: 'visuals/DecisionTree',
+    description:
+      'Árvore de decisão interativa com perguntas sim/não que leva a uma recomendação final. ' +
+      'Ideal para guias de escolha de tecnologia ou estratégia de debugging.',
+    props: [
+      'root: DecisionNode',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ProConMatrix: {
+    module: 'visuals/ProConMatrix',
+    description:
+      'Matriz de prós e contras com peso relativo e pontuação final por opção. ' +
+      'Use para tomada de decisão técnica estruturada.',
+    props: [
+      'options: ProConOption[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  Speedometer: {
+    module: 'visuals/Speedometer',
+    description:
+      'Velocímetro animado para visualizar métricas de performance (ex: latência, throughput, score). ' +
+      'Ideal para comparar benchmarks ou mostrar limites de SLOs.',
+    props: [
+      'value: number',
+      'min: number',
+      'max: number',
+      'label: string',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  DataFlowSankey: {
+    module: 'visuals/DataFlowSankey',
+    description:
+      'Diagrama Sankey de fluxo de dados com volume proporcional entre nós. ' +
+      'Ideal para mostrar transformações de dados, ETL e pipelines de processamento.',
+    props: [
+      'nodes: SankeyNode[]',
+      'links: SankeyLink[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  CodeStepper: {
+    module: 'visuals/CodeStepper',
+    description:
+      'Execução passo a passo de um trecho de código com estado de variáveis e stack. ' +
+      'Ideal para event loop, closures, async/await e algoritmos.',
+    props: [
+      'steps: CodeStep[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  QueryVisualizer: {
+    module: 'visuals/QueryVisualizer',
+    description:
+      'Visualizador de plano de execução de query SQL/NoSQL com custo por nó. ' +
+      'Ideal para otimização de queries, índices e JOIN strategies.',
+    props: [
+      'plan: QueryPlan',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  CommandPalette: {
+    module: 'visuals/CommandPalette',
+    description:
+      'Paleta de comandos interativa com busca e categorias — estilo VS Code. ' +
+      'Use para referência de CLI, atalhos de teclado ou APIs de comando.',
+    props: [
+      'commands: PaletteCommand[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  DiffViewer: {
+    module: 'visuals/DiffViewer',
+    description:
+      'Visualizador de diff lado a lado com highlight de linhas adicionadas/removidas. ' +
+      'Ideal para mostrar antes/depois, migrações de API e refactoring.',
+    props: [
+      'before: string',
+      'after: string',
+      'language: string',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  RegexPlayground: {
+    module: 'visuals/RegexPlayground',
+    description:
+      'Playground interativo de expressões regulares com highlight de matches em tempo real. ' +
+      'Use para regex, parsing e validação de padrões.',
+    props: [
+      'defaultPattern: string',
+      'defaultInput: string',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  GanttTimeline: {
+    module: 'visuals/GanttTimeline',
+    description:
+      'Timeline estilo Gantt para planos de projeto, releases ou roteiros de estudo. ' +
+      'Cada tarefa tem duração, dependências e responsável.',
+    props: [
+      'tasks: GanttTask[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  EventTimeline: {
+    module: 'visuals/EventTimeline',
+    description:
+      'Timeline de eventos cronológicos com cards de detalhes. ' +
+      'Ideal para histórico de versões, incidentes ou evolução de uma tecnologia.',
+    props: [
+      'events: TimelineEvent[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  VersionTimeline: {
+    module: 'visuals/VersionTimeline',
+    description:
+      'Timeline de versões de uma tecnologia com principais mudanças por release. ' +
+      'Ideal para React versions, Node.js releases, breaking changes.',
+    props: [
+      'versions: VersionEntry[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  MemoryDiagram: {
+    module: 'visuals/MemoryDiagram',
+    description:
+      'Diagrama animado de heap e stack com alocações e referências de ponteiros. ' +
+      'Ideal para garbage collection, closures e gerenciamento de memória.',
+    props: [
+      'frames: MemoryFrame[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  DataStructureAnimator: {
+    module: 'visuals/DataStructureAnimator',
+    description:
+      'Animador interativo de estruturas de dados (array, linked list, stack, queue, tree, graph). ' +
+      'Operações de insert/delete/search com animação passo a passo.',
+    props: [
+      'structure: StructureType',
+      'initialData: unknown[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  BigOChart: {
+    module: 'visuals/BigOChart',
+    description:
+      'Gráfico de complexidade Big-O com curvas para O(1), O(log n), O(n), O(n log n), O(n²). ' +
+      'Marca complexidades de algoritmos selecionados pelo usuário.',
+    props: [
+      'algorithms: AlgorithmEntry[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  MindMap: {
+    module: 'visuals/MindMap',
+    description:
+      'Mind map interativo com nós expansíveis e pan/zoom. ' +
+      'Ideal para visão panorâmica de um ecossistema ou domínio de conhecimento.',
+    props: [
+      'root: MindMapNode',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ConceptWeb: {
+    module: 'visuals/ConceptWeb',
+    description:
+      'Grafo de conceitos com força (force-directed) e clique para expandir relacionamentos. ' +
+      'Use para mostrar dependências entre conceitos e termos de um domínio.',
+    props: [
+      'nodes: ConceptNode[]',
+      'edges: ConceptEdge[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  WordCloud: {
+    module: 'visuals/WordCloud',
+    description:
+      'Nuvem de palavras com tamanho proporcional à frequência/importância. ' +
+      'Ideal para termos-chave de uma skill, buzzwords de entrevista ou glossário visual.',
+    props: [
+      'words: WordEntry[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  AttackVectorDiagram: {
+    module: 'visuals/AttackVectorDiagram',
+    description:
+      'Diagrama de vetores de ataque com severidade, CVSS e fluxo de exploração. ' +
+      'Use para threat modeling, OWASP Top 10 e análise de vulnerabilidades.',
+    props: [
+      'vectors: AttackVector[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  AuthFlowAnimator: {
+    module: 'visuals/AuthFlowAnimator',
+    description:
+      'Animador de fluxos de autenticação/autorização (OAuth2, JWT, SAML, OIDC). ' +
+      'Cada passo do fluxo é destacado com payload e participantes.',
+    props: [
+      'steps: AuthStep[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  NetworkTopology: {
+    module: 'visuals/NetworkTopology',
+    description:
+      'Diagrama de topologia de rede com nós, links, protocolos e zonas de segurança. ' +
+      'Ideal para infraestrutura, VPCs, firewalls e balanceadores.',
+    props: [
+      'nodes: NetworkNode[]',
+      'links: NetworkLink[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  CloudArchitecture: {
+    module: 'visuals/CloudArchitecture',
+    description:
+      'Diagrama de arquitetura cloud com serviços AWS/GCP/Azure, regiões e zonas de disponibilidade. ' +
+      'Ícones dos serviços e linhas de comunicação com latências.',
+    props: [
+      'services: CloudService[]',
+      'connections: CloudConnection[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ScalingSimulator: {
+    module: 'visuals/ScalingSimulator',
+    description:
+      'Simulador de escalonamento horizontal vs vertical com gráficos de carga e custo. ' +
+      'Ideal para demonstrar auto-scaling, HPA, VPA e limites de capacidade.',
+    props: [
+      'scenarios: ScalingScenario[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  PipelineVisualizer: {
+    module: 'visuals/PipelineVisualizer',
+    description:
+      'Visualizador de pipeline CI/CD com estágios, jobs, artefatos e tempo de execução. ' +
+      'Ideal para GitHub Actions, GitLab CI, Jenkins e ArgoCD.',
+    props: [
+      'stages: PipelineStage[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  ContainerDiagram: {
+    module: 'visuals/ContainerDiagram',
+    description:
+      'Diagrama de containers e pods com volumes, redes, portas e health checks. ' +
+      'Use para Docker Compose, Kubernetes manifests e arquiteturas de containers.',
+    props: [
+      'containers: ContainerNode[]',
+      'networks: ContainerNetwork[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  IndexExplorer: {
+    module: 'visuals/IndexExplorer',
+    description:
+      'Explorador interativo de índices de banco de dados com B-tree e busca animada. ' +
+      'Ideal para PostgreSQL, MongoDB, Redis e estratégias de indexação.',
+    props: [
+      'indexType: IndexType',
+      'data: IndexEntry[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
+
+  BurndownChart: {
+    module: 'visuals/BurndownChart',
+    description:
+      'Gráfico burndown de progresso de estudo com linha ideal vs real. ' +
+      'Ideal para acompanhar planos de estudo e metas de sprint.',
+    props: [
+      'data: BurndownPoint[]',
+      'accentColor: string',
+      'bgColor: string',
+    ],
+    usedBy: [],
+  },
 }
 
 // ── PDFs ──────────────────────────────────────────────────────────────────────
@@ -241,6 +689,133 @@ export const PDF_CATALOG: Record<string, CatalogEntry> = {
     ],
     usedBy: ['react'],
   },
+
+  CommandRefPdf: {
+    module: 'pdfs/CommandRefPdf',
+    description:
+      'PDF de referência de comandos CLI organizados por categoria com flags e exemplos. ' +
+      'Comandos destrutivos destacados com borda vermelha. Ideal para shells, ORMs e CLIs.',
+    props: [
+      'commands: CommandEntry[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  RecipeBookPdf: {
+    module: 'pdfs/RecipeBookPdf',
+    description:
+      'PDF estilo cookbook com receitas prontas para casos de uso comuns. ' +
+      'Cada receita tem ingredientes, passos numerados com código, variações e armadilhas.',
+    props: [
+      'recipes: Recipe[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  GlossaryPdf: {
+    module: 'pdfs/GlossaryPdf',
+    description:
+      'PDF de glossário técnico ordenado alfabeticamente com separadores por letra. ' +
+      'Cada termo tem pronúncia, definição, exemplo de uso e termos relacionados.',
+    props: [
+      'terms: GlossaryTerm[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  InterviewSimPdf: {
+    module: 'pdfs/InterviewSimPdf',
+    description:
+      'PDF de simulado de entrevista com perguntas sem resposta visível e espaço para escrita à mão. ' +
+      'Badges de nível (Pleno/Sênior), dicas discretas e separadores por categoria.',
+    props: [
+      'questions: InterviewQuestion[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  StudyPlanPdf: {
+    module: 'pdfs/StudyPlanPdf',
+    description:
+      'PDF de plano de estudos com visão geral, semanas numeradas e recursos tipados por semana. ' +
+      'Checkpoints de validação, metas como checklist e ícone por tipo de recurso.',
+    props: [
+      'weeks: StudyWeek[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  ErrorRefPdf: {
+    module: 'pdfs/ErrorRefPdf',
+    description:
+      'PDF de referência de erros comuns com mensagem literal, causa, solução e diff errado/correto. ' +
+      'Erros agrupados por categoria com badge de severidade (crítico/atenção/info).',
+    props: [
+      'errors: ErrorEntry[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  PatternsPdf: {
+    module: 'pdfs/PatternsPdf',
+    description:
+      'PDF de catálogo de design patterns com índice por categoria, intent, quando usar/evitar, ' +
+      'participantes como badges e código de implementação.',
+    props: [
+      'patterns: DesignPattern[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  ComparativeRefPdf: {
+    module: 'pdfs/ComparativeRefPdf',
+    description:
+      'PDF de tabela comparativa entre N opções com critérios objetivos, destaque de vencedor ' +
+      'por linha e seção de cenários recomendados. Ideal para X vs Y.',
+    props: [
+      'options: CompOption[]',
+      'criteria: CompCriterion[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
+
+  SecurityChecklistPdf: {
+    module: 'pdfs/SecurityChecklistPdf',
+    description:
+      'PDF de checklist de segurança com resumo por severidade, checks agrupados por categoria ' +
+      'e checkboxes para marcar à mão. Suporta CWE, OWASP e flag de testabilidade.',
+    props: [
+      'checks: SecurityCheck[]',
+      'skillName: string',
+      'accentColor: string',
+      'stackLabel: string',
+    ],
+    usedBy: [],
+  },
 }
 
 // ── Re-exports seletivos (tipos apenas) ───────────────────────────────────────
@@ -262,3 +837,49 @@ export type { HookItem, PatternItem, DepRow, RuleItem } from './pdfs/CheatsheetP
 export type { MnemonicItem } from './pdfs/MnemonicsPdf'
 export type { AntiPatternItem, CodeToken } from './pdfs/AntipatternsPdf'
 export type { MindmapCategory, MindmapCategoryItem } from './pdfs/MindmapPdf'
+
+// ── Re-exports dos novos PDFs ─────────────────────────────────────────────────
+export type { CommandEntry, CommandRefPdfOpts } from './pdfs/CommandRefPdf'
+export type { Recipe, RecipeBookPdfOpts } from './pdfs/RecipeBookPdf'
+export type { GlossaryTerm, GlossaryPdfOpts } from './pdfs/GlossaryPdf'
+export type { InterviewQuestion, InterviewSimPdfOpts } from './pdfs/InterviewSimPdf'
+export type { StudyWeek, StudyPlanPdfOpts } from './pdfs/StudyPlanPdf'
+export type { ErrorEntry, ErrorRefPdfOpts } from './pdfs/ErrorRefPdf'
+export type { DesignPattern, PatternsPdfOpts } from './pdfs/PatternsPdf'
+export type { CompOption, CompCriterion, CompScenario, ComparativeRefPdfOpts } from './pdfs/ComparativeRefPdf'
+export type { SecurityCheck, SecurityChecklistPdfOpts } from './pdfs/SecurityChecklistPdf'
+
+// ── Re-exports dos novos visuais genéricos ────────────────────────────────────
+export type { FlowNode, FlowEdge, FlowGroup } from './visuals/FlowDiagram'
+export type { Layer } from './visuals/LayerStack'
+export type { FlowStep, FlowScenario } from './visuals/RequestResponseFlow'
+export type { SMState, SMTransition } from './visuals/StateMachineExplorer'
+export type { ArchBlock, ArchConnection, ArchZone } from './visuals/ArchitectureDiagram'
+export type { ComparisonOption, ComparisonCriterion } from './visuals/ComparisonTable'
+export type { DTNode } from './visuals/DecisionTree'
+export type { ProConItem, ProConOption } from './visuals/ProConMatrix'
+export type { SpeedometerDimension, SpeedometerOption } from './visuals/Speedometer'
+export type { SankeyNode, SankeyFlow } from './visuals/DataFlowSankey'
+export type { CodeStep, CodeStepperScenario } from './visuals/CodeStepper'
+export type { QueryExample } from './visuals/QueryVisualizer'
+export type { CLICommand } from './visuals/CommandPalette'
+export type { DiffLine, DiffExample } from './visuals/DiffViewer'
+export type { RegexExample } from './visuals/RegexPlayground'
+export type { GanttTrack, GanttTask, GanttPhase } from './visuals/GanttTimeline'
+export type { TimelineEvent, EventGroup } from './visuals/EventTimeline'
+export type { VersionMilestone } from './visuals/VersionTimeline'
+export type { MemoryRegion, MemorySlot, MemoryScenario } from './visuals/MemoryDiagram'
+export type { DSOperation, DSExample } from './visuals/DataStructureAnimator'
+export type { ComplexityClass, AlgorithmEntry } from './visuals/BigOChart'
+export type { MindMapNode } from './visuals/MindMap'
+export type { WebNode, WebEdge } from './visuals/ConceptWeb'
+export type { WordItem } from './visuals/WordCloud'
+export type { AttackVector } from './visuals/AttackVectorDiagram'
+export type { AuthActor, AuthStep, AuthFlow } from './visuals/AuthFlowAnimator'
+export type { NetworkNode, NetworkLink, NetworkZone } from './visuals/NetworkTopology'
+export type { CloudService, CloudConnection, CloudRegion } from './visuals/CloudArchitecture'
+export type { ScalingStrategy } from './visuals/ScalingSimulator'
+export type { PipelineStage, Pipeline } from './visuals/PipelineVisualizer'
+export type { Container, ContainerNetwork, ContainerVolume } from './visuals/ContainerDiagram'
+export type { IndexNode, IndexExample } from './visuals/IndexExplorer'
+export type { BurndownSeries, BurndownAnnotation } from './visuals/BurndownChart'
