@@ -25,6 +25,12 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'microservices': dynamic(() => import('@/data/content/arch/microservices/MicroservicesVisuais'), { ssr: false }),
   'ddd': dynamic(() => import('@/data/content/arch/ddd/DddVisuais'), { ssr: false }),
   'solid': dynamic(() => import('@/data/content/arch/solid/SolidVisuais'), { ssr: false }),
+  'algoritmos-ds': dynamic(() => import('@/data/content/cs/algoritmos-ds/AlgoritmosDsVisuais'), { ssr: false }),
+  'dynamic-programming': dynamic(() => import('@/data/content/cs/dynamic-programming/DynamicProgrammingVisuais'), { ssr: false }),
+  'owasp-api-top-10': dynamic(() => import('@/data/content/sec/owasp-api-top-10/OwaspApiTop10Visuais'), { ssr: false }),
+  'slis-slos-slas': dynamic(() => import('@/data/content/obs/slis-slos-slas/SlisSlosSlasVisuais'), { ssr: false }),
+  'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignVisuais'), { ssr: false }),
+  'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -52,5 +58,11 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'microservices': dynamic(() => import('@/data/content/arch/microservices/MicroservicesPdfs'), { ssr: false }),
   'ddd': dynamic(() => import('@/data/content/arch/ddd/DddPdfs'), { ssr: false }),
   'solid': dynamic(() => import('@/data/content/arch/solid/SolidPdfs'), { ssr: false }),
+  'algoritmos-ds': dynamic(() => import('@/data/content/cs/algoritmos-ds/AlgoritmosDsPdfs'), { ssr: false }),
+  'dynamic-programming': dynamic(() => import('@/data/content/cs/dynamic-programming/DynamicProgrammingPdfs'), { ssr: false }),
+  'owasp-api-top-10': dynamic(() => import('@/data/content/sec/owasp-api-top-10/OwaspApiTop10Pdfs'), { ssr: false }),
+  'slis-slos-slas': dynamic(() => import('@/data/content/obs/slis-slos-slas/SlisSlosSlasPdfs'), { ssr: false }),
+  'system-design': dynamic(() => import('@/data/content/arch/system-design/SystemDesignPdfs'), { ssr: false }),
+  'cqrs': dynamic(() => import('@/data/content/arch/cqrs/CqrsPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
