@@ -12,7 +12,7 @@ import http2Http3 from "./http-2-http-3"
 import processosThreads from "./processos-threads"
 import raftPaxos from "./raft-paxos"
 import crdts from "./crdts"
-import consistentHashing from "./consistent-hashing"
+import consistentHashing from "./consistent-hashing/consistent-hashing"
 
 const cs: SkillContentMap = {
   "algoritmos-ds": algoritmoDs,

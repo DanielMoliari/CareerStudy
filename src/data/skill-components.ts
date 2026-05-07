@@ -54,6 +54,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'elasticsearch': dynamic(() => import('@/data/content/database/elasticsearch/ElasticsearchVisuais'), { ssr: false }),
   'circuit-breakers': dynamic(() => import('@/data/content/arch/circuit-breakers/CircuitBreakersVisuais'), { ssr: false }),
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenVisuais'), { ssr: false }),
+  'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtVisuais'), { ssr: false }),
+  'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -110,5 +112,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'elasticsearch': dynamic(() => import('@/data/content/database/elasticsearch/ElasticsearchPdfs'), { ssr: false }),
   'circuit-breakers': dynamic(() => import('@/data/content/arch/circuit-breakers/CircuitBreakersPdfs'), { ssr: false }),
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenPdfs'), { ssr: false }),
+  'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtPdfs'), { ssr: false }),
+  'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
