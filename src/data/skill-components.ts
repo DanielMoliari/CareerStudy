@@ -66,6 +66,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'iam': dynamic(() => import('@/data/content/cloud/iam/IamVisuais'), { ssr: false }),
   'rds': dynamic(() => import('@/data/content/cloud/rds/RdsVisuais'), { ssr: false }),
   'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesVisuais'), { ssr: false }),
+  'http-2-http-3': dynamic(() => import('@/data/content/cs/http-2-http-3/HttpVersionsVisuais'), { ssr: false }),
+  'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -134,5 +136,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'iam': dynamic(() => import('@/data/content/cloud/iam/IamPdfs'), { ssr: false }),
   'rds': dynamic(() => import('@/data/content/cloud/rds/RdsPdfs'), { ssr: false }),
   'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesPdfs'), { ssr: false }),
+  'http-2-http-3': dynamic(() => import('@/data/content/cs/http-2-http-3/HttpVersionsPdfs'), { ssr: false }),
+  'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
