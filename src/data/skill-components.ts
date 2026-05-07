@@ -62,6 +62,10 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'openai-sdk': dynamic(() => import('@/data/content/ai/openai-sdk/OpenaiSdkVisuais'), { ssr: false }),
   'tls-https': dynamic(() => import('@/data/content/cs/tls-https/TlsHttpsVisuais'), { ssr: false }),
   'tcp-ip-dns': dynamic(() => import('@/data/content/cs/tcp-ip-dns/TcpIpDnsVisuais'), { ssr: false }),
+  'apache-kafka': dynamic(() => import('@/data/content/backend/apache-kafka/ApacheKafkaVisuais'), { ssr: false }),
+  'iam': dynamic(() => import('@/data/content/cloud/iam/IamVisuais'), { ssr: false }),
+  'rds': dynamic(() => import('@/data/content/cloud/rds/RdsVisuais'), { ssr: false }),
+  'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -126,5 +130,9 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'openai-sdk': dynamic(() => import('@/data/content/ai/openai-sdk/OpenaiSdkPdfs'), { ssr: false }),
   'tls-https': dynamic(() => import('@/data/content/cs/tls-https/TlsHttpsPdfs'), { ssr: false }),
   'tcp-ip-dns': dynamic(() => import('@/data/content/cs/tcp-ip-dns/TcpIpDnsPdfs'), { ssr: false }),
+  'apache-kafka': dynamic(() => import('@/data/content/backend/apache-kafka/ApacheKafkaPdfs'), { ssr: false }),
+  'iam': dynamic(() => import('@/data/content/cloud/iam/IamPdfs'), { ssr: false }),
+  'rds': dynamic(() => import('@/data/content/cloud/rds/RdsPdfs'), { ssr: false }),
+  'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
