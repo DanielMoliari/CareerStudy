@@ -11,6 +11,8 @@ import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
 import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
+import { buildCommandRefPdf } from '@/components/pdfs/CommandRefPdf'
+import type { CommandEntry } from '@/components/pdfs/CommandRefPdf'
 
 // ── Paleta Prisma (indigo brand) ────────────────────────────────────────────────
 const C = '#5A67D8'
@@ -58,6 +60,26 @@ const PDF_CARDS: PdfCard[] = [
     description: 'PIPELINE para os 4 estágios (schema → generate → migrate → client), DvD para a diferença entre migrate dev e deploy, SI para select vs include e TX-tx para a regra de transações interativas. Os conceitos do Prisma que ninguém consegue lembrar na entrevista.',
     icon: '04',
     goal: 'Memória de longo prazo',
+  },
+  {
+    id: 'schema-language',
+    title: 'Schema Language Reference',
+    subtitle: 'Todas as diretivas da DSL .prisma numa página densa',
+    type: 'cheatsheet',
+    pages: 1,
+    description: 'Referência densa A4 landscape focada na DSL do schema.prisma — tipos escalares completos com mapeamento SQL, modificadores (?, [], @db.X), todos os atributos @ (id, default, unique, relation, updatedAt, map, ignore) e @@ (id, unique, index, fulltext, map), sintaxe de relações 1:1 / 1:N / N:N, sintaxe de enum e cardinalidades. Substitui ler a docs em 80% dos casos de schema authoring.',
+    icon: '05',
+    goal: 'Schema authoring',
+  },
+  {
+    id: 'migrations-cli',
+    title: 'Migration Operations Guide',
+    subtitle: 'Cada comando do CLI de migrate com efeito interno e edge cases',
+    type: 'migrations-cli',
+    pages: 5,
+    description: 'Referência completa de prisma migrate — dev, deploy, reset, status, resolve — com o que cada comando faz internamente (gera SQL? aplica? regenera client?), o estado da tabela _prisma_migrations, drift detection, shadow database, recovery de migration corrupta, e comparação com db push. Comandos destrutivos sinalizados. Inclui o fluxo seguro do generate ao deploy em CI/CD.',
+    icon: '06',
+    goal: 'Migrations em produção',
   },
 ]
 
@@ -492,6 +514,226 @@ const MNEMONICS: MnemonicItem[] = [
   },
 ]
 
+// ── Dados — Schema Language Reference (QuickRef format) ──────────────────────
+
+const SCHEMA_QR_COLUMNS: QuickRefColumn[] = [
+  {
+    sections: [
+      {
+        title: 'Blocos top-level',
+        entries: [
+          { key: 'datasource db { provider, url, directUrl? }', value: 'postgresql, mysql, sqlite, sqlserver, mongodb, cockroachdb. directUrl para Accelerate.' },
+          { key: 'generator client { provider, output? }', value: 'prisma-client-js. output customiza local — útil em monorepo.' },
+          { key: 'previewFeatures = ["..."]', value: 'fullTextSearch, fullTextIndex, driverAdapters, metrics, tracing, postgresqlExtensions' },
+          { key: 'model X {} / enum Y {}', value: 'model = tabela. enum = literal type tipado.' },
+        ],
+      },
+      {
+        title: 'Tipos escalares (Postgres mapping)',
+        entries: [
+          { key: 'String', value: 'TEXT (default) — use @db.VarChar(N) para limitar' },
+          { key: 'Int / BigInt', value: 'INTEGER / BIGINT — use BigInt para IDs > 2³¹' },
+          { key: 'Float / Decimal', value: 'DOUBLE PRECISION / DECIMAL(p,s) — Decimal para dinheiro' },
+          { key: 'Boolean', value: 'BOOLEAN' },
+          { key: 'DateTime', value: 'TIMESTAMP(3) — milissegundos. Use @db.Timestamptz para timezone-aware.' },
+          { key: 'Json', value: 'JSONB no Postgres (não JSON simples) — index com @@index e operadores' },
+          { key: 'Bytes', value: 'BYTEA — para binários, use @db.ByteA' },
+        ],
+      },
+      {
+        title: 'Modificadores de campo',
+        entries: [
+          { key: '?', value: 'Nullable. ex: name String? — coluna NULLABLE' },
+          { key: '[]', value: 'Array — só Postgres / MongoDB. ex: tags String[]' },
+          { key: '@db.VarChar(255)', value: 'Tipo SQL nativo — VARCHAR(255). Sem isso = TEXT.' },
+          { key: '@db.Text / @db.Citext', value: 'Texto longo / case-insensitive (Postgres)' },
+          { key: '@db.Timestamptz(6)', value: 'TIMESTAMP WITH TIME ZONE — recomendado para produção' },
+          { key: '@db.Uuid', value: 'UUID nativo Postgres — combine com @default(uuid())' },
+        ],
+      },
+    ],
+  },
+  {
+    sections: [
+      {
+        title: 'Atributos @ (campo)',
+        entries: [
+          { key: '@id', value: 'Chave primária. Combine com @default()' },
+          { key: '@default(...)', value: 'cuid() / uuid() / autoincrement() / now() / dbgenerated("...") / env("VAR")' },
+          { key: '@unique', value: 'Constraint UNIQUE — usado em findUnique. Cria índice automaticamente.' },
+          { key: '@updatedAt', value: 'Touch automático em update — Prisma seta NOW(). Não cria trigger no banco.' },
+          { key: '@map("col_no_db")', value: 'Renomeia coluna no banco mantendo nome TS limpo' },
+          { key: '@relation(fields, references, onDelete, onUpdate)', value: 'Define FK. onDelete: Cascade | Restrict | SetNull | NoAction' },
+          { key: '@ignore', value: 'Prisma ignora o campo (introspect de tabela legada)' },
+        ],
+      },
+      {
+        title: 'Atributos @@ (modelo)',
+        entries: [
+          { key: '@@id([a, b])', value: 'PK composta — usado em N:N explícitas' },
+          { key: '@@unique([a, b])', value: 'Constraint UNIQUE composta — ex: (tenantId, slug)' },
+          { key: '@@index([a, b])', value: 'Índice composto. Ordem importa para prefixos!', badge: '★ critico', badgeColor: '#5A67D8' },
+          { key: '@@index([col(sort: Desc)])', value: 'Índice com direção — Postgres only' },
+          { key: '@@fulltext([title, content])', value: 'Índice FTS — requer previewFeatures fullTextIndex' },
+          { key: '@@map("tabela_no_db")', value: 'Renomeia tabela. ex: @@map("users") com model User' },
+          { key: '@@ignore', value: 'Prisma ignora o model — útil em introspect' },
+        ],
+      },
+      {
+        title: 'Sintaxe de relações',
+        entries: [
+          { key: '1:1', value: 'profile Profile? + userId String @unique + user @relation(...)' },
+          { key: '1:N (one)', value: 'posts Post[] — virtual, sem coluna no banco' },
+          { key: '1:N (many)', value: 'authorId String + author User @relation(fields: [authorId], references: [id])' },
+          { key: 'N:N implícita', value: 'tags Tag[] + posts Post[] — Prisma cria _PostToTag automaticamente' },
+          { key: 'N:N explícita', value: 'model PostTag { postId, tagId, ...meta, @@id([postId, tagId]) }' },
+          { key: 'auto-relação', value: 'parent Post? @relation("Parent", fields:[parentId], references:[id]) + replies Post[] @relation("Parent")' },
+        ],
+      },
+    ],
+  },
+  {
+    sections: [
+      {
+        title: 'Enum',
+        entries: [
+          { key: 'enum Role { ADMIN USER GUEST }', value: 'Literal type — gerado em TS como string union' },
+          { key: 'role Role @default(USER)', value: 'Uso em campo — autocomplete dos valores' },
+          { key: '@map em enum', value: 'value @map("admin") — controla string no banco' },
+        ],
+      },
+      {
+        title: 'Geradores de @default',
+        entries: [
+          { key: 'cuid()', value: 'Collision-resistant ID — 24 chars, ordenável por tempo' },
+          { key: 'uuid()', value: 'UUID v4 — universalmente compatível, não ordenável' },
+          { key: 'autoincrement()', value: 'Sequence Postgres — Int @id @default(autoincrement())' },
+          { key: 'now()', value: 'Timestamp atual — DateTime @default(now())' },
+          { key: 'dbgenerated("...")', value: 'SQL nativo — ex: dbgenerated("gen_random_uuid()") usa pg crypto' },
+          { key: 'env("VAR_NAME")', value: 'Lê env var em build time — só em datasource.url' },
+        ],
+      },
+      {
+        title: 'Schema completo — exemplo canônico',
+        entries: [
+          { key: 'model User', value: 'id String @id @default(cuid()), email String @unique, posts Post[]' },
+          { key: 'model Post', value: 'id String @id, title String @db.VarChar(255), authorId String, author User @relation(fields:[authorId], references:[id], onDelete: Cascade), @@index([authorId])' },
+          { key: 'enum Status', value: 'DRAFT, PUBLISHED, ARCHIVED' },
+          { key: 'Validações', value: 'String? = nullable. Sem ? = NOT NULL. SEMPRE @@index em FK manual.' },
+        ],
+      },
+    ],
+  },
+]
+
+// ── Dados — Migration Operations Guide ────────────────────────────────────────
+
+const MIGRATION_COMMANDS: CommandEntry[] = [
+  {
+    category: 'Desenvolvimento local',
+    command: 'prisma migrate dev --name <descricao>',
+    description: 'Comando completo de dev. (1) Compara schema.prisma com migrations já aplicadas (não com banco direto), (2) gera SQL de diff em prisma/migrations/<timestamp>_<descricao>/migration.sql, (3) aplica no banco de dev, (4) regenera @prisma/client com novos tipos, (5) roda seed se package.json tiver "prisma": { "seed": "..." }. Pode pedir reset se detectar drift entre banco e migrations.',
+    flags: [
+      { flag: '--name', description: 'string — nome curto da migration (snake_case). Vira nome da pasta.' },
+      { flag: '--create-only', description: 'Gera o arquivo SQL mas NÃO aplica — útil para revisar antes' },
+      { flag: '--skip-seed', description: 'Pula execução do seed após aplicar' },
+      { flag: '--skip-generate', description: 'Pula prisma generate (raro, útil em pipeline custom)' },
+    ],
+    example: '$ npx prisma migrate dev --name add_post_status\n# Gera prisma/migrations/20250506120000_add_post_status/migration.sql\n# Aplica no banco de dev\n# Regenera @prisma/client',
+  },
+  {
+    category: 'Produção e CI/CD',
+    command: 'prisma migrate deploy',
+    description: 'Comando de produção. SÓ aplica migrations já versionadas em ordem cronológica. Não gera novas migrations, não regenera client (rode generate explicitamente no build), idempotente — rodar duas vezes não causa problema. Faz lock no banco para impedir aplicações simultâneas em CI paralelo. Falha se schema.prisma diverge das migrations (drift).',
+    example: '# .github/workflows/deploy.yml\n- run: npx prisma generate\n- run: npx prisma migrate deploy\n- run: npm run build\n# Idempotente — pode rodar várias vezes',
+  },
+  {
+    category: 'Desenvolvimento local',
+    command: 'prisma migrate reset',
+    description: 'DROP de todo o banco e re-aplica todas as migrations do zero. Roda automaticamente o seed ao final. Útil quando banco local está corrompido ou divergiu (drift). NUNCA em produção — apaga TUDO. Em CI de teste pode ser útil para garantir banco limpo entre runs.',
+    danger: true,
+    flags: [
+      { flag: '--force', description: 'Pula confirmação interativa — útil em CI' },
+      { flag: '--skip-seed', description: 'Não roda o seed após reset' },
+    ],
+    example: '$ npx prisma migrate reset --force\n# DROP DATABASE; CREATE DATABASE;\n# Re-aplica todas as migrations\n# Roda o seed',
+  },
+  {
+    category: 'Inspeção',
+    command: 'prisma migrate status',
+    description: 'Mostra o estado das migrations: quais estão aplicadas no banco, quais estão pendentes, se há drift entre schema e banco. Use antes de deploy em prod para verificar que tudo está sincronizado.',
+    example: '$ npx prisma migrate status\n# Status\n# - 3 migrations found\n# - 3 migrations applied\n# Database schema is up to date.',
+  },
+  {
+    category: 'Recovery (situações de drift)',
+    command: 'prisma migrate resolve --applied <name>',
+    description: 'Marca manualmente uma migration como aplicada na tabela _prisma_migrations sem rodar o SQL. Use APENAS quando a migration já foi aplicada manualmente (hotfix em prod) e você precisa atualizar o histórico do Prisma.',
+    danger: true,
+    flags: [
+      { flag: '--applied', description: 'Nome da migration a marcar como aplicada' },
+      { flag: '--rolled-back', description: 'Marca migration falhada como revertida (limpa estado)' },
+    ],
+    example: '$ npx prisma migrate resolve --applied 20250506120000_add_post_status\n# Insert em _prisma_migrations sem executar SQL\n# Use SOMENTE em recovery — não rotineiro',
+  },
+  {
+    category: 'Geração e introspect',
+    command: 'prisma generate',
+    description: 'Apenas regenera o @prisma/client com tipos atualizados — NÃO toca no banco. Útil quando você fez pull de migrations do colega e precisa atualizar o client. Roda automático no postinstall e depois de migrate dev. Em CI/build, sempre execute antes do build do app.',
+    flags: [
+      { flag: '--watch', description: 'Re-gera quando schema.prisma muda — útil em desenvolvimento' },
+      { flag: '--no-engine', description: 'Pula download do query engine binário (em CI custom)' },
+    ],
+    example: '$ npx prisma generate\n# Lê schema.prisma\n# Gera node_modules/.prisma/client com tipos TS',
+  },
+  {
+    category: 'Geração e introspect',
+    command: 'prisma db pull',
+    description: 'Introspect — lê o schema do banco existente e gera/atualiza schema.prisma. Útil para greenfield em DB legado. Não toca em migrations — você ainda precisa rodar migrate dev para criar baseline.',
+    example: '$ npx prisma db pull\n# Conecta no banco\n# Atualiza schema.prisma com models, campos, FKs detectados',
+  },
+  {
+    category: 'Prototipação (NÃO produção)',
+    command: 'prisma db push',
+    description: 'Sincroniza schema.prisma → banco SEM gerar migration. Pula histórico, sem rollback controlado, sem revisão de SQL. APENAS protótipos descartáveis ou desenho rápido de schema. NUNCA em produção. Em projetos sérios, vire para migrate dev assim que o schema estabilizar.',
+    danger: true,
+    flags: [
+      { flag: '--accept-data-loss', description: 'Aceita perda de dados se mudança implica DROP' },
+      { flag: '--force-reset', description: 'Reset do banco antes do push' },
+    ],
+    example: '$ npx prisma db push\n# Faz DDL direto no banco\n# Nenhum arquivo gerado em prisma/migrations/\n# Histórico pulado — uso restrito a protótipos',
+  },
+  {
+    category: 'Inspeção',
+    command: 'prisma studio',
+    description: 'GUI no browser para inspecionar e editar dados. Roda em http://localhost:5555. Útil para debug rápido em dev. Não use em produção — não tem auth, edita dados sem validação de aplicação.',
+    example: '$ npx prisma studio\n# Abre http://localhost:5555\n# UI tabular para todos os models',
+  },
+  {
+    category: 'Conceitos importantes',
+    command: '_prisma_migrations (tabela interna)',
+    description: 'Tabela criada automaticamente no banco para registrar quais migrations foram aplicadas. Colunas: id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count. NUNCA edite manualmente — use prisma migrate resolve.',
+    example: '-- Estrutura simplificada\nCREATE TABLE _prisma_migrations (\n  id VARCHAR(36) PRIMARY KEY,\n  checksum VARCHAR(64),\n  finished_at TIMESTAMP,\n  migration_name VARCHAR(255),\n  logs TEXT,\n  rolled_back_at TIMESTAMP,\n  started_at TIMESTAMP DEFAULT NOW(),\n  applied_steps_count INTEGER\n);',
+  },
+  {
+    category: 'Conceitos importantes',
+    command: 'Shadow database',
+    description: 'Banco temporário que o Prisma cria para detectar drift e gerar SQL correto. Usado em migrate dev. Em Postgres, exige permissão CREATE DATABASE. Em managed services (Supabase, Neon) que não permitem isso, configure shadowDatabaseUrl no datasource.',
+    example: '// schema.prisma\ndatasource db {\n  provider          = "postgresql"\n  url               = env("DATABASE_URL")\n  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")\n}',
+  },
+  {
+    category: 'Conceitos importantes',
+    command: 'Drift detection',
+    description: 'Prisma detecta drift quando o schema do banco diverge do esperado pelas migrations já aplicadas (alguém alterou direto no banco, ou hotfix manual). Em migrate dev, oferece reset; em migrate deploy, falha. Para resolver: revertir mudança manual ou usar migrate resolve.',
+    example: '# Detecção:\n$ prisma migrate dev\n# > Drift detected: Your database schema is not in sync\n# > Soluções:\n# > 1. Reverter mudança manual no banco\n# > 2. prisma migrate resolve (marca como aplicada)\n# > 3. prisma migrate reset (apaga tudo, dev only)',
+  },
+  {
+    category: 'Workflow seguro (deploy CI/CD)',
+    command: 'Pipeline completo recomendado',
+    description: 'Sequência segura para deploy em produção: (1) dev local roda migrate dev e revisa SQL gerado em PR; (2) PR mergeada faz CI rodar tests com banco limpo; (3) deploy roda generate + migrate deploy + build; (4) app sobe com client regenerado. NUNCA db push em CI.',
+    example: '# 1. DEV local\nnpx prisma migrate dev --name add_index\ngit add prisma/migrations\ngit commit -m "feat: add index"\n\n# 2. CI test\nnpx prisma migrate reset --force\nnpm test\n\n# 3. CI deploy\nnpx prisma generate\nnpx prisma migrate deploy\nnpm run build && npm start',
+  },
+]
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function PrismaPdfs() {
@@ -526,6 +768,22 @@ export default function PrismaPdfs() {
       accentColor: C,
       skillName: 'Prisma',
       stackLabel: 'ORM / Backend TS',
+    }),
+    cheatsheet: () => buildQuickRefPdf({
+      columns: SCHEMA_QR_COLUMNS,
+      skillName: 'Prisma',
+      accentColor: C,
+      stackLabel: 'ORM / Backend TS',
+      tagline: 'Schema Language Reference — DSL .prisma em uma página',
+      version: '5.x',
+    }),
+    'migrations-cli': () => buildCommandRefPdf({
+      commands: MIGRATION_COMMANDS,
+      accentColor: C,
+      skillName: 'Prisma',
+      stackLabel: 'ORM / Backend TS',
+      coverTitle: 'Migration Operations Guide',
+      coverSubtitle: 'Cada comando do prisma migrate (dev, deploy, reset, status, resolve), o efeito interno de cada um, recovery de drift, shadow database e o pipeline seguro para CI/CD. Comandos destrutivos sinalizados.',
     }),
   }
 

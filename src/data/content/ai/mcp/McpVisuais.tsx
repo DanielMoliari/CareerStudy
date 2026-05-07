@@ -1008,6 +1008,43 @@ function HandshakeVisual() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — Sampling reverso (SequenceDiagram)
+// Justificativa: o fluxo mais contraintuitivo do MCP. Normalmente o Client invoca
+// o Server. No sampling reverso, o SERVER inicia uma chamada de LLM pedindo ao
+// Host (via Client) para inferir em seu nome. A inversão de quem inicia é o que
+// confunde — ver a seta saindo do Server para o Host, com consent flow no meio,
+// fixa o modelo mental.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SAMPLING_ACTORS: SeqActor[] = [
+  { id: 'server', label: 'MCP Server',       color: PRP, icon: 'S' },
+  { id: 'client', label: 'MCP Client',       color: SKY, icon: 'C' },
+  { id: 'host',   label: 'Host (App+UI)',    color: C,   icon: 'H' },
+  { id: 'llm',    label: 'LLM Provider',     color: GRN, icon: 'L' },
+  { id: 'user',   label: 'Usuário',          color: AMB, icon: 'U' },
+]
+
+const SAMPLING_MESSAGES: SeqMessage[] = [
+  { from: 'server', to: 'server', label: 'agente interno decide raciocinar',         type: 'sync',   note: 'Tool em execução precisa de uma sub-decisão LLM (ex: "qual sub-busca fazer?")' },
+  { from: 'server', to: 'client', label: 'sampling/createMessage { messages, modelPreferences, maxTokens }', type: 'sync', note: 'Inversão: o servidor pede ao cliente para fazer uma chamada LLM. Servidor SUGERE modelo, não escolhe.' },
+  { from: 'client', to: 'host',   label: 'forward sampling request',                 type: 'sync',   note: 'Client repassa ao Host — só o Host tem credencial e UI para aprovar' },
+  { from: 'host',   to: 'user',   label: 'consent UI: "Server X quer LLM call"',     type: 'sync',   note: 'Host SEMPRE pede aprovação — sem consent, servidor malicioso drena tokens' },
+  { from: 'user',   to: 'host',   label: 'aprova / nega',                            type: 'return', note: 'Usuário decide. Nega = Host retorna erro ao servidor.' },
+  { from: 'host',   to: 'host',   label: 'Host escolhe modelo final + cap maxTokens', type: 'sync',  note: 'Host pode reduzir maxTokens, trocar modelo, aplicar quota. Servidor não controla.' },
+  { from: 'host',   to: 'llm',    label: 'inference call (Claude / GPT / Gemini)',   type: 'sync',   note: 'Chamada real ao provider. Custo é do USUÁRIO, não do servidor.' },
+  { from: 'llm',    to: 'host',   label: 'completion text + usage tokens',           type: 'return', note: 'Resposta do modelo, com contagem de tokens consumidos' },
+  { from: 'host',   to: 'client', label: 'sampling result',                          type: 'return', note: 'Repassa ao Client com o conteúdo gerado e modelo usado' },
+  { from: 'client', to: 'server', label: '{ role, content, model, stopReason }',     type: 'return', note: 'Servidor recebe a inferência e continua sua lógica (ex: agente multi-step)' },
+  { from: 'server', to: 'server', label: 'agente continua tool execution',           type: 'sync',   note: 'Servidor é agente completo: pode chamar sampling várias vezes em uma tool call' },
+]
+
+const SAMPLING_GROUPS: SeqGroup[] = [
+  { label: 'Inversão de controle: SERVER → HOST',      kind: 'opt',  fromMsg: 0, toMsg: 2 },
+  { label: 'Consent flow obrigatório (defesa de tokens)', kind: 'alt',  fromMsg: 3, toMsg: 5 },
+  { label: 'Inferência delegada ao Host',              kind: 'ref',  fromMsg: 6, toMsg: 8 },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Main
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1093,6 +1130,21 @@ export default function McpVisuais() {
           accentColor={C}
           bgColor={BG}
           cardColor={CARD2}
+        />
+      ),
+    },
+    {
+      id: 'sampling-reverse',
+      title: 'Sampling reverso — Server pede LLM',
+      subtitle: 'Inversão de controle: o servidor inicia uma chamada de inferência via Host',
+      accent: GRN,
+      component: (
+        <SequenceDiagram
+          actors={SAMPLING_ACTORS}
+          messages={SAMPLING_MESSAGES}
+          groups={SAMPLING_GROUPS}
+          accentColor={GRN}
+          bgColor={BG}
         />
       ),
     },

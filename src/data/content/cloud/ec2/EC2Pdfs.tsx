@@ -11,6 +11,8 @@ import { buildCheatsheetPdf } from '@/components/pdfs/CheatsheetPdf'
 import type { HookItem, RuleItem } from '@/components/pdfs/CheatsheetPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
+import { buildSecurityChecklistPdf } from '@/components/pdfs/SecurityChecklistPdf'
+import type { SecurityCheck } from '@/components/pdfs/SecurityChecklistPdf'
 
 // ── Paleta EC2 (AWS) ──────────────────────────────────────────────────────────
 const C = '#FF9900'
@@ -58,6 +60,26 @@ const PDF_CARDS: PdfCard[] = [
     description: 'Diff errado x correto com explicação técnica: SSH aberto para 0.0.0.0/0, IMDSv1 habilitado, gp2 em produção nova, credenciais hardcoded no User Data, sem termination protection em recursos críticos e conexão direta ao DB sem RDS Proxy.',
     icon: '04',
     goal: 'Reconhecimento de padrão',
+  },
+  {
+    id: 'networking',
+    title: 'Networking Quick Ref',
+    subtitle: 'Security Groups, NACLs, VPC Endpoints e Route Tables em um cartão',
+    type: 'quick-ref',
+    pages: 1,
+    description: 'A4 landscape com 3 colunas: Security Groups (regras stateful, referências por SG, padrões para ALB → app → RDS), Network ACLs (stateless, ordem numérica, portas efêmeras 1024-65535) e VPC Endpoints (Gateway para S3/DynamoDB sem custo, Interface PrivateLink para os demais). Comandos CLI e JSONs de policy para colar.',
+    icon: '05',
+    goal: 'Diagnóstico de rede',
+  },
+  {
+    id: 'security',
+    title: 'Security Checklist EC2',
+    subtitle: 'IMDSv2, Instance Profile, encryption, patching, BPA — 18 verificações',
+    type: 'security',
+    pages: 5,
+    description: 'Checklist organizado por categoria e severidade: Identidade e Acesso (IAM Profile, IMDSv2, sem Access Keys), Rede (SG mínimo, sem SSH público, SSM Session Manager), Storage (EBS encryption, snapshots criptografados, root delete-on-terminate), Operacional (patches, Termination Protection, CloudTrail, tags). Cada item com remediation acionável.',
+    icon: '06',
+    goal: 'Hardening de produção',
   },
 ]
 
@@ -463,9 +485,262 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
+// ── Networking Quick Ref ──────────────────────────────────────────────────────
+
+const NETWORKING_QR: QuickRefColumn[] = [
+  {
+    sections: [
+      {
+        title: 'Security Groups (stateful)',
+        entries: [
+          { key: 'Listar SGs', value: 'aws ec2 describe-security-groups --filters "Name=vpc-id,Values=vpc-xxx"' },
+          { key: 'Criar SG', value: 'aws ec2 create-security-group --group-name app-sg --vpc-id vpc-xxx --description "app tier"' },
+          { key: 'Allow do ALB → App', value: 'authorize-security-group-ingress --group-id sg-app --protocol tcp --port 8080 --source-group sg-alb', badge: 'recomendado', badgeColor: '#4ade80' },
+          { key: 'Allow HTTPS público (ALB)', value: 'authorize-security-group-ingress --group-id sg-alb --protocol tcp --port 443 --cidr 0.0.0.0/0' },
+          { key: 'Allow App → RDS', value: 'authorize-security-group-ingress --group-id sg-rds --protocol tcp --port 5432 --source-group sg-app' },
+          { key: 'Revogar regra', value: 'revoke-security-group-ingress --group-id sg-xxx --protocol tcp --port 22 --cidr 0.0.0.0/0' },
+          { key: 'Padrão deny tudo', value: 'SG novo já bloqueia tudo de entrada — só Allow é permitido', badge: 'memoria', badgeColor: '#FF9900' },
+          { key: 'NUNCA: SSH público', value: 'cidr_blocks 0.0.0.0/0 + port 22 = vetor #1 de ataque. Use SSM Session Manager.', badge: '!perigoso', badgeColor: '#ef4444' },
+        ],
+      },
+      {
+        title: 'Padrões de SG em arquitetura 3-tier',
+        entries: [
+          { key: 'sg-alb (público)', value: 'inbound: 80, 443 de 0.0.0.0/0  · outbound: tudo' },
+          { key: 'sg-app (privado)', value: 'inbound: 8080 de sg-alb  · outbound: 5432 para sg-rds + 443 internet' },
+          { key: 'sg-rds (privado)', value: 'inbound: 5432 de sg-app  · outbound: nenhum (default deny)' },
+          { key: 'sg-bastion', value: 'NÃO USE — substitua por SSM Session Manager (sem porta aberta)' },
+        ],
+      },
+    ],
+  },
+  {
+    sections: [
+      {
+        title: 'Network ACL (stateless por subnet)',
+        entries: [
+          { key: 'Default NACL', value: 'Allow all in/out — não toque a menos que precise de defense in depth' },
+          { key: 'Criar regra inbound', value: 'create-network-acl-entry --network-acl-id acl-xxx --rule-number 100 --protocol tcp --port-range From=443,To=443 --cidr-block 0.0.0.0/0 --rule-action allow' },
+          { key: 'Allow respostas (efêmeras)', value: 'rule 200 allow tcp 1024-65535 0.0.0.0/0  # SEMPRE necessário no outbound', badge: '★ stateless', badgeColor: '#f59e0b' },
+          { key: 'Bloquear IP malicioso', value: 'rule 50 deny all 198.51.100.42/32  # Deny vence Allow superior', badge: 'caso de uso', badgeColor: '#FF9900' },
+          { key: 'Ordem importa', value: 'Avaliada por rule_number ascendente. Primeira que casa decide.' },
+          { key: 'Esquecer outbound', value: 'NACL stateless: precisa allow ida E volta. Esquecer = "EC2 não responde".', badge: '!comum', badgeColor: '#ef4444' },
+        ],
+      },
+      {
+        title: 'Route Tables',
+        entries: [
+          { key: 'Listar route tables', value: 'aws ec2 describe-route-tables --filters "Name=vpc-id,Values=vpc-xxx"' },
+          { key: 'Subnet pública', value: '0.0.0.0/0 → igw-xxx  (Internet Gateway)' },
+          { key: 'Subnet privada', value: '0.0.0.0/0 → nat-xxx  (NAT Gateway)' },
+          { key: 'Tráfego a S3 sem NAT', value: 'pl-63a5400a → vpce-s3-xxx  (Gateway Endpoint, sem custo)', badge: 'economia', badgeColor: '#4ade80' },
+          { key: 'Longest prefix wins', value: 'Rota mais específica (CIDR menor) vence sobre 0.0.0.0/0' },
+          { key: 'Associate subnet → RT', value: 'aws ec2 associate-route-table --route-table-id rtb-xxx --subnet-id subnet-xxx' },
+        ],
+      },
+    ],
+  },
+  {
+    sections: [
+      {
+        title: 'VPC Endpoints (sem internet)',
+        entries: [
+          { key: 'Gateway Endpoint (S3, DynamoDB)', value: 'aws ec2 create-vpc-endpoint --vpc-id vpc-xxx --service-name com.amazonaws.us-east-1.s3 --route-table-ids rtb-priv', badge: 'gratis', badgeColor: '#4ade80' },
+          { key: 'Interface Endpoint (PrivateLink)', value: 'aws ec2 create-vpc-endpoint --vpc-endpoint-type Interface --service-name com.amazonaws.us-east-1.ssm --subnet-ids subnet-xxx --security-group-ids sg-vpce' },
+          { key: 'Casos típicos', value: 'SSM, KMS, Secrets Manager, ECR, CloudWatch Logs — todos via Interface' },
+          { key: 'Custo Interface', value: '~$0.01/h por endpoint por AZ + $/GB processado' },
+          { key: 'Endpoint policy', value: 'Restringe quais buckets/recursos podem ser acessados via o endpoint' },
+        ],
+      },
+      {
+        title: 'NAT Gateway e IGW',
+        entries: [
+          { key: 'IGW (grátis)', value: 'aws ec2 create-internet-gateway && attach-internet-gateway --vpc-id vpc-xxx --internet-gateway-id igw-xxx' },
+          { key: 'NAT Gateway por AZ', value: 'create-nat-gateway --subnet-id subnet-pub-a --allocation-id eipalloc-a  # 1 por AZ para HA' },
+          { key: 'Custo NAT', value: '~$0.045/h + $0.045/GB processado — caro em escala' },
+          { key: 'NAT Instance (alternativa)', value: 'EC2 com source_dest_check=false. Mais barato pequeno, sem HA nativa.' },
+          { key: 'Egress-Only IGW (IPv6)', value: 'create-egress-only-internet-gateway --vpc-id vpc-xxx  # equivalente NAT IPv6' },
+        ],
+      },
+      {
+        title: 'Diagnóstico de "EC2 não responde"',
+        entries: [
+          { key: '1. SG da instância', value: 'inbound permite o protocolo+porta vindo da origem certa?' },
+          { key: '2. NACL da subnet', value: 'allow inbound + allow outbound (porta efêmera)?' },
+          { key: '3. Route Table', value: 'rota 0.0.0.0/0 existe? Aponta para IGW (pública) ou NAT (privada)?' },
+          { key: '4. Public IP', value: 'instância tem IP público auto-atribuído? EIP associado?' },
+          { key: '5. OS firewall', value: 'iptables/ufw/security-enhanced bloqueando? aws ssm start-session p/ debug.' },
+          { key: '6. App ouvindo?', value: 'ss -lntp ou netstat — app bind em 0.0.0.0 ou só 127.0.0.1?' },
+        ],
+      },
+    ],
+  },
+]
+
+// ── Security Checklist ────────────────────────────────────────────────────────
+
+const SECURITY_CHECKS: SecurityCheck[] = [
+  {
+    item: 'Forçar IMDSv2 em todos os Launch Templates',
+    description: 'IMDSv1 expõe credenciais da IAM Role via GET simples no 169.254.169.254. SSRF na aplicação rouba credenciais em segundos. IMDSv2 exige token PUT que SSRF tradicional não obtém.',
+    severity: 'critical',
+    category: 'Identidade e Acesso',
+    cwe: 'CWE-918',
+    owasp: 'A05:2021',
+    remediation: 'metadata_options { http_tokens = "required", http_put_response_hop_limit = 1 } no Launch Template. Hop limit 1 impede containers de acessar IMDS via 2 hops.',
+    testable: true,
+  },
+  {
+    item: 'Usar IAM Instance Profile, nunca Access Keys hardcoded',
+    description: 'Credenciais em User Data ou variáveis de ambiente vazam para qualquer um com leitura no Launch Template ou snapshot. Instance Profile gera tokens STS temporários (1h) com rotação automática.',
+    severity: 'critical',
+    category: 'Identidade e Acesso',
+    cwe: 'CWE-798',
+    owasp: 'A07:2021',
+    remediation: 'iam_instance_profile { name = "app-role" } no Launch Template. Auditar com aws iam list-users e remover Access Keys de service accounts.',
+    testable: true,
+  },
+  {
+    item: 'IAM Role com permissões mínimas (least privilege)',
+    description: 'Role com s3:* ou *:* permite que um comprometimento da instância vire um comprometimento da conta. Granularize por bucket, prefix e ação.',
+    severity: 'high',
+    category: 'Identidade e Acesso',
+    cwe: 'CWE-269',
+    remediation: 'Resource: "arn:aws:s3:::bucket-app/*" + Action explícita (s3:GetObject, s3:PutObject). Use IAM Access Analyzer para detectar permissões não-utilizadas.',
+    testable: true,
+  },
+  {
+    item: 'Sem porta SSH (22) aberta para 0.0.0.0/0',
+    description: 'SSH público é o vetor de ataque mais comum em EC2. Bots fazem brute-force 24/7 em qualquer IP elástico. Substitua por SSM Session Manager — sem porta aberta, autenticação IAM, auditoria CloudTrail.',
+    severity: 'critical',
+    category: 'Rede',
+    cwe: 'CWE-284',
+    owasp: 'A05:2021',
+    remediation: 'Remover regra port 22 + cidr 0.0.0.0/0. Anexar role com policy AmazonSSMManagedInstanceCore. Usar aws ssm start-session --target i-xxx.',
+    testable: true,
+  },
+  {
+    item: 'Security Groups referenciam outros SGs, não CIDRs amplos',
+    description: 'Allow tcp 8080 de 10.0.0.0/8 permite qualquer instância na VPC. Usar source-group sg-alb restringe ao ALB específico — defesa contra movimento lateral.',
+    severity: 'medium',
+    category: 'Rede',
+    remediation: 'authorize-security-group-ingress --source-group sg-alb em vez de --cidr. Padrão 3-tier: sg-alb → sg-app → sg-rds.',
+    testable: true,
+  },
+  {
+    item: 'Subnets privadas para EC2 da aplicação',
+    description: 'Instâncias com IP público são alcançáveis da internet — superfície de ataque desnecessária. Aplicação deve ficar em subnet privada, com tráfego de saída via NAT Gateway.',
+    severity: 'high',
+    category: 'Rede',
+    remediation: 'Provisionar em subnet com rota 0.0.0.0/0 → NAT Gateway. associate_public_ip_address = false no Launch Template.',
+    testable: true,
+  },
+  {
+    item: 'VPC Endpoints para serviços AWS sensíveis',
+    description: 'Tráfego para S3, KMS, SSM, Secrets Manager não precisa sair da VPC. Endpoints (Gateway para S3/DynamoDB, Interface para os demais) eliminam exposição via NAT e reduzem custo.',
+    severity: 'medium',
+    category: 'Rede',
+    remediation: 'create-vpc-endpoint --service-name com.amazonaws.region.s3 (Gateway, grátis). Interface endpoints para SSM/KMS/Secrets Manager (~$0.01/h por AZ).',
+    testable: true,
+  },
+  {
+    item: 'EBS encryption obrigatória em todos os volumes',
+    description: 'Snapshots e volumes não criptografados expõem dados se alguém conseguir copiar o snapshot ou compartilhá-lo cross-account. KMS + auditoria por chave em CloudTrail é o padrão atual.',
+    severity: 'high',
+    category: 'Storage',
+    cwe: 'CWE-311',
+    remediation: 'Habilitar EBS encryption by default na conta: aws ec2 enable-ebs-encryption-by-default. Em Terraform: encrypted = true em aws_ebs_volume e block_device_mappings.',
+    testable: true,
+  },
+  {
+    item: 'Root volume encryption + delete_on_termination configurados',
+    description: 'Root volume não criptografado aceita downgrade. delete_on_termination=true é o padrão; para volumes de dados sensíveis, configure false e gerencie destruição manualmente.',
+    severity: 'medium',
+    category: 'Storage',
+    remediation: 'root_block_device { encrypted = true, kms_key_id = "arn:aws:kms:...", delete_on_termination = true (padrão) }. Para dados, false + lifecycle manual.',
+    testable: true,
+  },
+  {
+    item: 'Snapshots criptografados e não compartilhados publicamente',
+    description: 'Snapshots públicos vazaram dados de empresas inteiras. Compartilhamento cross-account deve usar account ID específica, nunca "all".',
+    severity: 'high',
+    category: 'Storage',
+    cwe: 'CWE-200',
+    remediation: 'aws ec2 modify-snapshot-attribute --snapshot-id snap-xxx --create-volume-permission "Remove=[{Group=all}]". AWS Config rule ebs-snapshot-public-restorable-check.',
+    testable: true,
+  },
+  {
+    item: 'Termination Protection em recursos críticos',
+    description: 'Erro humano (instance ID errado em script) pode destruir banco de produção. Termination Protection bloqueia o terminate-instances até ser explicitamente desabilitado.',
+    severity: 'high',
+    category: 'Operacional',
+    remediation: 'disable_api_termination = true em produção. Combinado com disable_api_stop = true para bancos. SCP organizacional pode forçar em tags Environment=prod.',
+    testable: true,
+  },
+  {
+    item: 'Patch Management via SSM Patch Manager ou golden AMI',
+    description: 'Instâncias sem patches conhecidos são porta de entrada. Imutabilidade (golden AMI + Instance Refresh) é a abordagem moderna; Patch Manager para legados.',
+    severity: 'high',
+    category: 'Operacional',
+    cwe: 'CWE-1104',
+    remediation: 'EC2 Image Builder + pipeline semanal de AMI + Instance Refresh no ASG. Para legados: SSM Patch Baseline + Maintenance Window.',
+    testable: true,
+  },
+  {
+    item: 'CloudTrail habilitado e logs em bucket S3 protegido',
+    description: 'Sem CloudTrail, comprometimento da conta passa despercebido. Logs devem ir para bucket dedicado com Object Lock ou bucket cross-account para que o atacante não apague.',
+    severity: 'critical',
+    category: 'Operacional',
+    cwe: 'CWE-778',
+    remediation: 'aws cloudtrail create-trail --is-multi-region-trail --enable-log-file-validation --s3-bucket-name audit-logs. Habilitar Data Events para EC2 sensível.',
+    testable: true,
+  },
+  {
+    item: 'CloudWatch alarms em métricas críticas',
+    description: 'Alarmes em StatusCheckFailed, CPU > 90% sustentado e network anomaly são essenciais. System Status Check pode disparar auto-recovery.',
+    severity: 'medium',
+    category: 'Operacional',
+    remediation: 'put-metric-alarm --alarm-actions arn:aws:automate:region:ec2:recover (auto-recover). put-metric-alarm CPU 90% por 10min com SNS.',
+    testable: true,
+  },
+  {
+    item: 'Tags obrigatórias: Environment, Owner, CostCenter, Project',
+    description: 'Sem tags, custo, ownership e blast radius de incidente são impossíveis de mapear. Tag enforcement via SCP impede criação de recurso sem tags.',
+    severity: 'medium',
+    category: 'Operacional',
+    remediation: 'AWS Config rule required-tags + SCP que faz Deny em ec2:RunInstances se aws:RequestTag/Environment ausente.',
+    testable: true,
+  },
+  {
+    item: 'Backup automatizado via AWS Backup ou snapshots agendados',
+    description: 'Sem backup, falha de hardware, ransomware ou erro humano significam perda permanente. AWS Backup centraliza políticas multi-serviço com retenção configurável.',
+    severity: 'high',
+    category: 'Operacional',
+    remediation: 'AWS Backup plan com daily snapshot + retention 30 dias + cross-region copy. Tag backup:daily nos volumes para selection automática.',
+    testable: true,
+  },
+  {
+    item: 'User Data sem segredos — usar Secrets Manager ou SSM Parameter Store',
+    description: 'Segredos em User Data ficam no Launch Template para sempre. Mesmo após remoção, versões antigas existem. SSM Parameter Store SecureString ou Secrets Manager + IAM Role é o padrão.',
+    severity: 'high',
+    category: 'Identidade e Acesso',
+    cwe: 'CWE-798',
+    remediation: 'No User Data: aws secretsmanager get-secret-value --secret-id app/db. SDK lê via Instance Profile sem senha hardcoded.',
+    testable: true,
+  },
+  {
+    item: 'Deletion protection em ASG / RDS críticos via SCP',
+    description: 'SCP organizacional impede ações destrutivas mesmo com root. Útil para evitar terminate em ASG de produção e drop em RDS.',
+    severity: 'medium',
+    category: 'Operacional',
+    remediation: 'SCP que faz Deny em ec2:TerminateInstances quando aws:ResourceTag/Environment=prod. Bypass exige PR aprovado em IaC.',
+    testable: false,
+  },
+]
+
 // ── Builders de PDF ───────────────────────────────────────────────────────────
 
-const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
+const PDF_BUILDERS: Record<string, PdfBuilderFn> = {
   qa: () => buildQAReviewPdf({
     qa: QAS,
     accentColor: C,
@@ -478,6 +753,21 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     accentColor: C,
     stackLabel: 'AWS / Cloud',
     tagline: 'Comandos AWS CLI essenciais para EC2 — ciclo de vida, EBS, AMI, ASG e Spot',
+  }),
+  networking: () => buildQuickRefPdf({
+    columns: NETWORKING_QR,
+    skillName: 'EC2 Networking',
+    accentColor: C,
+    stackLabel: 'AWS / VPC',
+    tagline: 'Security Groups, NACLs, Route Tables, VPC Endpoints — checklist de diagnóstico',
+  }),
+  security: () => buildSecurityChecklistPdf({
+    checks: SECURITY_CHECKS,
+    skillName: 'EC2',
+    accentColor: C,
+    stackLabel: 'AWS / Cloud',
+    targetAudience: 'Engenheiro DevOps / SRE / Cloud',
+    coverTitle: 'EC2 — Hardening de Produção',
   }),
   cheatsheet: () => buildCheatsheetPdf({
     skillName: 'EC2',

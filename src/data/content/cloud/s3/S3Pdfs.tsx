@@ -11,6 +11,8 @@ import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
 import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
+import { buildSecurityChecklistPdf } from '@/components/pdfs/SecurityChecklistPdf'
+import type { SecurityCheck } from '@/components/pdfs/SecurityChecklistPdf'
 
 // ── Paleta S3 ─────────────────────────────────────────────────────────────────
 const C = '#FF9900'
@@ -58,6 +60,16 @@ const PDF_CARDS: PdfCard[] = [
     description: 'SSIG-DA para a ordem das storage classes, BBIA para as camadas de segurança, VPC para as três proteções de versão e CRR-SRR para os casos de replicação. Os conceitos S3 que ninguém consegue lembrar na entrevista.',
     icon: '04',
     goal: 'Memória de longo prazo',
+  },
+  {
+    id: 'security',
+    title: 'Security Checklist S3',
+    subtitle: 'BPA, encryption, MFA Delete, replication — 18 verificações de produção',
+    type: 'security',
+    pages: 5,
+    description: 'Checklist completo organizado por categoria e severidade: Acesso (Block Public Access em conta, bucket policy deny public, IAM least privilege), Criptografia (default encryption, Bucket Key, KMS rotation), Integridade (Versioning + lifecycle, MFA Delete, Object Lock para WORM), Monitoramento (CloudTrail data events, Macie, Storage Lens) e Replicação (CRR/SRR + cleanup multipart). Cada item com remediation acionável.',
+    icon: '05',
+    goal: 'Hardening de produção',
   },
 ]
 
@@ -497,6 +509,160 @@ const MNEMONICS: MnemonicItem[] = [
   },
 ]
 
+// ── Dados — Security Checklist ────────────────────────────────────────────────
+
+const SECURITY_CHECKS: SecurityCheck[] = [
+  {
+    item: 'Block Public Access em nível de CONTA (não só bucket)',
+    description: 'Configuração no nível da conta bloqueia todos os buckets atuais e futuros. Bucket-level pode ser desativado por engano em refactor; account-level é o switch master. Os 4 flags devem estar TODOS em true.',
+    severity: 'critical',
+    category: 'Acesso',
+    cwe: 'CWE-732',
+    owasp: 'A05:2021',
+    remediation: 'aws s3control put-public-access-block --account-id 123 --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true',
+    testable: true,
+  },
+  {
+    item: 'Bucket policy nega acesso não-criptografado e não-HTTPS',
+    description: 'Sem essas duas regras de Deny explícito, alguém pode subir objeto sem encryption ou acessar via HTTP. Deny vence Allow, então isso protege mesmo com IAM permissivo.',
+    severity: 'high',
+    category: 'Acesso',
+    remediation: 'Bucket policy: Deny "*" se aws:SecureTransport = false (força HTTPS). Deny "*" PutObject se s3:x-amz-server-side-encryption ausente.',
+    testable: true,
+  },
+  {
+    item: 'IAM policies com least privilege por prefix',
+    description: 'Role com s3:* ou s3:GetObject em arn:aws:s3:::bucket/* permite leitura de qualquer objeto. Granularize por prefix e ação.',
+    severity: 'high',
+    category: 'Acesso',
+    cwe: 'CWE-269',
+    remediation: 'Resource: "arn:aws:s3:::bucket-app/uploads/${aws:username}/*". Use Access Analyzer para detectar permissões não-utilizadas e gerar política minimizada.',
+    testable: true,
+  },
+  {
+    item: 'Pre-signed URLs com TTL curto (5-15 min para PUT, 1h para GET)',
+    description: 'TTL longo aumenta janela de exfiltração se a URL vazar (logs CDN, browser history, telemetria). URLs incorporam credenciais válidas — não são tokens revogáveis.',
+    severity: 'medium',
+    category: 'Acesso',
+    remediation: 'getSignedUrl(s3, command, { expiresIn: 900 }). Combinar com IAM Condition aws:SourceIp para limitar onde a URL pode ser usada.',
+    testable: true,
+  },
+  {
+    item: 'Default encryption habilitado em todos os buckets',
+    description: 'Sem default encryption, é possível subir objeto sem criptografia (mesmo com bucket policy você precisa configurar Deny explícito). Default encryption garante AES256 ou KMS automaticamente.',
+    severity: 'high',
+    category: 'Criptografia',
+    cwe: 'CWE-311',
+    remediation: 'PutBucketEncryption: { Rules: [{ ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms", KMSMasterKeyID: "arn:..." }, BucketKeyEnabled: true }] }',
+    testable: true,
+  },
+  {
+    item: 'Bucket Key habilitado quando usar SSE-KMS',
+    description: 'Sem Bucket Key, cada GET/PUT chama o KMS — custo cresce linearmente com volume. Bucket Key reduz 99% das chamadas KMS. Esquecer disso pode dobrar a fatura de KMS em buckets grandes.',
+    severity: 'medium',
+    category: 'Criptografia',
+    remediation: 'BucketKeyEnabled: true em PutBucketEncryption. Para objetos legados, copie sobre si mesmos para aplicar Bucket Key.',
+    testable: true,
+  },
+  {
+    item: 'KMS keys com rotação automática anual',
+    description: 'Chaves antigas têm mais oportunidade de comprometimento. Rotação anual é o padrão de compliance (PCI, SOC 2, HIPAA). Versões antigas continuam descriptografando dados antigos automaticamente.',
+    severity: 'medium',
+    category: 'Criptografia',
+    remediation: 'aws kms enable-key-rotation --key-id <id>. Em Terraform: enable_key_rotation = true em aws_kms_key.',
+    testable: true,
+  },
+  {
+    item: 'Versioning ativado em buckets críticos',
+    description: 'Versioning protege contra DELETE acidental (vira delete marker reversível) e overwrite (versões antigas preservadas). Sem versioning, ransomware ou bug que sobrescreve = perda permanente.',
+    severity: 'high',
+    category: 'Integridade',
+    remediation: 'PutBucketVersioning: { Status: "Enabled" }. Combinar com lifecycle NoncurrentVersionExpiration para controlar custo.',
+    testable: true,
+  },
+  {
+    item: 'Lifecycle limpa versões antigas E partes multipart abandonadas',
+    description: 'Versioning sem lifecycle vira armadilha de custo (versões acumulam infinitamente). Multipart sem AbortIncompleteMultipartUpload acumula partes invisíveis (não aparecem em ListObjects).',
+    severity: 'medium',
+    category: 'Integridade',
+    remediation: 'NoncurrentVersionExpiration: { NoncurrentDays: 30, NewerNoncurrentVersions: 5 } + AbortIncompleteMultipartUpload: { DaysAfterInitiation: 7 } em TODA lifecycle policy.',
+    testable: true,
+  },
+  {
+    item: 'MFA Delete em buckets de auditoria/compliance',
+    description: 'MFA Delete exige código de MFA do root da conta para deletar objeto ou suspender versioning. Protege contra credencial comprometida deletar logs.',
+    severity: 'high',
+    category: 'Integridade',
+    remediation: 'aws s3api put-bucket-versioning --bucket b --mfa "arn:aws:iam::123:mfa/root SerialNumber 123456" --versioning-configuration Status=Enabled,MFADelete=Enabled  # exige root account.',
+    testable: false,
+  },
+  {
+    item: 'Object Lock COMPLIANCE em buckets WORM (logs, audit, regulatório)',
+    description: 'Object Lock Compliance impede deleção mesmo pelo root pelo período configurado. Único modo aceito por SEC 17a-4, FINRA. Governance permite bypass com permissão especial.',
+    severity: 'high',
+    category: 'Integridade',
+    remediation: 'Bucket criado com ObjectLockEnabled. Default Retention: { Mode: "COMPLIANCE", Years: 7 }. Não pode ser revertido depois de habilitado.',
+    testable: true,
+  },
+  {
+    item: 'CloudTrail Data Events habilitado em buckets sensíveis',
+    description: 'CloudTrail Management Events não captura GetObject/PutObject. Para auditar acesso a objetos individuais, é necessário habilitar Data Events (custo extra). Essencial para investigação pós-incidente.',
+    severity: 'high',
+    category: 'Monitoramento',
+    cwe: 'CWE-778',
+    remediation: 'aws cloudtrail put-event-selectors --trail-name audit --event-selectors \'[{"DataResources":[{"Type":"AWS::S3::Object","Values":["arn:aws:s3:::bucket-prod/*"]}]}]\'',
+    testable: true,
+  },
+  {
+    item: 'Amazon Macie habilitado para detecção de PII e dados sensíveis',
+    description: 'Macie usa ML para detectar automaticamente PII, credenciais, dados financeiros em buckets. Detecta vazamentos antes de virarem incidente — bucket com CPFs em prefix público é alertado em horas.',
+    severity: 'medium',
+    category: 'Monitoramento',
+    remediation: 'Macie habilitado na conta + jobs de discovery agendados em buckets de produção. Alertas em SNS para descobertas de severidade alta.',
+    testable: true,
+  },
+  {
+    item: 'CloudWatch alarms em métricas anômalas (volume, 4xx, 5xx)',
+    description: 'Pico súbito de GetObject pode indicar exfiltração. Pico de 4xx pode indicar tentativa de enumeração. Alarmes captam o que CloudTrail apenas registra.',
+    severity: 'medium',
+    category: 'Monitoramento',
+    remediation: 'Habilitar Request Metrics no bucket. CloudWatch alarm em BytesDownloaded com threshold dinâmico via Anomaly Detection.',
+    testable: true,
+  },
+  {
+    item: 'S3 Storage Lens com métricas avançadas',
+    description: 'Storage Lens identifica buckets sem lifecycle, sem encryption, com versioning crescendo descontroladamente. Visibilidade essencial em organizações com muitos buckets.',
+    severity: 'low',
+    category: 'Monitoramento',
+    remediation: 'Storage Lens dashboard organizacional + advanced metrics + recomendações de otimização. Exportar CSV para BI.',
+    testable: true,
+  },
+  {
+    item: 'Replication para conta separada (anti-ransomware)',
+    description: 'Backup na mesma conta cai com a conta. Replicação para conta dedicada de backup (com Object Lock no destino e DeleteMarkerReplication=Disabled) é o padrão moderno de proteção contra ransomware e comprometimento da conta primária.',
+    severity: 'high',
+    category: 'Replicação',
+    remediation: 'CRR ou SRR para bucket em conta de backup. DeleteMarkerReplication: Disabled. Bucket destino com Object Lock COMPLIANCE.',
+    testable: true,
+  },
+  {
+    item: 'CORS configurado restritivamente — sem AllowedOrigins=*',
+    description: 'CORS com origin = * permite qualquer site fazer upload via browser usando uma pre-signed URL vazada. Restringir aos domínios reais da aplicação.',
+    severity: 'medium',
+    category: 'Acesso',
+    remediation: 'CORS: AllowedOrigins=["https://app.example.com"], AllowedMethods=["PUT", "GET"], MaxAge=3600. Sem wildcards em produção.',
+    testable: true,
+  },
+  {
+    item: 'Tags obrigatórias: DataClassification, Owner, Environment',
+    description: 'Sem classificação de dados (Public, Internal, Confidential, Restricted), políticas e controles não conseguem ser diferenciados. SCP pode forçar tags em criação de bucket.',
+    severity: 'low',
+    category: 'Acesso',
+    remediation: 'AWS Config rule required-tags + SCP que faz Deny em s3:CreateBucket sem aws:RequestTag/DataClassification.',
+    testable: true,
+  },
+]
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function S3Pdfs() {
@@ -531,6 +697,14 @@ export default function S3Pdfs() {
       accentColor: C,
       skillName: 'Amazon S3',
       stackLabel: 'AWS / Cloud Storage',
+    }),
+    security: () => buildSecurityChecklistPdf({
+      checks: SECURITY_CHECKS,
+      accentColor: C,
+      skillName: 'Amazon S3',
+      stackLabel: 'AWS / Cloud Storage',
+      targetAudience: 'Engenheiro DevOps / Cloud / Compliance',
+      coverTitle: 'S3 — Hardening de Produção',
     }),
   }
 

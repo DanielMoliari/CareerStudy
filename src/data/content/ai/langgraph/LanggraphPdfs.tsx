@@ -11,6 +11,10 @@ import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
 import { buildComparativeRefPdf } from '@/components/pdfs/ComparativeRefPdf'
 import type { CompOption, CompCriterion, CompScenario } from '@/components/pdfs/ComparativeRefPdf'
+import { buildCheatsheetPdf } from '@/components/pdfs/CheatsheetPdf'
+import type { HookItem, RuleItem } from '@/components/pdfs/CheatsheetPdf'
+import { buildErrorRefPdf } from '@/components/pdfs/ErrorRefPdf'
+import type { ErrorEntry } from '@/components/pdfs/ErrorRefPdf'
 
 // ── Paleta LangGraph ──────────────────────────────────────────────────────────
 const C = '#4ade80'
@@ -58,6 +62,26 @@ const PDF_CARDS: PdfCard[] = [
     description: 'SNEC para os blocos fundamentais (State/Nodes/Edges/Checkpointer), RAA para reducers (Replace/Append por papel do campo), PIR para human-in-the-loop (Pause/Inspect/Resume) e SSL para multi-agent (Supervisor/Swarm/LCEL). Os conceitos de LangGraph que ninguém grava sem âncora.',
     icon: '04',
     goal: 'Memória de longo prazo',
+  },
+  {
+    id: 'cheatsheet',
+    title: 'API Cheatsheet',
+    subtitle: 'Toda a API LangGraph numa página: StateGraph, nodes, edges, compile, invoke, stream',
+    type: 'cheatsheet',
+    pages: 3,
+    description: 'Referência densa da API: StateGraph, add_node, add_edge, add_conditional_edges, compile (com checkpointer e interrupt_before), invoke, stream (modos updates/messages/values/custom), get_state, update_state, get_state_history. Todos os métodos com assinatura, descrição e exemplo.',
+    icon: '05',
+    goal: 'Consulta rápida de API',
+  },
+  {
+    id: 'troubleshooting',
+    title: 'Troubleshooting Guide',
+    subtitle: 'Os erros operacionais mais comuns em LangGraph — sintoma, causa e solução',
+    type: 'errors',
+    pages: 4,
+    description: 'Diferente dos anti-patterns (erros de design), este guia cobre erros que acontecem em runtime: loop infinito (recursion_limit), state não atualiza (reducer wrong), checkpointer não persiste (thread_id ausente), interrupt não pausa, retry mata progresso, OOM no state e mais.',
+    icon: '06',
+    goal: 'Diagnóstico rápido',
   },
 ]
 
@@ -523,6 +547,193 @@ const MNEMONICS: MnemonicItem[] = [
   },
 ]
 
+// ── Cheatsheet — API LangGraph ────────────────────────────────────────────────
+
+const CHEATSHEET_HOOKS: HookItem[] = [
+  { name: 'StateGraph', sig: 'StateGraph(state_schema: TypedDict)', desc: 'Cria um grafo. state_schema é o TypedDict que define os campos e seus reducers (replace ou append via Annotated).' },
+  { name: 'add_node', sig: 'graph.add_node(name: str, fn: Callable)', desc: 'Adiciona um node. fn recebe state e retorna dict com patch (campos a atualizar). Pode ser sync ou async.' },
+  { name: 'add_edge', sig: 'graph.add_edge(start: str, end: str)', desc: 'Cria edge fixa entre dois nodes. START e END são constantes especiais (de langgraph.graph).' },
+  { name: 'add_conditional_edges', sig: 'graph.add_conditional_edges(src, fn, mapping)', desc: 'fn(state) retorna string. mapping é dict {string: node_name}. Permite branching, loops, multiple destinations.' },
+  { name: 'compile', sig: 'graph.compile(checkpointer=None, interrupt_before=[], interrupt_after=[])', desc: 'Compila o grafo num runnable. checkpointer habilita pause/resume. interrupt_before/after pausam antes/depois de nodes.' },
+  { name: 'invoke', sig: 'graph.invoke(input: dict, config: dict) -> dict', desc: 'Executa o grafo síncrono. config={"configurable": {"thread_id": "..."}}. Retorna state final.' },
+  { name: 'ainvoke', sig: 'await graph.ainvoke(input, config)', desc: 'Versão async de invoke. Use quando os nodes são async ou em FastAPI.' },
+  { name: 'stream', sig: 'graph.stream(input, config, stream_mode="updates")', desc: 'Generator que emite chunks. Modos: "updates" (patch por node), "messages" (tokens de LLM), "values" (state completo), "custom" (writer manual).' },
+  { name: 'astream', sig: 'async for chunk in graph.astream(input, config)', desc: 'Versão async de stream. Combine com SSE no FastAPI para frontend reativo.' },
+  { name: 'get_state', sig: 'graph.get_state(config) -> StateSnapshot', desc: 'Retorna state atual de uma thread. snapshot.values = state, snapshot.next = próximos nodes a executar.' },
+  { name: 'update_state', sig: 'graph.update_state(config, patch: dict, as_node=None)', desc: 'Muta state da thread sem executar nodes. Útil em human-in-the-loop antes de retomar.' },
+  { name: 'get_state_history', sig: 'graph.get_state_history(config) -> List[StateSnapshot]', desc: 'Lista todos os checkpoints de uma thread. Permite "time travel" — voltar a qualquer ponto da execução.' },
+]
+
+const CHEATSHEET_RULES: RuleItem[] = [
+  { ok: true, t: 'Sempre use TypedDict + Annotated[list, add_messages] para histórico de mensagens' },
+  { ok: true, t: 'Sem Annotated → reducer REPLACE (campo escalar, status, contador)' },
+  { ok: true, t: 'Conditional edge SEMPRE termina com fallback explícito (return "finish")' },
+  { ok: true, t: 'Use Literal["a", "b"] no return type para o type checker pegar caso esquecido' },
+  { ok: true, t: 'Em produção: PostgresSaver como checkpointer (não MemorySaver)' },
+  { ok: true, t: 'config={"configurable": {"thread_id": user_id + ":" + session_id}}' },
+  { ok: true, t: 'Limite loops com iter_count no state + recursion_limit no compile' },
+  { ok: true, t: 'Use create_react_agent(llm, tools) como ponto de partida — depois customize' },
+  { ok: true, t: 'LangSmith desde o dia 1 (LANGCHAIN_TRACING_V2=true) para debug em produção' },
+  { ok: true, t: 'FakeListChatModel nos unit tests — respostas determinísticas' },
+  { ok: false, t: 'StateGraph para pipeline linear sem state (use LCEL)' },
+  { ok: false, t: 'Annotated[list, add_messages] em campo de status (vira ["running","done"])' },
+  { ok: false, t: 'invoke sem config={"configurable": {"thread_id"}} (sem memória entre calls)' },
+  { ok: false, t: 'compile() sem checkpointer em produção (perde tudo se processo cai)' },
+  { ok: false, t: 'Mutar state diretamente dentro do node (sempre retornar dict patch)' },
+  { ok: false, t: 'Esquecer fallback no conditional edge (KeyError silencioso em runtime)' },
+]
+
+// ── Troubleshooting / Error Reference ────────────────────────────────────────
+
+const TROUBLESHOOTING_ERRORS: ErrorEntry[] = [
+  {
+    title: 'Loop infinito — RecursionError ou esgota tokens',
+    errorMessage: 'GraphRecursionError: Recursion limit of 25 reached without hitting a stop condition',
+    cause: 'Agente ReAct ficou chamando tools sem parar. LLM "não soube parar" e cada conditional edge retorna "tools" novamente. Sem contador de iterações no state, o grafo loopa até o recursion_limit (default 25) ou até esgotar token budget.',
+    solution: 'Defesa em dupla camada: (1) Adicione iter_count: int no state, incremente em cada node, conditional edge retorna END se >= max_iter (ex: 10). (2) Configure recursion_limit no compile como fallback que levanta erro previsível.',
+    code: {
+      broken: '# Conditional edge sem limite\ndef should_act(state) -> str:\n    last = state["messages"][-1]\n    return "tools" if last.tool_calls else "end"\n# LLM pode chamar tools infinitamente',
+      fixed: 'class State(TypedDict):\n    messages: Annotated[list, add_messages]\n    iter_count: int  # contador de saída\n\ndef should_act(state) -> str:\n    if state["iter_count"] >= 10: return "end"\n    last = state["messages"][-1]\n    return "tools" if last.tool_calls else "end"\n\ngraph.compile().with_config({"recursion_limit": 25})',
+    },
+    severity: 'critical',
+    category: 'Runtime',
+    relatedErrors: ['Token budget esgotado'],
+  },
+  {
+    title: 'State não atualiza entre nodes',
+    errorMessage: '(sem erro — state aparece inalterado mesmo após node retornar patch)',
+    cause: 'Node está mutando state diretamente em vez de retornar dict com patch. LangGraph aplica reducer ao retorno do node — se você muta state["x"] = y, o framework não vê a mudança.',
+    solution: 'Nunca mute state diretamente. Sempre retorne dict com os campos a atualizar. O framework aplica o reducer apropriado (REPLACE ou APPEND) baseado no schema do TypedDict.',
+    code: {
+      broken: 'def my_node(state: State) -> dict:\n    state["count"] += 1  # MUTAÇÃO DIRETA\n    return {}  # patch vazio — reducer não roda\n# state["count"] permanece o valor original',
+      fixed: 'def my_node(state: State) -> dict:\n    return {"count": state["count"] + 1}\n# Reducer REPLACE aplica: state["count"] = novo valor',
+    },
+    severity: 'warning',
+    category: 'State',
+    relatedErrors: ['Reducer errado'],
+  },
+  {
+    title: 'Reducer errado: status acumula como lista',
+    errorMessage: 'TypeError: \'list\' object has no attribute \'lower\' (ou: comparação com string sempre falha)',
+    cause: 'Campo de status declarado com Annotated[list, add_messages] em vez de str. Reducer APPEND acumula valores em vez de substituir. status que deveria ser "done" vira ["running", "done"].',
+    solution: 'Pergunta diagnóstica: "este campo é HISTÓRICO ou ESTADO ATUAL?". Histórico (mensagens, eventos) → APPEND. Estado atual (status, contador, flag) → REPLACE (sem Annotated).',
+    code: {
+      broken: 'class State(TypedDict):\n    status: Annotated[list, add_messages]  # ERRADO\n# state["status"] vira ["running", "done", ...]',
+      fixed: 'class State(TypedDict):\n    status: str  # REPLACE — substitui ao escrever\n    messages: Annotated[list, add_messages]  # APPEND ok',
+    },
+    severity: 'critical',
+    category: 'State',
+  },
+  {
+    title: 'Checkpointer não persiste — sessão começa do zero a cada invoke',
+    errorMessage: '(sem erro — mas conversation history vazia em cada request)',
+    cause: 'thread_id ausente no config, ou checkpointer é MemorySaver e processo reiniciou, ou múltiplas réplicas do backend não compartilham state (cada uma tem MemorySaver isolado).',
+    solution: 'Sempre passe config={"configurable": {"thread_id": "..."}}. Em produção, use PostgresSaver (state compartilhado entre réplicas, persiste entre restarts). Pattern: thread_id derive de user_id + session_id.',
+    code: {
+      broken: '# Backend FastAPI\n@app.post("/chat")\ndef chat(msg: str):\n    return graph.invoke({"messages": [...]})\n# Sem config — checkpointer ignorado',
+      fixed: '@app.post("/chat")\ndef chat(msg: str, user_id: str, session_id: str):\n    config = {"configurable": {\n        "thread_id": f"{user_id}:{session_id}"\n    }}\n    return graph.invoke({"messages": [...]}, config)',
+    },
+    severity: 'critical',
+    category: 'Checkpointer',
+  },
+  {
+    title: 'interrupt_before não pausa a execução',
+    errorMessage: '(node executa normalmente, sem pause)',
+    cause: 'Compilou sem checkpointer — interrupt_before exige checkpointer para persistir state. Ou nome do node em interrupt_before não bate com o name registrado em add_node.',
+    solution: 'Sempre passe checkpointer junto com interrupt_before. Verifique que o nome em interrupt_before é o mesmo string usado em graph.add_node("name", fn).',
+    code: {
+      broken: 'graph = builder.compile(\n    interrupt_before=["send_email"]\n    # SEM checkpointer\n)\n# interrupt ignorado em runtime',
+      fixed: 'graph = builder.compile(\n    checkpointer=PostgresSaver(...),\n    interrupt_before=["send_email"]\n)\n# Pausa antes de send_email, retorna controle',
+    },
+    severity: 'warning',
+    category: 'HITL',
+  },
+  {
+    title: 'KeyError em conditional edge',
+    errorMessage: 'KeyError: \'unknown_branch\'',
+    cause: 'Função do conditional edge retornou string que NÃO está no dict de mapeamento. Geralmente: faltou cobrir um caso (sem fallback) ou typo no nome do branch.',
+    solution: 'Sempre termine a função com return "default" ou return END. Use typing.Literal no return type para o type checker pegar caso esquecido em compile time.',
+    code: {
+      broken: 'def route(state) -> str:\n    if state["needs_tool"]: return "tools"\n    if state["done"]:       return "finish"\n    # Sem return explícito — retorna None\n# KeyError no graph.add_conditional_edges',
+      fixed: 'def route(state) -> Literal["tools", "finish"]:\n    if state["needs_tool"]: return "tools"\n    return "finish"  # fallback explícito',
+    },
+    severity: 'critical',
+    category: 'Edges',
+  },
+  {
+    title: 'OOM ou context window exceeded — messages crescem indefinidamente',
+    errorMessage: 'context_length_exceeded: This model\'s maximum context length is 128000 tokens, however you requested 145000 tokens',
+    cause: 'Reducer APPEND em messages acumula histórico infinitamente entre múltiplos invokes na mesma thread. Sem trim ou summarize, o array cresce até estourar o context window do LLM.',
+    solution: 'Use trim_messages(messages, max_tokens=...) para manter as N últimas. Para conversas longas, adicione node periódico que resume mensagens antigas em uma SystemMessage e descarta as detalhadas.',
+    code: {
+      broken: 'def reason_node(state):\n    response = llm.invoke(state["messages"])  # 1000 mensagens\n    return {"messages": [response]}\n# Sem trim — estoura context window',
+      fixed: 'from langchain_core.messages import trim_messages\n\ndef reason_node(state):\n    trimmed = trim_messages(\n        state["messages"],\n        max_tokens=4000,\n        strategy="last",\n        token_counter=llm,\n    )\n    return {"messages": [llm.invoke(trimmed)]}',
+    },
+    severity: 'critical',
+    category: 'State',
+  },
+  {
+    title: 'update_state não dispara nodes',
+    errorMessage: '(esperava que update_state acionasse o próximo node, mas nada aconteceu)',
+    cause: 'update_state APENAS modifica o state — não executa nenhum node. Confusão comum: chamar update_state e esperar que o grafo continue. Apenas invoke (com input None se for resume) executa nodes.',
+    solution: 'Após update_state, chame invoke(None, config) para retomar a execução. Ou se não quiser retomar, apenas leia o state atualizado via get_state.',
+    code: {
+      broken: '# Bug: editou state, esperou execução\ngraph.update_state(config, {"draft": "novo"})\n# nada acontece — state mudou, nada executou',
+      fixed: '# Edite + retome em sequência\ngraph.update_state(config, {"draft": "novo"})\nresult = graph.invoke(None, config)\n# None = não passa input novo, usa state atual',
+    },
+    severity: 'info',
+    category: 'HITL',
+  },
+  {
+    title: 'PostgresSaver: tabelas não existem',
+    errorMessage: 'psycopg.errors.UndefinedTable: relation "checkpoints" does not exist',
+    cause: 'PostgresSaver requer tabelas criadas previamente. Esquecer de chamar setup() antes do primeiro uso causa erro no primeiro invoke.',
+    solution: 'Chame checkpointer.setup() uma vez antes de iniciar o servidor (em script de migration ou no startup). Cria as tabelas necessárias automaticamente.',
+    code: {
+      broken: 'with PostgresSaver.from_conn_string(DB_URL) as cp:\n    graph = builder.compile(checkpointer=cp)\n    graph.invoke(...)  # ERRO: tabelas não existem',
+      fixed: '# Em script de migration ou startup:\nwith PostgresSaver.from_conn_string(DB_URL) as cp:\n    cp.setup()  # cria tabelas\n\n# Depois, em produção:\nwith PostgresSaver.from_conn_string(DB_URL) as cp:\n    graph = builder.compile(checkpointer=cp)\n    graph.invoke(...)  # OK',
+    },
+    severity: 'warning',
+    category: 'Checkpointer',
+  },
+  {
+    title: 'Streaming não emite tokens em tempo real',
+    errorMessage: '(stream emite só uma vez no final, em vez de streaming progressivo)',
+    cause: 'stream_mode default é "updates" — emite por node completado, não tokens. Para streaming de tokens estilo ChatGPT, precisa de stream_mode="messages".',
+    solution: 'Use stream_mode="messages" para tokens. Use stream_mode=["updates", "messages"] para combinar (frontend recebe (mode, chunk) e roteia por tipo).',
+    code: {
+      broken: '# Espera tokens, mas recebe patches por node\nfor chunk in graph.stream(input, config):\n    print(chunk)  # só emite quando node termina',
+      fixed: '# Tokens em tempo real:\nfor msg, meta in graph.stream(\n    input, config,\n    stream_mode="messages"\n):\n    if msg.type == "AIMessageChunk":\n        print(msg.content, end="", flush=True)',
+    },
+    severity: 'info',
+    category: 'Streaming',
+  },
+  {
+    title: 'FakeListChatModel não retorna tool_calls',
+    errorMessage: '(testes unitários do agente ReAct sempre vão direto para "end")',
+    cause: 'FakeListChatModel retorna strings, não AIMessage com tool_calls. Para testar agentes que usam tools, precisa de fake que simule a estrutura completa.',
+    solution: 'Use create_tool_calling_agent ou crie mock manual de AIMessage com tool_calls. Ou use FakeMessagesListChatModel que aceita lista de AIMessage prontos.',
+    code: {
+      broken: 'from langchain_community.chat_models import FakeListChatModel\nllm = FakeListChatModel(responses=["resposta"])\n# Não emite tool_calls — agente nunca aciona tools',
+      fixed: 'from langchain_core.language_models import FakeMessagesListChatModel\nfrom langchain_core.messages import AIMessage\n\nllm = FakeMessagesListChatModel(responses=[\n    AIMessage(content="", tool_calls=[\n        {"name": "search", "args": {"q": "x"}, "id": "1"}\n    ]),\n    AIMessage(content="resposta final"),\n])',
+    },
+    severity: 'info',
+    category: 'Testing',
+  },
+  {
+    title: 'Async vs sync — RuntimeError ao misturar',
+    errorMessage: 'RuntimeError: This event loop is already running (ou: cannot be called from a running event loop)',
+    cause: 'Misturou node async com graph.invoke sync (ou vice-versa). Em FastAPI (que é async), chamar invoke sync bloqueia o event loop.',
+    solution: 'Em FastAPI: use ainvoke e astream (versões async). Em script Python normal: use invoke sync. Não misture — escolha um modelo e seja consistente.',
+    code: {
+      broken: '# FastAPI handler async chamando invoke sync\n@app.post("/chat")\nasync def chat(msg: str):\n    return graph.invoke({"messages": [msg]})\n# Bloqueia event loop',
+      fixed: '@app.post("/chat")\nasync def chat(msg: str):\n    return await graph.ainvoke({"messages": [msg]})\n\n# Streaming:\n@app.post("/stream")\nasync def stream(msg: str):\n    async def gen():\n        async for chunk in graph.astream({"messages": [msg]}, config):\n            yield f"data: {json.dumps(chunk)}\\n\\n"\n    return StreamingResponse(gen(), media_type="text/event-stream")',
+    },
+    severity: 'warning',
+    category: 'Runtime',
+  },
+]
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function LanggraphPdfs() {
@@ -557,6 +768,63 @@ export default function LanggraphPdfs() {
       accentColor: C,
       skillName: 'LangGraph',
       stackLabel: 'AI / Agent Framework',
+    }),
+    cheatsheet: () => buildCheatsheetPdf({
+      skillName: 'LangGraph',
+      accentColor: C,
+      stackLabel: 'AI / Agent Framework',
+      coverTitle: 'LangGraph — API Cheatsheet',
+      sections: {
+        hooks: CHEATSHEET_HOOKS,
+        depRows: [
+          ['Pacote core', 'pip install langgraph'],
+          ['Checkpointers', 'langgraph.checkpoint.memory · sqlite · postgres'],
+          ['Multi-agent', 'pip install langgraph-supervisor langgraph-swarm'],
+          ['ReAct prebuilt', 'from langgraph.prebuilt import create_react_agent'],
+          ['Add messages reducer', 'from langgraph.graph.message import add_messages'],
+          ['Constants', 'from langgraph.graph import START, END'],
+          ['BaseStore (long-term)', 'langgraph.store.memory · postgres'],
+          ['Observability', 'LANGCHAIN_TRACING_V2=true (LangSmith automático)'],
+        ],
+        rules: CHEATSHEET_RULES,
+        performanceTips: [
+          'Inicialize LLM e checkpointer fora do graph builder (reutilizado entre invokes)',
+          'Use trim_messages para evitar context window exceeded em conversas longas',
+          'PostgresSaver com pool de conexões (asyncpg) para alta concorrência',
+          'Stream mode "updates" para UX de progresso — "messages" só onde precisa de tokens',
+          'recursion_limit no compile como fallback de segurança contra loops',
+          'BaseStore para fatos persistentes entre threads — não inflar messages com contexto',
+          'create_react_agent é o ponto de partida — desmonte só quando precisar de custom',
+          'FakeListChatModel + FakeMessagesListChatModel para unit tests determinísticos',
+        ],
+        patterns: [
+          { name: 'StateGraph básico', code: 'graph = StateGraph(State)\ngraph.add_node("n", fn)\ngraph.add_edge(START, "n")\ngraph.add_edge("n", END)\napp = graph.compile()', desc: 'Esqueleto mínimo. State é TypedDict, fn(state) → patch.' },
+          { name: 'Conditional edge', code: 'def route(s) -> Literal["a","b"]:\n    return "a" if s["x"] else "b"\ngraph.add_conditional_edges("src", route, {"a": "node_a", "b": END})', desc: 'Branching. Use Literal no return type para type safety.' },
+          { name: 'Checkpointer + thread_id', code: 'cp = PostgresSaver.from_conn_string(URL)\napp = graph.compile(checkpointer=cp)\nconfig = {"configurable": {"thread_id": "user-1"}}\napp.invoke(input, config)', desc: 'Sessão persistente. Mesmo thread_id = continuidade.' },
+          { name: 'Human-in-the-loop', code: 'app = graph.compile(\n    checkpointer=cp,\n    interrupt_before=["send_email"]\n)\napp.invoke(input, config)  # pausa\napp.invoke(None, config)   # resume', desc: 'Pause/Inspect/Resume (PIR). Use update_state para editar antes de retomar.' },
+          { name: 'ReAct prebuilt', code: 'from langgraph.prebuilt import create_react_agent\nagent = create_react_agent(llm, tools, checkpointer=cp)', desc: 'Atalho para padrão Reason+Act. Customize só se precisar.' },
+          { name: 'Streaming de tokens', code: 'async for msg, meta in app.astream(\n    input, config, stream_mode="messages"\n):\n    if msg.type == "AIMessageChunk":\n        yield msg.content', desc: 'Tokens em tempo real para UX estilo ChatGPT.' },
+          { name: 'Multi-agent supervisor', code: 'from langgraph_supervisor import create_supervisor\nsupervisor = create_supervisor(\n    agents=[search, analyze, write],\n    model=llm,\n    prompt="Decida qual agente chamar"\n)', desc: 'LLM central decide próximo agente. Auditável.' },
+          { name: 'BaseStore (long-term)', code: 'store = PostgresStore(...)\nstore.put(("memories", user_id), "key", {"value": "..."})\nfacts = store.search(("memories", user_id))', desc: 'KV persistente entre threads. Para fatos do usuário.' },
+        ],
+        mentalModels: [
+          'SNEC: State + Nodes + Edges + Checkpointer = grafo completo',
+          'PIR: Pause + Inspect + Resume = ciclo de human-in-the-loop',
+          'RAA: Replace para Atual, Append para Acumulado (escolha do reducer)',
+          'Histórico → APPEND (Annotated). Estado atual → REPLACE (sem Annotated).',
+          'Processo stateless, banco é o estado — escala horizontal via PostgresSaver',
+          'Pipeline linear sem state → LCEL. Loop, branching ou pause/resume → LangGraph.',
+          'create_react_agent é abstração de alto nível; abaixo dela, é só StateGraph customizado',
+          'update_state apenas muta — só invoke executa nodes',
+        ],
+      },
+    }),
+    errors: () => buildErrorRefPdf({
+      errors: TROUBLESHOOTING_ERRORS,
+      accentColor: C,
+      skillName: 'LangGraph',
+      stackLabel: 'AI / Agent Framework',
+      coverTitle: 'LangGraph — Guia de Troubleshooting',
     }),
   }
 

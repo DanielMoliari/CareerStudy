@@ -193,7 +193,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'accentColor: string',
       'bgColor: string',
     ],
-    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs'],
+    usedBy: ['typescript', 'css', 'docker', 'vue', 'tailwind-css', 'aws', 'clean-architecture', 'terraform', 'playwright', 'agentic-workflows', 'microservices', 'ddd', 'owasp-api-top-10', 'slis-slos-slas', 'system-design', 'cqrs', 'ec2', 's3'],
   },
 
   RequestResponseFlow: {
@@ -631,7 +631,7 @@ export const VISUAL_CATALOG: Record<string, CatalogEntry> = {
       'title?: string',
       'description?: string',
     ],
-    usedBy: ['docker', 'aws', 'react-query', 'playwright', 'agentic-workflows', 'microservices', 'owasp-api-top-10', 'system-design', 'cqrs'],
+    usedBy: ['docker', 'aws', 'react-query', 'playwright', 'agentic-workflows', 'microservices', 'owasp-api-top-10', 'system-design', 'cqrs', 'ec2', 's3'],
   },
 
   HeatMap: {

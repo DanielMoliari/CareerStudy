@@ -13,6 +13,8 @@ import { buildMnemonicsPdf } from '@/components/pdfs/MnemonicsPdf'
 import type { MnemonicItem } from '@/components/pdfs/MnemonicsPdf'
 import { buildAntipatternsPdf } from '@/components/pdfs/AntipatternsPdf'
 import type { AntiPatternItem } from '@/components/pdfs/AntipatternsPdf'
+import { buildErrorRefPdf } from '@/components/pdfs/ErrorRefPdf'
+import type { ErrorEntry } from '@/components/pdfs/ErrorRefPdf'
 
 // ── Paleta Lambda (AWS) ───────────────────────────────────────────────────────
 const C = '#FF9900'
@@ -70,6 +72,16 @@ const PDF_CARDS: PdfCard[] = [
     description: 'Diff errado x correto: conexão DB no handler, sem DLQ em assíncrono, visibility timeout SQS menor que Lambda timeout, pacote gigante, secrets em env vars plaintext e sem idempotência em retry.',
     icon: '05',
     goal: 'Reconhecimento de padrão',
+  },
+  {
+    id: 'troubleshooting',
+    title: 'Troubleshooting Guide',
+    subtitle: 'Os erros operacionais mais comuns — sintoma, causa raiz, solução',
+    type: 'errors',
+    pages: 4,
+    description: 'Diferente dos anti-patterns (erros de design), este guia cobre erros que acontecem em runtime: timeout, out of memory, throttling, cold start excessivo, falhas de IAM, ENI provisioning. Cada erro com mensagem real do CloudWatch, causa raiz e solução em código.',
+    icon: '06',
+    goal: 'Diagnóstico rápido',
   },
 ]
 
@@ -543,6 +555,159 @@ const ANTIPATTERNS: AntiPatternItem[] = [
   },
 ]
 
+// ── Troubleshooting / Error Reference ────────────────────────────────────────
+
+const TROUBLESHOOTING_ERRORS: ErrorEntry[] = [
+  {
+    title: 'Task timed out after N seconds',
+    errorMessage: 'Task timed out after 30.00 seconds',
+    cause: 'Lambda atingiu o timeout configurado antes de retornar. Causas frequentes: chamadas de rede sem timeout próprio (ficam pendentes), DB query lenta sem index, processamento de payload grande, dependência externa lenta (Stripe, SendGrid) sem retry/circuit breaker.',
+    solution: 'Aumente o timeout (até 900 s = 15 min). Ou: adicione AbortController em fetch/axios com timeout menor que o da Lambda. Para jobs longos, decomponha em sub-Lambdas via Step Functions, ou migre para ECS Fargate (sem limite de 15 min).',
+    code: {
+      broken: '// Sem timeout interno — espera infinitamente\nconst res = await fetch(externalApi)',
+      fixed: '// Timeout interno menor que o da Lambda\nconst ctrl = new AbortController()\nsetTimeout(() => ctrl.abort(), 5000)\nconst res = await fetch(externalApi, { signal: ctrl.signal })',
+    },
+    severity: 'critical',
+    category: 'Runtime',
+    relatedErrors: ['OOM', 'Init duration'],
+  },
+  {
+    title: 'Runtime exited with error: signal: killed (out of memory)',
+    errorMessage: 'Runtime exited with error: signal: killed | Memory used: 1024 MB / Memory size: 1024 MB',
+    cause: 'Lambda ultrapassou o limite de memória configurado. Causas: processamento de imagens/vídeos sem streaming, JSON.parse de payloads gigantes, vazamento de memória em variáveis globais que crescem entre invocações warm.',
+    solution: 'Aumente memória (até 10240 MB) — em Lambda, mais memória = mais CPU proporcional. Use streaming para arquivos grandes (sharp.pipe, Readable streams). Limpe variáveis globais que crescem entre invocações. Use Lambda Power Tuning para encontrar memória ótima.',
+    code: {
+      broken: '// Lê tudo em memória\nconst img = await s3.getObject({Bucket, Key}).promise()\nconst buf = img.Body  // 500 MB!',
+      fixed: '// Stream do S3 direto para sharp\nconst stream = s3.getObject({Bucket, Key}).createReadStream()\nstream.pipe(sharp().resize(800)).pipe(dest)',
+    },
+    severity: 'critical',
+    category: 'Runtime',
+    relatedErrors: ['Timeout'],
+  },
+  {
+    title: 'Rate Exceeded — TooManyRequestsException',
+    errorMessage: 'Rate Exceeded. (Service: AWSLambda; Status Code: 429; Error Code: TooManyRequestsException)',
+    cause: 'Lambda atingiu limite de concorrência. Causas: pico de requisições além do account limit (1000 default), Reserved Concurrency esgotada, burst limit ultrapassado (3000 em us-east-1, depois +500/min).',
+    solution: 'Solicite aumento do account limit via AWS Support. Configure Reserved Concurrency adequado. Para invocação assíncrona, AWS faz retry automático em throttle. Para síncrona, implemente retry com backoff exponencial no caller. Considere SQS como buffer entre o cliente e a Lambda.',
+    code: {
+      broken: '// Cliente sem retry — falha em throttle\nconst res = await lambda.invoke({FunctionName, Payload})',
+      fixed: '// SDK v3 com retry automático\nconst client = new LambdaClient({\n  maxAttempts: 5,\n  retryMode: "adaptive"  // backoff exponencial\n})',
+    },
+    severity: 'warning',
+    category: 'Concorrência',
+  },
+  {
+    title: 'Init duration excessivo (cold start)',
+    errorMessage: 'REPORT RequestId: ... Init Duration: 8523.45 ms | Duration: 120.20 ms',
+    cause: 'Init Phase está lento — pacote grande, framework pesado (Spring Boot, NestJS carregando tudo), Lambda em VPC sem ENI compartilhada, runtime lento (Java, .NET sem SnapStart). Init Duration > 5 s prejudica latência percebida.',
+    solution: 'Para Node/Python: bundler com tree shaking (esbuild) reduz pacote para <5 MB. Para Java: SnapStart (cold start cai de segundos para ~150 ms). Provisioned Concurrency mantém instâncias quentes (custo fixo). Marque @aws-sdk/* como external — já está no runtime.',
+    code: {
+      broken: '# Sem bundle — node_modules inteiro\nzip -r function.zip node_modules/ src/  # 80 MB',
+      fixed: '# esbuild com tree shaking\nesbuild src/index.ts \\\n  --bundle --minify --platform=node \\\n  --external:@aws-sdk/* \\\n  --outfile=dist/index.js  # 2 MB',
+    },
+    severity: 'warning',
+    category: 'Performance',
+    relatedErrors: ['Timeout'],
+  },
+  {
+    title: 'AccessDeniedException — IAM role missing permission',
+    errorMessage: 'AccessDeniedException: User: arn:aws:sts::...:assumed-role/lambda-role/... is not authorized to perform: dynamodb:PutItem on resource: ...',
+    cause: 'A IAM role da Lambda não tem permissão para o serviço/recurso acessado. Causa frequente: copiar Lambda de outra conta, esquecer de adicionar permissão nova ao adicionar feature, usar wildcard que não cobre o ARN específico.',
+    solution: 'Inspecione o erro: ele diz exatamente qual ação faltou. Adicione policy à role com permissão mínima necessária. Use AWS IAM Policy Simulator para validar antes de deploy. Para troubleshooting rápido, anexe AWSLambdaBasicExecutionRole + policy específica.',
+    code: {
+      broken: '# Sem permissão para DynamoDB\nresource "aws_iam_role_policy" "lambda" {\n  policy = jsonencode({\n    Statement = [{ Effect = "Allow", Action = ["logs:*"] }]\n  })\n}',
+      fixed: '# Permissão específica para a tabela\nStatement = [\n  { Effect = "Allow", Action = ["logs:*"], Resource = "*" },\n  {\n    Effect = "Allow",\n    Action = ["dynamodb:PutItem", "dynamodb:GetItem"],\n    Resource = aws_dynamodb_table.orders.arn\n  }\n]',
+    },
+    severity: 'critical',
+    category: 'IAM',
+  },
+  {
+    title: 'TooManyRequestsException em DynamoDB / RDS / API externa',
+    errorMessage: 'ProvisionedThroughputExceededException: The level of configured provisioned throughput for the table was exceeded',
+    cause: 'Lambda escalou e esgotou capacity de um recurso downstream — DynamoDB com capacity insuficiente, RDS com connection pool esgotado, API externa com rate limit. O problema NÃO é Lambda — é o downstream.',
+    solution: 'Limite a Lambda com Reserved Concurrency proporcional à capacidade do downstream (ex: RDS com 100 conn → Reserved=80, deixando 20 para outras apps). Use RDS Proxy para multiplexar conexões. Para DynamoDB, use On-Demand mode ou aumente RCU/WCU. Implemente retry com backoff no SDK.',
+    code: {
+      broken: '// Lambda sem limite — sobrecarrega RDS\n// 1000 instâncias simultâneas = 1000 connections',
+      fixed: '// Terraform: Reserved Concurrency limita\nresource "aws_lambda_function" "app" {\n  reserved_concurrent_executions = 80\n}\n\n// + RDS Proxy para connection pooling\nresource "aws_db_proxy" "main" { ... }',
+    },
+    severity: 'critical',
+    category: 'Downstream',
+  },
+  {
+    title: 'Lambda em VPC: timeout em chamadas a API externa',
+    errorMessage: 'Connection timed out / ETIMEDOUT / ECONNREFUSED',
+    cause: 'Lambda em subnet privada (VPC) sem rota para internet. NAT Gateway não configurado, ou Security Group bloqueando outbound, ou ACL da subnet bloqueando. Erro silencioso — Lambda apenas dá timeout depois de tentar conectar.',
+    solution: 'Para acessar internet: adicione NAT Gateway na subnet pública e route table na privada apontando para ele. Para acessar serviços AWS: use VPC Endpoints (S3 e DynamoDB Gateway são gratuitos; outros são Interface Endpoints, $0.01/h). Verifique Security Group: outbound 0.0.0.0/0 na porta 443.',
+    code: {
+      broken: '# Lambda em VPC sem NAT — não acessa Stripe\nresource "aws_lambda_function" "app" {\n  vpc_config {\n    subnet_ids = [aws_subnet.private.id]\n    # Sem NAT, sem internet!\n  }\n}',
+      fixed: '# Adicione NAT Gateway + route\nresource "aws_nat_gateway" "main" {\n  subnet_id = aws_subnet.public.id\n  allocation_id = aws_eip.nat.id\n}\n\nresource "aws_route" "private_to_nat" {\n  route_table_id = aws_route_table.private.id\n  destination_cidr_block = "0.0.0.0/0"\n  nat_gateway_id = aws_nat_gateway.main.id\n}',
+    },
+    severity: 'warning',
+    category: 'Rede',
+  },
+  {
+    title: 'SQS message reprocessada — visibility timeout esgotou',
+    errorMessage: 'Mensagem aparece duas vezes em CloudWatch Logs com mesmo MessageId',
+    cause: 'Lambda demorou mais que o Visibility Timeout da fila SQS. A mensagem voltou a ficar visível e outra invocação Lambda pegou a mesma mensagem em paralelo — processamento duplicado.',
+    solution: 'Configure Visibility Timeout >= 6 × Lambda Timeout. Se Lambda timeout = 30 s, Visibility = 180 s. Configure ReportBatchItemFailures para granularidade por mensagem. Implemente idempotência via DynamoDB com idempotency key (MessageId).',
+    code: {
+      broken: '# Visibility 30s + Lambda 60s = duplicação\nresource "aws_sqs_queue" "main" {\n  visibility_timeout_seconds = 30\n}',
+      fixed: '# Visibility 6× Lambda timeout\nresource "aws_sqs_queue" "main" {\n  visibility_timeout_seconds = 360  # 6× 60\n}\n\n// Idempotência via Powertools\nimport { idempotent } from "@aws-lambda-powertools/idempotency"\nexport const handler = idempotent({...})(async (e) => {...})',
+    },
+    severity: 'critical',
+    category: 'SQS',
+  },
+  {
+    title: 'Falha silenciosa em Lambda assíncrona — sem DLQ',
+    errorMessage: '(sem erro visível — Lambda foi invocada, falhou 3 vezes, e ninguém soube)',
+    cause: 'Em invocação assíncrona (S3, SNS, EventBridge), Lambda faz 2 retries com backoff e descarta silenciosamente após esgotar. Sem DLQ ou Destinations, a falha desaparece — você só descobre quando o usuário reclama dias depois.',
+    solution: 'Configure Destinations on_failure (preferido) ou DLQ legacy em TODA Lambda assíncrona. Destinations envia evento original + erro + contexto para SQS/SNS/EventBridge/Lambda. Crie alarme CloudWatch em Errors > 0.',
+    code: {
+      broken: '# Lambda async sem DLQ nem Destinations\nresource "aws_lambda_function" "process_s3" {\n  function_name = "process-s3-events"\n  # falhas silenciosas!\n}',
+      fixed: '# Destinations on_failure captura tudo\nresource "aws_lambda_function_event_invoke_config" "config" {\n  function_name = aws_lambda_function.process_s3.function_name\n  destination_config {\n    on_failure { destination = aws_sqs_queue.dlq.arn }\n  }\n  maximum_retry_attempts = 2\n}',
+    },
+    severity: 'critical',
+    category: 'Confiabilidade',
+    relatedErrors: ['SQS reprocessada'],
+  },
+  {
+    title: 'Container image Lambda — image size limit exceeded',
+    errorMessage: 'CodeStorageExceededException: Code storage limit exceeded for the AWS account',
+    cause: 'Container image Lambda excede 10 GB descomprimido, ou imagem não é OCI-compatible, ou conta atingiu limite de armazenamento de funções (75 GB default).',
+    solution: 'Reduza a imagem: multi-stage Dockerfile, COPY apenas o necessário, use base image AWS slim (public.ecr.aws/lambda/nodejs:20). Para 10 GB+: use ECS Fargate ou EKS. Para limite de conta: delete versões antigas com aws lambda delete-function-version.',
+    code: {
+      broken: '# Dockerfile sem multi-stage — imagem 8 GB\nFROM node:20\nCOPY . .\nRUN npm install\nCMD ["node", "index.js"]',
+      fixed: '# Multi-stage com base AWS slim\nFROM node:20-alpine AS build\nCOPY package*.json ./\nRUN npm ci\nCOPY src ./src\nRUN npm run build\n\nFROM public.ecr.aws/lambda/nodejs:20\nCOPY --from=build /app/dist ./\nCMD ["index.handler"]',
+    },
+    severity: 'warning',
+    category: 'Deploy',
+  },
+  {
+    title: 'EFS file lock / EROFS — mount issue',
+    errorMessage: 'EROFS: read-only file system / EACCES: permission denied',
+    cause: 'Lambda com EFS mount tem restrições: filesystem readonly fora do mount path, permissões POSIX precisam ser configuradas no Access Point. Lambda também pode tentar gravar antes do EFS estar montado.',
+    solution: 'Use Access Point com POSIX user/group corretos (uid:1000, gid:1000 padrão). Configure mount path corretamente em /mnt. Para escrita: garanta que o Access Point tem RootDirectory writable. Apenas /tmp e mount path são writable; resto do filesystem é readonly.',
+    code: {
+      broken: '// Tentando gravar fora do EFS mount\nfs.writeFileSync("/data/file.txt", data)  // EROFS!',
+      fixed: '// Grave no path do EFS mount\nfs.writeFileSync("/mnt/efs/file.txt", data)\n// Ou em /tmp para arquivos efêmeros (até 10 GB)\nfs.writeFileSync("/tmp/temp.txt", data)',
+    },
+    severity: 'warning',
+    category: 'Storage',
+  },
+  {
+    title: 'Lambda Layer não encontrada / not compatible',
+    errorMessage: 'Layer version arn:aws:lambda:...:layer:my-layer:1 is not compatible with the runtime nodejs20.x',
+    cause: 'Layer foi publicada com runtime incompatível, ou Lambda excedeu o limite de 5 layers, ou layer + código ultrapassa 250 MB descomprimido.',
+    solution: 'Publique layer com --compatible-runtimes correto. Se usar libs nativas (sharp, pg), compile na arquitetura correta (--platform=linux --arch=x64). Limite total: 5 layers + 250 MB descomprimido junto com o código. Para mais: use container image (até 10 GB).',
+    code: {
+      broken: '# Layer publicada sem runtime\naws lambda publish-layer-version \\\n  --layer-name shared \\\n  --zip-file fileb://layer.zip\n# Sem --compatible-runtimes!',
+      fixed: '# Especifique runtime e arquitetura\naws lambda publish-layer-version \\\n  --layer-name shared \\\n  --zip-file fileb://layer.zip \\\n  --compatible-runtimes nodejs20.x \\\n  --compatible-architectures x86_64',
+    },
+    severity: 'info',
+    category: 'Deploy',
+  },
+]
+
 // ── Builders de PDF ───────────────────────────────────────────────────────────
 
 const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
@@ -613,6 +778,13 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     accentColor: C,
     skillName: 'Lambda',
     stackLabel: 'AWS / Serverless',
+  }),
+  errors: () => buildErrorRefPdf({
+    errors: TROUBLESHOOTING_ERRORS,
+    accentColor: C,
+    skillName: 'Lambda',
+    stackLabel: 'AWS / Serverless',
+    coverTitle: 'Lambda — Guia de Troubleshooting',
   }),
 }
 

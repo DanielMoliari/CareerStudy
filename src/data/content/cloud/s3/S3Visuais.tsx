@@ -557,6 +557,415 @@ const S3_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — Event Notifications: 4 destinos comparados (custom)
+// Justificativa: S3 Events suporta Lambda, SQS, SNS e EventBridge — cada um com
+// modelo de entrega, retry, fan-out e custo distintos. Escolher errado quebra
+// pipelines em produção (Lambda direto sem DLQ perde eventos em pico). Visualizar
+// os 4 destinos lado a lado torna a decisão concreta.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type EventDest = {
+  id: string
+  name: string
+  color: string
+  emoji: string
+  fanout: 'sim' | 'não' | 'via SNS'
+  retry: string
+  dlq: string
+  filter: string
+  latency: string
+  cost: string
+  bestFor: string[]
+  worstFor: string
+  example: string
+}
+
+const EVENT_DESTINATIONS: EventDest[] = [
+  {
+    id: 'lambda',
+    name: 'Lambda',
+    color: AMB,
+    emoji: 'λ',
+    fanout: 'não',
+    retry: '2× automático em erro de execução',
+    dlq: 'Configurar manualmente (Lambda destinations ou SQS DLQ)',
+    filter: 'Prefix + suffix no S3 + filtros adicionais no código',
+    latency: 'Ms — invocação direta',
+    cost: 'Por invocação + ms × MB',
+    bestFor: [
+      'Processamento síncrono leve',
+      'Resize de imagem, validação de upload',
+      'Quando o trabalho cabe em 15min',
+    ],
+    worstFor: 'Pico súbito — sem buffer, throttle pode perder eventos. Sem DLQ default = perda silenciosa.',
+    example: 'Upload .jpg → Lambda gera thumbnail → grava em /thumbs/',
+  },
+  {
+    id: 'sqs',
+    name: 'SQS',
+    color: GRN,
+    emoji: 'Q',
+    fanout: 'não',
+    retry: 'Até maxReceiveCount (configurável)',
+    dlq: 'Nativo — DLQ separada para mensagens problemáticas',
+    filter: 'Prefix + suffix no S3 (filtro adicional no consumidor)',
+    latency: 'Sub-segundo — push para fila',
+    cost: 'Por milhão de requests (~$0.40)',
+    bestFor: [
+      'Processamento custoso (transcodificação, OCR)',
+      'Quando você precisa controlar throughput do consumidor',
+      'Retry confiável + DLQ visível',
+    ],
+    worstFor: 'Fan-out (uma mensagem para múltiplos consumidores) — use SNS na frente.',
+    example: 'Upload vídeo → SQS → Lambda consome 5 por vez → MediaConvert',
+  },
+  {
+    id: 'sns',
+    name: 'SNS',
+    color: BLU,
+    emoji: 'N',
+    fanout: 'sim',
+    retry: 'Best-effort por subscriber (Lambda/SQS retry próprio)',
+    dlq: 'Por subscription (DLQ pode ser uma SQS)',
+    filter: 'Prefix + suffix no S3 + Subscription filter policy',
+    latency: 'Sub-segundo — pub/sub',
+    cost: 'Por milhão de publish + por entrega',
+    bestFor: [
+      'Fan-out: 1 evento → N consumidores',
+      'Notificar email + Lambda + SQS simultaneamente',
+      'Desacoplar produtor de consumidores',
+    ],
+    worstFor: 'Sem buffer real — se o subscriber cair, mensagem pode falhar. Combine com SQS para persistência.',
+    example: 'Upload sensível → SNS → (SQS auditoria + Lambda alerta + email compliance)',
+  },
+  {
+    id: 'eventbridge',
+    name: 'EventBridge',
+    color: PUR,
+    emoji: 'E',
+    fanout: 'sim',
+    retry: 'Até 24h com backoff exponencial',
+    dlq: 'Por target (DLQ SQS)',
+    filter: 'Pattern matching avançado (size, etag, metadata, JSONPath)',
+    latency: 'Centenas de ms — bus event-driven',
+    cost: '$1 por milhão de eventos publicados',
+    bestFor: [
+      'Filtros sofisticados (só objetos > 100MB, só de prefix X)',
+      'Roteamento para múltiplos targets com lógica complexa',
+      'Arquiteturas event-driven que evoluem com o tempo',
+      'Histórico de eventos via Archive + Replay',
+    ],
+    worstFor: 'Latência mais alta que notificação direta. Custo cresce com volume — calcule antes em pipelines de alto throughput.',
+    example: 'Upload → EventBridge filtra (size>100MB AND prefix=videos/) → Step Functions',
+  },
+]
+
+function EventNotificationsVisual() {
+  const [selId, setSelId] = useState<string>('lambda')
+  const sel = EVENT_DESTINATIONS.find(d => d.id === selId)!
+
+  return (
+    <div style={{ background: BG, border: `1px solid #334155`, borderRadius: 14, padding: 24, fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ color: FG, margin: 0, fontSize: 16, fontWeight: 800 }}>S3 Event Notifications — escolha do destino</h3>
+        <p style={{ color: FGMUTE, fontSize: 12, margin: '4px 0 0' }}>S3 publica eventos (PutObject, DeleteObject, etc.) em 4 destinos possíveis. Cada um com modelo de entrega, retry e custo distintos.</p>
+      </div>
+
+      {/* Diagrama do fluxo */}
+      <div style={{ background: CARD, border: `1px solid #334155`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 2fr', gap: 12, alignItems: 'center' }}>
+          <div style={{
+            background: BG, border: `2px solid ${C}`, borderRadius: 8, padding: '14px 12px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 22, color: C, marginBottom: 4 }}>S3</div>
+            <div style={{ color: FGMUTE, fontSize: 9, letterSpacing: '.1em', fontWeight: 700 }}>BUCKET DE ORIGEM</div>
+            <div style={{ color: FG, fontSize: 10, marginTop: 6 }}>s3:ObjectCreated:*</div>
+          </div>
+
+          <div style={{ color: C, fontSize: 22, fontWeight: 700 }}>{'→'}</div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {EVENT_DESTINATIONS.map(d => {
+              const isSel = d.id === selId
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => setSelId(d.id)}
+                  style={{
+                    background: isSel ? `${d.color}25` : BG,
+                    border: `2px solid ${isSel ? d.color : '#334155'}`,
+                    borderRadius: 8,
+                    padding: '12px 8px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'all .2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{ fontSize: 22, color: isSel ? d.color : FG, fontWeight: 900, marginBottom: 4 }}>{d.emoji}</div>
+                  <div style={{ color: isSel ? d.color : FG, fontSize: 11, fontWeight: 700 }}>{d.name}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Detalhes do destino selecionado */}
+      <div style={{
+        background: CARD,
+        border: `2px solid ${sel.color}40`,
+        borderRadius: 12,
+        padding: 18,
+        boxShadow: `0 0 30px ${sel.color}10`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 10,
+            background: `${sel.color}25`,
+            border: `2px solid ${sel.color}`,
+            color: sel.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 24, fontWeight: 900,
+          }}>{sel.emoji}</div>
+          <div>
+            <div style={{ color: sel.color, fontSize: 18, fontWeight: 800 }}>{sel.name}</div>
+            <div style={{ color: FGMUTE, fontSize: 11 }}>Fan-out: {sel.fanout} · Latência: {sel.latency} · Custo: {sel.cost}</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div>
+            <div style={{ color: sel.color, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 6 }}>RETRY</div>
+            <div style={{ color: FG, fontSize: 11, lineHeight: 1.5 }}>{sel.retry}</div>
+          </div>
+          <div>
+            <div style={{ color: sel.color, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 6 }}>DLQ</div>
+            <div style={{ color: FG, fontSize: 11, lineHeight: 1.5 }}>{sel.dlq}</div>
+          </div>
+          <div>
+            <div style={{ color: sel.color, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 6 }}>FILTROS</div>
+            <div style={{ color: FG, fontSize: 11, lineHeight: 1.5 }}>{sel.filter}</div>
+          </div>
+          <div>
+            <div style={{ color: sel.color, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 6 }}>FAN-OUT</div>
+            <div style={{ color: FG, fontSize: 11, lineHeight: 1.5 }}>{sel.fanout}</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: GRN, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 8 }}>QUANDO ESCOLHER</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sel.bestFor.map((b, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 10px',
+                background: `${sel.color}10`,
+                borderLeft: `3px solid ${sel.color}`,
+                borderRadius: 4,
+                color: FG,
+                fontSize: 11.5,
+              }}>
+                <span style={{ color: sel.color, fontWeight: 700 }}>{'>'}</span>
+                {b}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{
+          background: BG,
+          border: `1px solid ${RED}40`,
+          borderLeft: `3px solid ${RED}`,
+          borderRadius: 6,
+          padding: '10px 14px',
+          marginBottom: 12,
+        }}>
+          <div style={{ color: RED, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 4 }}>EVITE QUANDO</div>
+          <div style={{ color: FGMUTE, fontSize: 11, lineHeight: 1.6 }}>{sel.worstFor}</div>
+        </div>
+
+        <div style={{
+          background: BG,
+          border: `1px solid #334155`,
+          borderRadius: 6,
+          padding: '10px 14px',
+        }}>
+          <div style={{ color: AMB, fontSize: 9, letterSpacing: '.15em', fontWeight: 700, marginBottom: 4 }}>EXEMPLO REAL</div>
+          <div style={{ color: FG, fontSize: 11.5, lineHeight: 1.6, fontFamily: 'inherit' }}>{sel.example}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — Multipart Upload Flow (SequenceDiagram)
+// Justificativa: multipart é obrigatório acima de 5GB e recomendado acima de 100MB.
+// Cliente controla as partes, S3 só remonta no Complete. Partes abandonadas viram
+// custo invisível. Ver a sequência exata torna óbvio o que cada chamada faz.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MPU_ACTORS: SeqActor[] = [
+  { id: 'app',  label: 'App / SDK', color: BLU, icon: 'A' },
+  { id: 's3',   label: 'S3',        color: C,   icon: 'S' },
+  { id: 'lc',   label: 'Lifecycle', color: AMB, icon: 'L' },
+]
+
+const MPU_MESSAGES: SeqMessage[] = [
+  // Initiate
+  { from: 'app', to: 's3',  label: 'CreateMultipartUpload(bucket, key, ContentType)', note: 'S3 reserva o slot e retorna UploadId — não cobra ainda', type: 'sync' },
+  { from: 's3',  to: 'app', label: '200 { UploadId }',                                 note: 'UploadId identifica essa sessão multipart',                  type: 'return' },
+  // Upload parts in parallel
+  { from: 'app', to: 's3',  label: 'UploadPart(UploadId, PartNumber=1, body=5MB-5GB)', note: 'tamanho mínimo 5MB exceto a última. máximo 5GB por parte',  type: 'sync' },
+  { from: 's3',  to: 'app', label: '200 { ETag }',                                     note: 'cliente acumula ETags das partes — necessário no Complete',  type: 'return' },
+  { from: 'app', to: 's3',  label: 'UploadPart(UploadId, PartNumber=2, body)',         note: 'partes podem subir em paralelo (até 10.000 partes)',         type: 'sync' },
+  { from: 's3',  to: 'app', label: '200 { ETag }',                                     note: 'parte armazenada e cobrada como storage até Complete/Abort', type: 'return' },
+  { from: 'app', to: 's3',  label: 'UploadPart(UploadId, PartNumber=N)',               note: 'N pode chegar a 10.000 — máximo do S3',                      type: 'sync' },
+  { from: 's3',  to: 'app', label: '200 { ETag }',                                     note: 'última parte pode ser menor que 5MB',                        type: 'return' },
+  // Happy path: complete
+  { from: 'app', to: 's3',  label: 'CompleteMultipartUpload(UploadId, [{PartNumber, ETag}])', note: 'cliente envia lista ordenada de ETags — S3 valida e remonta', type: 'sync' },
+  { from: 's3',  to: 'app', label: '200 { ETag final, Location }',                     note: 'objeto agora visível em GetObject e ListObjectsV2',          type: 'return' },
+  // Sad path: abort + lifecycle cleanup
+  { from: 'app', to: 's3',  label: 'AbortMultipartUpload(UploadId)',                   note: 'cliente cancela — S3 deleta partes imediatamente',           type: 'async' },
+  { from: 'lc',  to: 's3',  label: 'AbortIncompleteMultipartUpload (após N dias)',     note: 'lifecycle aborta uploads esquecidos — vital contra custo invisível', type: 'async' },
+]
+
+const MPU_GROUPS: SeqGroup[] = [
+  { label: 'Inicialização',                              kind: 'opt',  fromMsg: 0, toMsg: 1,  color: PUR },
+  { label: 'Upload de partes (paralelizável)',           kind: 'loop', fromMsg: 2, toMsg: 7,  color: BLU },
+  { label: 'Caminho feliz: Complete',                    kind: 'alt',  fromMsg: 8, toMsg: 9,  color: GRN },
+  { label: 'Caminho de cancelamento e cleanup',          kind: 'alt',  fromMsg: 10, toMsg: 11, color: RED },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — Replication CRR vs SRR (ComparisonTable)
+// Justificativa: a confusão clássica em entrevista é "o que replica, o que não
+// replica?". Versioning é prereq, delete markers são opt-in, KMS objects exigem
+// IAM extra, replication NÃO é retroativa. Ver lado a lado em critérios técnicos
+// fixa as armadilhas que aparecem em produção.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const REPL_OPTIONS: ComparisonOption[] = [
+  { id: 'crr',  label: 'CRR',          sublabel: 'Cross-Region Replication',  color: BLU },
+  { id: 'srr',  label: 'SRR',          sublabel: 'Same-Region Replication',   color: GRN },
+  { id: 'rtc',  label: 'RTC',          sublabel: 'CRR/SRR + 15min SLA',       color: PUR },
+]
+
+const REPL_CRITERIA: ComparisonCriterion[] = [
+  {
+    id: 'usecase',
+    label: 'Caso de uso primário',
+    category: 'Decisão',
+    description: 'Para que essa configuração foi desenhada',
+    values: {
+      crr: { rating: 'excellent', note: 'DR geográfico, latência global, data residency multi-jurisdição' },
+      srr: { rating: 'excellent', note: 'Consolidação de logs, cópia imutável (anti-ransomware), dev mascarado' },
+      rtc: { rating: 'excellent', note: 'Quando você tem SLA com cliente exigindo replicação garantida em 15 min' },
+    },
+  },
+  {
+    id: 'versioning',
+    label: 'Pré-requisito de Versioning',
+    category: 'Configuração',
+    description: 'Replicação só funciona com versionamento',
+    values: {
+      crr: { rating: 'fair', note: 'Obrigatório nos DOIS buckets (origem e destino)' },
+      srr: { rating: 'fair', note: 'Obrigatório nos DOIS buckets' },
+      rtc: { rating: 'fair', note: 'Obrigatório + métricas adicionais habilitadas' },
+    },
+  },
+  {
+    id: 'retroactive',
+    label: 'Replica objetos existentes?',
+    category: 'Comportamento',
+    description: 'O que acontece com o que já estava no bucket antes da regra',
+    values: {
+      crr: { rating: 'poor', note: 'NÃO. Só objetos criados/modificados após a regra. Use S3 Batch Replication para histórico.' },
+      srr: { rating: 'poor', note: 'NÃO. Mesma limitação. Batch Replication separadamente.' },
+      rtc: { rating: 'poor', note: 'NÃO. Mesma limitação.' },
+    },
+  },
+  {
+    id: 'delete-markers',
+    label: 'Delete markers replicam?',
+    category: 'Comportamento',
+    description: 'Comportamento de DELETE em objeto versionado',
+    values: {
+      crr: { rating: 'fair', note: 'Opt-in via DeleteMarkerReplication: Enabled. Padrão é Disabled.' },
+      srr: { rating: 'fair', note: 'Opt-in. Para anti-ransomware, DEIXE Disabled + Object Lock no destino.' },
+      rtc: { rating: 'fair', note: 'Opt-in. Mesma decisão consciente: ransomware vs DR.' },
+    },
+  },
+  {
+    id: 'kms',
+    label: 'Replica objetos SSE-KMS?',
+    category: 'Configuração',
+    description: 'Por padrão, KMS-encrypted NÃO é replicado',
+    values: {
+      crr: { rating: 'fair',  note: 'Opt-in: SourceSelectionCriteria.SseKmsEncryptedObjects. IAM Role precisa kms:Decrypt na origem + kms:Encrypt no destino.' },
+      srr: { rating: 'fair',  note: 'Mesma config, mesma chave KMS pode ser reutilizada (mesma região)' },
+      rtc: { rating: 'fair',  note: 'Opt-in obrigatório se origem usa SSE-KMS' },
+    },
+  },
+  {
+    id: 'sla',
+    label: 'SLA de replicação',
+    category: 'Performance',
+    description: 'Garantia de tempo até a réplica estar disponível',
+    values: {
+      crr: { rating: 'fair',      note: 'Sem SLA. Tipicamente segundos a minutos. Picos podem levar horas.' },
+      srr: { rating: 'good',      note: 'Sem SLA. Tipicamente segundos.' },
+      rtc: { rating: 'excellent', note: '99,99% das replicações em até 15 min. Métricas no CloudWatch + Notificações de eventos pendentes.' },
+    },
+  },
+  {
+    id: 'cost',
+    label: 'Custo',
+    category: 'Custo',
+    description: 'Componentes de cobrança',
+    values: {
+      crr: { rating: 'poor', note: 'Storage no destino + transfer cross-region (GB) + PUT requests' },
+      srr: { rating: 'good', note: 'Storage no destino + PUT requests. Sem cross-region transfer.' },
+      rtc: { rating: 'poor', note: 'CRR/SRR + ~$0.015/GB de Replication Time Control + métricas de eventos' },
+    },
+  },
+  {
+    id: 'storage-class',
+    label: 'Storage class no destino',
+    category: 'Configuração',
+    description: 'Pode mudar de classe ao replicar',
+    values: {
+      crr: { rating: 'good', note: 'Sim. Comum: origem Standard, destino Glacier para arquivamento DR mais barato.' },
+      srr: { rating: 'good', note: 'Sim. Útil para criar cópia em IA/Glacier para backup.' },
+      rtc: { rating: 'good', note: 'Sim, mesma flexibilidade.' },
+    },
+  },
+  {
+    id: 'cross-account',
+    label: 'Cross-account?',
+    category: 'Configuração',
+    description: 'Replicar para bucket em outra conta AWS',
+    values: {
+      crr: { rating: 'good', note: 'Sim. Bucket policy no destino + IAM Role com permissão entre contas.' },
+      srr: { rating: 'good', note: 'Sim. Mesmo modelo de permissões.' },
+      rtc: { rating: 'good', note: 'Sim. Padrão para arquiteturas multi-conta com conta dedicada de backup.' },
+    },
+  },
+  {
+    id: 'object-lock',
+    label: 'Replica Object Lock?',
+    category: 'Comportamento',
+    description: 'Retention period e legal hold seguem para o destino',
+    values: {
+      crr: { rating: 'good', note: 'Sim, se ambos têm Object Lock habilitado. Período de retenção é replicado.' },
+      srr: { rating: 'good', note: 'Sim. Útil para DR de buckets WORM compliance.' },
+      rtc: { rating: 'good', note: 'Sim, mesmo comportamento.' },
+    },
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Componente principal
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -658,6 +1067,46 @@ export default function S3Visuais() {
           patterns={S3_ANTIPATTERNS}
           accentColor={C}
           bgColor={BG}
+        />
+      ),
+    },
+    {
+      id: 'event-notifications',
+      title: 'Event Notifications',
+      subtitle: 'Lambda, SQS, SNS, EventBridge — qual destino escolher e por que',
+      accent: AMB,
+      component: <EventNotificationsVisual />,
+    },
+    {
+      id: 'multipart',
+      title: 'Multipart Upload',
+      subtitle: 'Sequência de Create → UploadPart × N → Complete (ou Abort) e o lixo invisível',
+      accent: BLU,
+      component: (
+        <SequenceDiagram
+          actors={MPU_ACTORS}
+          messages={MPU_MESSAGES}
+          groups={MPU_GROUPS}
+          accentColor={C}
+          bgColor={BG}
+          title="Fluxo completo de Multipart Upload"
+          description="Obrigatório acima de 5 GB, recomendado acima de 100 MB. Cliente controla a divisão e ordem das partes; o S3 só remonta no Complete. Partes abandonadas continuam sendo cobradas e não aparecem em ListObjectsV2 — é onde mora o custo invisível."
+        />
+      ),
+    },
+    {
+      id: 'replication',
+      title: 'Replication CRR vs SRR',
+      subtitle: 'O que replica, o que NÃO replica, e quando cada estratégia é certa',
+      accent: PUR,
+      component: (
+        <ComparisonTable
+          options={REPL_OPTIONS}
+          criteria={REPL_CRITERIA}
+          accentColor={C}
+          bgColor={BG}
+          title="S3 Replication — comparativo CRR, SRR e RTC"
+          description="Versioning é prereq nos DOIS buckets. Replicação NÃO é retroativa (use S3 Batch Replication). Delete markers e SSE-KMS são opt-in. Para anti-ransomware: SRR + Object Lock no destino + DeleteMarkerReplication=Disabled."
         />
       ),
     },

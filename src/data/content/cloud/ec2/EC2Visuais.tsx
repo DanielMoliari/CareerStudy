@@ -10,6 +10,10 @@ import { DecisionTree } from '@/components/visuals/DecisionTree'
 import type { DTNode } from '@/components/visuals/DecisionTree'
 import { AntiPatternsGallery } from '@/components/visuals/AntiPatternsGallery'
 import type { AntiPattern } from '@/components/visuals/AntiPatternsGallery'
+import { LayerStack } from '@/components/visuals/LayerStack'
+import type { Layer } from '@/components/visuals/LayerStack'
+import { SequenceDiagram } from '@/components/visuals/SequenceDiagram'
+import type { SeqActor, SeqMessage, SeqGroup } from '@/components/visuals/SequenceDiagram'
 
 // ── Paleta EC2 (AWS) ──────────────────────────────────────────────────────────
 const C      = '#FF9900'   // AWS laranja
@@ -1076,6 +1080,115 @@ const EC2_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — VPC / Networking hierarchy (LayerStack)
+// Justificativa: a hierarquia de rede do EC2 (VPC → Subnet → Route Table → NACL →
+// Security Group → ENI) é onde nascem 70% dos "EC2 não responde". Cada camada
+// pode bloquear, e a ordem de avaliacao não é óbvia. Ver as 6 camadas empilhadas
+// com o que cada uma faz e onde NÃO opera (stateful vs stateless, allow vs deny)
+// torna o modelo mental concreto.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const NETWORKING_LAYERS: Layer[] = [
+  {
+    id: 'sg',
+    label: 'Camada 6 — Security Group',
+    sublabel: 'Firewall stateful no nível da ENI',
+    description: 'Avaliado por último, no nível da Elastic Network Interface (ENI) da instância. Stateful — resposta de conexão permitida entra automaticamente, sem regra de retorno. Apenas Allow (não tem Deny). Pode referenciar outros SGs (allow do sg-alb em vez de CIDR). É a porta da instância.',
+    code: 'aws ec2 authorize-security-group-ingress \\\n  --group-id sg-app \\\n  --protocol tcp --port 8080 \\\n  --source-group sg-alb',
+    color: GRN,
+    examples: ['Stateful (1 regra cobre ida + volta)', 'Só Allow', 'Referencia outros SGs', 'Default deny tudo'],
+  },
+  {
+    id: 'nacl',
+    label: 'Camada 5 — Network ACL',
+    sublabel: 'Firewall stateless no nível da subnet',
+    description: 'Avaliado antes do SG, no nível da subnet. Stateless — você precisa de Allow explícito para entrada E saída (incluindo respostas em portas efêmeras 1024-65535). Suporta Allow E Deny avaliados em ordem numérica (regra 100 antes da 200). Use somente para bloqueio amplo (range de IPs maliciosos, defesa em profundidade). Para 99% dos casos, deixe NACL default (allow all) e configure tudo no SG.',
+    code: 'Inbound  rule #100  allow tcp 443  0.0.0.0/0\nOutbound rule #100  allow tcp 1024-65535 0.0.0.0/0  # respostas',
+    color: AMB,
+    examples: ['Stateless (precisa allow ida e volta)', 'Allow OU Deny', 'Avaliada em ordem', 'Por subnet'],
+  },
+  {
+    id: 'rt',
+    label: 'Camada 4 — Route Table',
+    sublabel: 'Para onde vai o tráfego de saída',
+    description: 'Cada subnet tem uma Route Table associada. Decide o próximo salto baseado no CIDR de destino. Se a rota leva a um Internet Gateway, a subnet é pública. Se leva a um NAT Gateway ou NAT Instance, é privada com saída via NAT. Se leva a um VPC Endpoint, o tráfego para serviços AWS (S3, DynamoDB) nunca sai para a internet. A rota mais específica vence (longest prefix match).',
+    code: '0.0.0.0/0     → igw-xxx     (subnet pública)\n0.0.0.0/0     → nat-xxx     (subnet privada)\npl-63a5400a   → vpce-s3-xxx (S3 Gateway Endpoint)',
+    color: SKY,
+    examples: ['Pública: rota 0.0.0.0/0 → IGW', 'Privada: rota 0.0.0.0/0 → NAT', 'Endpoint: tráfego sem internet', 'Longest prefix match'],
+  },
+  {
+    id: 'subnet',
+    label: 'Camada 3 — Subnet',
+    sublabel: 'Range de IPs em uma única AZ',
+    description: 'Subdivisão da VPC em uma única Availability Zone. Pública (rota IGW) hospeda ALB, NAT Gateway, bastion. Privada (rota via NAT) hospeda EC2 da aplicação, RDS. Pelo menos 2 subnets em AZs diferentes para HA. Cada ENI vive em exatamente uma subnet — a instância herda o CIDR. CIDRs comuns: VPC /16 (65k IPs), subnet /24 (256 IPs, 251 utilizáveis após reservados pela AWS).',
+    code: 'VPC  10.0.0.0/16\n├── subnet-pub-a  10.0.1.0/24  (us-east-1a)\n├── subnet-pub-b  10.0.2.0/24  (us-east-1b)\n├── subnet-prv-a  10.0.10.0/24 (us-east-1a)\n└── subnet-prv-b  10.0.11.0/24 (us-east-1b)',
+    color: PRP,
+    examples: ['1 subnet = 1 AZ', 'AWS reserva 5 IPs por subnet', 'Pública vs privada = rota', 'Multi-AZ exige multi-subnet'],
+  },
+  {
+    id: 'vpc',
+    label: 'Camada 2 — VPC',
+    sublabel: 'Rede virtual isolada',
+    description: 'Container superior da rede. Define o CIDR principal (ex: 10.0.0.0/16). Por padrão, instâncias dentro da mesma VPC se comunicam via rotas locais. Cross-VPC exige VPC Peering ou Transit Gateway. Para acesso a serviços AWS sem internet: VPC Endpoints (Gateway para S3/DynamoDB, Interface/PrivateLink para os demais). Habilite enableDnsHostnames + enableDnsSupport para que instâncias resolvam DNS internos.',
+    code: 'aws ec2 create-vpc --cidr-block 10.0.0.0/16 \\\n  --tag-specifications "ResourceType=vpc,Tags=[{Key=Name,Value=prod}]"',
+    color: '#60a5fa',
+    examples: ['CIDR principal /16 típico', 'VPC Peering para cross-VPC', 'VPC Endpoints sem IGW', 'DNS interno via .compute.internal'],
+  },
+  {
+    id: 'gateway',
+    label: 'Camada 1 — Internet Gateway / NAT',
+    sublabel: 'Borda da VPC com a internet',
+    description: 'Internet Gateway (IGW): habilita IPv4/IPv6 público de duas vias para subnets públicas. Sem custo. Sem IGW, a VPC não tem internet. NAT Gateway: permite saída para internet de subnets privadas (instâncias podem fazer GET/POST mas a internet não pode iniciar conexão). Cobra por hora + por GB processado. NAT Instance é alternativa baseada em EC2 (mais barato em escala pequena, sem alta disponibilidade nativa). Egress-Only Internet Gateway: equivalente NAT para IPv6.',
+    code: 'aws ec2 create-internet-gateway\naws ec2 attach-internet-gateway --vpc-id vpc-xxx --internet-gateway-id igw-xxx\n\naws ec2 create-nat-gateway --subnet-id subnet-pub-a \\\n  --allocation-id eipalloc-xxx',
+    color: '#ec4899',
+    examples: ['IGW = grátis', 'NAT Gateway ~$0.045/h + $/GB', 'NAT por AZ para HA', 'Egress-only IGW = NAT IPv6'],
+  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — IAM Instance Profile + IMDSv2 (SequenceDiagram)
+// Justificativa: o fluxo "como o EC2 acessa S3 sem credenciais" e a diferença
+// entre IMDSv1 e IMDSv2 são abstratos. Ver a sequência exata de PUT (token) →
+// GET (com header) → STS AssumeRole → API call torna o IMDSv2 concreto e mostra
+// onde o SSRF era explorado no IMDSv1 (Capital One 2019).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const IMDS_ACTORS: SeqActor[] = [
+  { id: 'app',     label: 'App',           color: GRN, icon: 'A' },
+  { id: 'imds',    label: 'IMDS',          color: AMB, icon: 'M' },
+  { id: 'sts',     label: 'STS',           color: PRP, icon: 'T' },
+  { id: 'role',    label: 'IAM Role',      color: SKY, icon: 'R' },
+  { id: 'aws',     label: 'AWS API',       color: C,   icon: '*' },
+]
+
+const IMDS_MESSAGES: SeqMessage[] = [
+  // IMDSv2 token retrieval
+  { from: 'app',   to: 'imds',   label: 'PUT /latest/api/token',                      note: 'header X-aws-ec2-metadata-token-ttl-seconds: 21600 (6h)', type: 'sync' },
+  { from: 'imds',  to: 'app',    label: '200 token (string opaca)',                   note: 'token expira em 6h, não pode sair da instância',           type: 'return' },
+  // Get role name from metadata
+  { from: 'app',   to: 'imds',   label: 'GET /meta-data/iam/security-credentials/',   note: 'header X-aws-ec2-metadata-token: <token>',                  type: 'sync' },
+  { from: 'imds',  to: 'app',    label: '200 nome-da-role',                           note: 'derivado do iam_instance_profile do Launch Template',     type: 'return' },
+  // Get temporary credentials
+  { from: 'app',   to: 'imds',   label: 'GET /meta-data/.../<nome-da-role>',          note: 'mesmo token no header',                                   type: 'sync' },
+  { from: 'imds',  to: 'sts',    label: 'AssumeRole interno',                         note: 'IMDS chama o STS em nome da instância',                   type: 'sync' },
+  { from: 'sts',   to: 'role',   label: 'lê trust policy + permissions',              note: 'verifica que ec2.amazonaws.com pode assumir',             type: 'sync' },
+  { from: 'role',  to: 'sts',    label: 'políticas resolvidas',                       note: 's3:GetObject em arn:aws:s3:::bucket/*',                   type: 'return' },
+  { from: 'sts',   to: 'imds',   label: 'AccessKey + Secret + Token + Expiration',    note: 'credenciais válidas por ~1h, rotação automática',         type: 'return' },
+  { from: 'imds',  to: 'app',    label: '200 JSON com credenciais temporárias',       note: 'AccessKeyId, SecretAccessKey, Token, Expiration',         type: 'return' },
+  // Use credentials to call AWS
+  { from: 'app',   to: 'aws',    label: 'GetObject(bucket/key) + SigV4',              note: 'SDK assina request com as credenciais temporárias',       type: 'sync' },
+  { from: 'aws',   to: 'role',   label: 'verifica policy do principal',               note: 'a Role tem s3:GetObject? Recurso bate?',                   type: 'sync' },
+  { from: 'role',  to: 'aws',    label: 'allow',                                      note: 'avalia também SCPs, VPC endpoint policy, bucket policy',  type: 'return' },
+  { from: 'aws',   to: 'app',    label: '200 OK + bytes do objeto',                   note: 'resposta entregue. SDK refresh credenciais antes de expirar', type: 'return' },
+]
+
+const IMDS_GROUPS: SeqGroup[] = [
+  { label: 'Aquisição de token (IMDSv2)',     kind: 'opt', fromMsg: 0,  toMsg: 1,  color: AMB },
+  { label: 'Resolução da Role + STS',         kind: 'opt', fromMsg: 2,  toMsg: 9,  color: PRP },
+  { label: 'Chamada à AWS com SigV4',         kind: 'opt', fromMsg: 10, toMsg: 13, color: C   },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1170,6 +1283,39 @@ export default function EC2Visuais() {
           heading="Os 6 erros que aparecem em code review e auditoria"
           description="Cada anti-pattern com diff de Terraform/SDK/Bash e explicação de impacto técnico."
           whyLabel="POR QUE ISSO QUEBRA"
+        />
+      ),
+    },
+    {
+      id: 'networking',
+      title: 'Networking VPC',
+      subtitle: 'IGW → VPC → Subnet → Route Table → NACL → Security Group em 6 camadas',
+      accent: C,
+      component: (
+        <LayerStack
+          layers={NETWORKING_LAYERS}
+          accentColor={C}
+          bgColor={BG}
+          cardColor={CARD}
+          title="Hierarquia de rede do EC2"
+          description="A ordem importa: IGW/NAT é a borda, VPC e Subnet são o espaço de IPs, Route Table decide o caminho, NACL é stateless por subnet, Security Group é stateful por instância. SG e NACL avaliam Allow/Deny diferente — entender essa ordem evita 70% dos casos de 'EC2 não responde'."
+        />
+      ),
+    },
+    {
+      id: 'imds-flow',
+      title: 'IAM Instance Profile + IMDSv2',
+      subtitle: 'Como EC2 acessa S3 sem credenciais — fluxo de token, STS e SigV4',
+      accent: C,
+      component: (
+        <SequenceDiagram
+          actors={IMDS_ACTORS}
+          messages={IMDS_MESSAGES}
+          groups={IMDS_GROUPS}
+          accentColor={C}
+          bgColor={BG}
+          title="Sequência de chamada à AWS API a partir da instância"
+          description="IMDSv2 exige PUT inicial para obter token e GET com header. IMDSv1 (legado) era um GET direto — vulnerável a SSRF (Capital One 2019). O Instance Profile é a forma correta de dar acesso a serviços AWS sem chaves hardcoded."
         />
       ),
     },

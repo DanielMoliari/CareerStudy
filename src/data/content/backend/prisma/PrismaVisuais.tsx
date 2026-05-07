@@ -1279,6 +1279,328 @@ const ORM_CRITERIA: ComparisonCriterion[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — Query Builder interativo
+// Justificativa: a árvore de cláusulas (where → include → orderBy → take) é
+// difícil de memorizar lendo docs. Um builder onde o usuário ATIVA cada cláusula
+// e vê o objeto Prisma + SQL gerado atualizar em tempo real ensina a composição
+// que texto/diagramas estáticos não ensinam — feedback imediato fixa o modelo.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface QueryClause {
+  id: 'where' | 'select' | 'include' | 'orderBy' | 'take' | 'cursor'
+  label: string
+  description: string
+  prismaSnippet: string
+  sqlEffect: string
+  color: string
+}
+
+const QUERY_CLAUSES: QueryClause[] = [
+  {
+    id: 'where',
+    label: 'where',
+    description: 'Filtros — operadores equals, in, lt, contains, AND/OR/NOT compostos.',
+    prismaSnippet: `where: { status: 'PUBLISHED', authorId: 'u_42' }`,
+    sqlEffect: `WHERE "status" = 'PUBLISHED' AND "authorId" = 'u_42'`,
+    color: '#fbbf24',
+  },
+  {
+    id: 'select',
+    label: 'select',
+    description: 'Whitelist de campos — tipo TS encolhe para conter apenas o pedido.',
+    prismaSnippet: `select: { id: true, title: true, author: { select: { name: true } } }`,
+    sqlEffect: `SELECT "id", "title", /* + JOIN para author */`,
+    color: '#a78bfa',
+  },
+  {
+    id: 'include',
+    label: 'include',
+    description: 'Adiciona relações ao tipo base — User & { posts: Post[] }.',
+    prismaSnippet: `include: { author: true, comments: { take: 5 } }`,
+    sqlEffect: `/* SELECT users WHERE id IN (...); SELECT comments WHERE postId IN (...) LIMIT 5 */`,
+    color: '#38bdf8',
+  },
+  {
+    id: 'orderBy',
+    label: 'orderBy',
+    description: 'Ordenação — array para multi-coluna. Sempre adicione id como tiebreaker para cursor.',
+    prismaSnippet: `orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]`,
+    sqlEffect: `ORDER BY "createdAt" DESC, "id" DESC`,
+    color: '#4ade80',
+  },
+  {
+    id: 'take',
+    label: 'take',
+    description: 'Limit — número máximo de registros retornados.',
+    prismaSnippet: `take: 20`,
+    sqlEffect: `LIMIT 20`,
+    color: '#ef4444',
+  },
+  {
+    id: 'cursor',
+    label: 'cursor',
+    description: 'Paginação O(1) — passa o id do último item visto. Combine com skip:1 para pular o próprio cursor.',
+    prismaSnippet: `cursor: { id: 'p_42' }, skip: 1`,
+    sqlEffect: `WHERE "id" > 'p_42' /* + ORDER BY estável obrigatório */`,
+    color: '#f59e0b',
+  },
+]
+
+function PrismaQueryBuilderVisual() {
+  const [active, setActive] = useState<Set<QueryClause['id']>>(new Set(['where']))
+  const [model] = useState('post')
+
+  const toggle = (id: QueryClause['id']) => {
+    const next = new Set(active)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setActive(next)
+  }
+
+  const activeClauses = QUERY_CLAUSES.filter(c => active.has(c.id))
+
+  // Monta o objeto Prisma resultante
+  const prismaLines = ['await prisma.post.findMany({']
+  activeClauses.forEach((c, i) => {
+    const isLast = i === activeClauses.length - 1
+    prismaLines.push(`  ${c.prismaSnippet}${isLast ? '' : ','}`)
+  })
+  prismaLines.push('})')
+
+  // Monta o SQL aproximado
+  const hasSelect = active.has('select')
+  const sqlParts: string[] = [hasSelect ? 'SELECT "id", "title"' : 'SELECT *']
+  sqlParts.push('FROM "posts"')
+  if (active.has('where')) sqlParts.push(`WHERE "status" = 'PUBLISHED' AND "authorId" = 'u_42'`)
+  if (active.has('orderBy')) sqlParts.push(`ORDER BY "createdAt" DESC, "id" DESC`)
+  if (active.has('take')) sqlParts.push('LIMIT 20')
+  if (active.has('cursor')) sqlParts.push(`/* WHERE "id" > 'p_42' aplicado pelo cursor */`)
+
+  // Monta o tipo TS inferido
+  let inferredType = 'Post[]'
+  if (active.has('select')) {
+    inferredType = `{ id: string; title: string; author: { name: string } }[]`
+  } else if (active.has('include')) {
+    inferredType = `(Post & { author: User; comments: Comment[] })[]`
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Header com modelo e instrução */}
+      <div style={{
+        background: CARD,
+        borderRadius: 10,
+        padding: 14,
+        border: `1px solid ${LINE}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+      }}>
+        <div style={{ fontSize: 10, color: FGMUTE, textTransform: 'uppercase' as const, letterSpacing: '.08em' }}>
+          Modelo raiz
+        </div>
+        <code style={{
+          background: BG,
+          color: C,
+          padding: '6px 12px',
+          borderRadius: 6,
+          fontSize: 13,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontWeight: 700,
+        }}>
+          prisma.{model}.findMany()
+        </code>
+        <div style={{ fontSize: 11, color: FGMUTE, marginLeft: 'auto' }}>
+          Clique nas cláusulas abaixo para ativá-las {'->'} veja o objeto, SQL e tipo TS atualizarem
+        </div>
+      </div>
+
+      {/* Toggles de cláusulas */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+        gap: 8,
+      }}>
+        {QUERY_CLAUSES.map(c => {
+          const on = active.has(c.id)
+          return (
+            <button
+              key={c.id}
+              onClick={() => toggle(c.id)}
+              style={{
+                background: on ? `${c.color}18` : CARD,
+                border: `2px solid ${on ? c.color : LINE}`,
+                borderRadius: 10,
+                padding: '12px 10px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all .15s',
+                textAlign: 'left' as const,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{
+                  width: 14, height: 14,
+                  borderRadius: 4,
+                  border: `2px solid ${on ? c.color : LINE}`,
+                  background: on ? c.color : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 9,
+                  color: '#0f172a',
+                  fontWeight: 800,
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {on ? 'X' : ''}
+                </span>
+                <code style={{
+                  fontSize: 12,
+                  color: on ? c.color : FG,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontWeight: 700,
+                }}>
+                  {c.label}
+                </code>
+              </div>
+              <div style={{ fontSize: 10, color: FGMUTE, lineHeight: 1.4 }}>
+                {c.description}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Painel principal: Prisma object | SQL | Type */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        {/* Prisma object */}
+        <div style={{
+          background: BG,
+          borderRadius: 10,
+          border: `1px solid ${C}40`,
+          padding: 16,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: C, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.08em' }}>
+              Objeto Prisma
+            </div>
+            <div style={{ fontSize: 9, color: FGMUTE }}>
+              {activeClauses.length} cláusula{activeClauses.length === 1 ? '' : 's'} ativa{activeClauses.length === 1 ? '' : 's'}
+            </div>
+          </div>
+          <pre style={{
+            margin: 0,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11.5,
+            lineHeight: 1.75,
+            color: FG,
+            whiteSpace: 'pre-wrap' as const,
+            overflowWrap: 'anywhere' as const,
+          }}>
+            {prismaLines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </pre>
+        </div>
+
+        {/* SQL gerado */}
+        <div style={{
+          background: BG,
+          borderRadius: 10,
+          border: `1px solid ${SKY}40`,
+          padding: 16,
+        }}>
+          <div style={{ fontSize: 10, color: SKY, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.08em', marginBottom: 10 }}>
+            SQL aproximado (gerado pelo query engine)
+          </div>
+          <pre style={{
+            margin: 0,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 11.5,
+            lineHeight: 1.75,
+            color: FG,
+            whiteSpace: 'pre-wrap' as const,
+            overflowWrap: 'anywhere' as const,
+          }}>
+            {sqlParts.map((part, i) => (
+              <div key={i} style={{ color: i === 0 ? SKY : FG }}>{part}</div>
+            ))}
+          </pre>
+        </div>
+      </div>
+
+      {/* Tipo TS inferido */}
+      <div style={{
+        background: CARD,
+        borderRadius: 10,
+        border: `1px solid ${GRN}40`,
+        borderLeft: `4px solid ${GRN}`,
+        padding: 14,
+      }}>
+        <div style={{ fontSize: 10, color: GRN, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.08em', marginBottom: 8 }}>
+          Tipo TypeScript inferido automaticamente
+        </div>
+        <code style={{
+          fontSize: 12,
+          color: FG,
+          fontFamily: "'JetBrains Mono', monospace",
+          background: BG,
+          padding: '8px 12px',
+          borderRadius: 6,
+          display: 'block',
+        }}>
+          const posts: {inferredType}
+        </code>
+        <p style={{ fontSize: 11, color: FGMUTE, margin: '8px 0 0', lineHeight: 1.55 }}>
+          Sem cast, sem any. O Prisma estreita o tipo conforme você modifica a query — autocomplete e checagem em tempo de compilação.
+        </p>
+      </div>
+
+      {/* Dicas conforme combinação */}
+      {active.has('cursor') && !active.has('orderBy') && (
+        <div style={{
+          background: `${RED}15`,
+          border: `1px solid ${RED}50`,
+          borderRadius: 10,
+          padding: 12,
+          fontSize: 12,
+          color: FG,
+        }}>
+          <strong style={{ color: RED }}>Atenção:</strong> cursor sem orderBy estável quebra a paginação. Adicione orderBy com id como tiebreaker — sem ele, registros com mesmo timestamp podem ser pulados ou duplicados entre páginas.
+        </div>
+      )}
+      {active.has('select') && active.has('include') && (
+        <div style={{
+          background: `${RED}15`,
+          border: `1px solid ${RED}50`,
+          borderRadius: 10,
+          padding: 12,
+          fontSize: 12,
+          color: FG,
+        }}>
+          <strong style={{ color: RED }}>Erro de tipo:</strong> não é possível usar select e include no mesmo nível — Prisma rejeita em runtime e o TypeScript reclama. Para combinar, use select aninhado: select: {'{'} id: true, posts: {'{'} select: {'{'} title: true {'}'} {'}'} {'}'}.
+        </div>
+      )}
+      {!active.has('take') && (active.has('where') || active.has('include')) && (
+        <div style={{
+          background: `${AMB}15`,
+          border: `1px solid ${AMB}50`,
+          borderRadius: 10,
+          padding: 12,
+          fontSize: 12,
+          color: FG,
+        }}>
+          <strong style={{ color: AMB }}>Dica de produção:</strong> findMany sem take pode retornar milhões de registros. Em produção, sempre defina take (limite) — para listas grandes, prefira cursor pagination com take e tiebreaker estável.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Main
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1362,6 +1684,13 @@ export default function PrismaVisuais() {
           cardColor={CARD2}
         />
       ),
+    },
+    {
+      id: 'query-builder',
+      title: 'Query Builder interativo',
+      subtitle: 'Ative cláusulas e veja o objeto Prisma, SQL gerado e tipo TS atualizarem',
+      accent: AMB,
+      component: <PrismaQueryBuilderVisual />,
     },
   ]
 

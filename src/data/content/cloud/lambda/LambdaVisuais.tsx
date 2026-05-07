@@ -1158,6 +1158,460 @@ const LAMBDA_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 9 — Destinations Flow (custom routing visualization)
+// Justificativa: Destinations é um conceito que texto NÃO carrega bem. O fluxo
+// de "se sucesso → A; se falha após retries → B" envolvendo SQS/SNS/EventBridge/
+// Lambda como destinos é radicalmente mais claro com diagrama visual interativo.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type DestinationTarget = {
+  id: string
+  name: string
+  icon: string
+  color: string
+  desc: string
+  useCase: string
+}
+
+const DEST_TARGETS: DestinationTarget[] = [
+  { id: 'sqs', name: 'SQS Queue', icon: 'Q', color: PRP, desc: 'Fila durável para processar de forma desacoplada', useCase: 'Processar falhas em batch posteriormente, retry manual com novo consumer.' },
+  { id: 'sns', name: 'SNS Topic', icon: 'T', color: AMB, desc: 'Pub/sub para fan-out a múltiplos subscribers', useCase: 'Notificar múltiplos sistemas em paralelo (alerta + logging + dashboard).' },
+  { id: 'eb',  name: 'EventBridge', icon: 'E', color: SKY, desc: 'Bus com regras de roteamento por padrão', useCase: 'Roteamento condicional baseado no payload — "se erro contém X, vai para alarme".' },
+  { id: 'lam', name: 'Lambda',     icon: 'λ', color: GRN, desc: 'Outra Lambda processa o resultado', useCase: 'Pipeline de processamento — pós-sucesso aciona próxima etapa.' },
+]
+
+type DestScenario = {
+  id: string
+  label: string
+  title: string
+  invocationType: string
+  flow: Array<{ step: string; status: 'normal' | 'success' | 'fail' | 'retry'; detail: string }>
+}
+
+const DEST_SCENARIOS: DestScenario[] = [
+  {
+    id: 'success',
+    label: 'Sucesso',
+    title: 'Lambda completa com sucesso → Destination on_success',
+    invocationType: 'Assíncrono (S3, SNS, EventBridge, SDK Event)',
+    flow: [
+      { step: '1. Evento chega', status: 'normal', detail: 'S3 PutObject, SNS publish, EventBridge rule, ou SDK invoke com InvocationType=Event' },
+      { step: '2. Lambda invocada', status: 'normal', detail: 'AWS coloca evento em fila interna, Lambda inicia execução assíncrona' },
+      { step: '3. Handler executa OK', status: 'success', detail: 'Handler retorna sem exceção. Resultado capturado pelo runtime.' },
+      { step: '4. on_success Destination', status: 'success', detail: 'Payload enviado ao destino: { event_original, result, timestamp, requestId }. Inclui input + output + contexto.' },
+    ],
+  },
+  {
+    id: 'failure',
+    label: 'Falha após retries',
+    title: 'Lambda falha → 2 retries → Destination on_failure',
+    invocationType: 'Assíncrono (S3, SNS, EventBridge, SDK Event)',
+    flow: [
+      { step: '1. Evento chega', status: 'normal', detail: 'Mesma origem assíncrona — S3, SNS, EventBridge ou SDK Event' },
+      { step: '2. Lambda invocada (1ª tentativa)', status: 'normal', detail: 'Handler executa e levanta exceção (timeout, erro de tool, throttling)' },
+      { step: '3. Retry 1 (~1 min depois)', status: 'retry', detail: 'AWS espera ~1 min com backoff exponencial e tenta novamente' },
+      { step: '4. Retry 2 (~2 min depois)', status: 'retry', detail: 'Última tentativa automática. Total: 3 invocações (1 inicial + 2 retries)' },
+      { step: '5. Todos os retries falharam', status: 'fail', detail: 'Após 3 falhas, AWS desiste das tentativas automáticas' },
+      { step: '6. on_failure Destination', status: 'fail', detail: 'Payload completo enviado: { event_original, errorMessage, errorType, stackTrace, requestId }. Sem isso: invocação descartada silenciosamente!' },
+    ],
+  },
+  {
+    id: 'dlq-vs-dest',
+    label: 'DLQ vs Destinations',
+    title: 'DLQ legado vs Destinations moderno — diferença prática',
+    invocationType: 'Comparativo',
+    flow: [
+      { step: 'DLQ (legado)', status: 'normal', detail: 'Apenas SQS ou SNS. Apenas falha. Payload contém SOMENTE o evento original. Sem contexto de erro.' },
+      { step: 'Destinations (recomendado)', status: 'normal', detail: 'SQS, SNS, EventBridge OU Lambda. Sucesso E falha. Payload tem evento + resposta + contexto completo (errorMessage, requestId, condition).' },
+      { step: 'Quando usar DLQ', status: 'normal', detail: 'Apenas em sistemas legados. Para todo código novo: Destinations.' },
+      { step: 'Quando usar Destinations', status: 'success', detail: 'Sempre. Mais rico, mais flexível, suporta orquestração (Lambda → Lambda).' },
+    ],
+  },
+]
+
+function DestinationsFlowVisual() {
+  const [selScenario, setSelScenario] = useState<string>('success')
+  const [selTarget, setSelTarget] = useState<string>('eb')
+  const scenario = DEST_SCENARIOS.find(s => s.id === selScenario)!
+  const target = DEST_TARGETS.find(t => t.id === selTarget)!
+
+  return (
+    <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ color: FG, margin: 0, fontSize: 16, fontWeight: 800 }}>Lambda Destinations — roteamento de resultados</h3>
+        <p style={{ color: FGMUTE, fontSize: 12, margin: '4px 0 0' }}>Para invocações assíncronas: sucesso e falha podem ser roteados para SQS/SNS/EventBridge/Lambda. Substitui a DLQ legada.</p>
+      </div>
+
+      {/* Cenários */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+        {DEST_SCENARIOS.map(s => {
+          const isSel = s.id === selScenario
+          const color = s.id === 'success' ? GRN : s.id === 'failure' ? RED : SKY
+          return (
+            <button
+              key={s.id}
+              onClick={() => setSelScenario(s.id)}
+              style={{
+                background: isSel ? `${color}25` : CARD,
+                border: `2px solid ${isSel ? color : LINE}`,
+                borderRadius: 10,
+                padding: '12px 14px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontFamily: 'inherit',
+                transition: 'all .2s',
+              }}
+            >
+              <div style={{ color: isSel ? color : FG, fontSize: 13, fontWeight: 800, marginBottom: 4 }}>{s.label}</div>
+              <div style={{ color: FGMUTE, fontSize: 10, lineHeight: 1.4 }}>{s.invocationType}</div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Fluxo do cenário */}
+      <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 18, marginBottom: 14 }}>
+        <div style={{ color: C, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', marginBottom: 10 }}>
+          {scenario.title}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {scenario.flow.map((step, i) => {
+            const stepColor =
+              step.status === 'success' ? GRN :
+              step.status === 'fail' ? RED :
+              step.status === 'retry' ? AMB : FGMUTE
+            return (
+              <div key={i} style={{
+                background: BG,
+                borderLeft: `3px solid ${stepColor}`,
+                borderRadius: 6,
+                padding: '8px 12px',
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+              }}>
+                <div style={{ color: stepColor, fontSize: 11, fontWeight: 700, minWidth: 200 }}>{step.step}</div>
+                <div style={{ color: FGMUTE, fontSize: 11, lineHeight: 1.6, flex: 1 }}>{step.detail}</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Destinos disponíveis */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ color: C, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', marginBottom: 10 }}>DESTINOS DISPONIVEIS</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+          {DEST_TARGETS.map(t => {
+            const isSel = t.id === selTarget
+            return (
+              <button
+                key={t.id}
+                onClick={() => setSelTarget(t.id)}
+                style={{
+                  background: isSel ? `${t.color}25` : CARD,
+                  border: `2px solid ${isSel ? t.color : LINE}`,
+                  borderRadius: 10,
+                  padding: '12px 10px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  fontFamily: 'inherit',
+                  transition: 'all .2s',
+                }}
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: `${t.color}20`,
+                  border: `1.5px solid ${t.color}`,
+                  color: t.color,
+                  fontSize: 16, fontWeight: 900,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 6px',
+                }}>{t.icon}</div>
+                <div style={{ color: isSel ? t.color : FG, fontSize: 11, fontWeight: 700 }}>{t.name}</div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div style={{
+          background: CARD,
+          border: `1px solid ${target.color}40`,
+          borderLeft: `3px solid ${target.color}`,
+          borderRadius: 8,
+          padding: '12px 14px',
+        }}>
+          <div style={{ color: target.color, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{target.name}</div>
+          <div style={{ color: FG, fontSize: 11, lineHeight: 1.6, marginBottom: 8 }}>{target.desc}</div>
+          <div style={{
+            background: BG,
+            borderRadius: 6,
+            padding: '8px 12px',
+            fontSize: 10,
+            color: FGMUTE,
+            lineHeight: 1.6,
+          }}>
+            <span style={{ color: target.color, fontWeight: 700, marginRight: 6 }}>USO TIPICO:</span>
+            {target.useCase}
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        background: CARD,
+        border: `1px solid ${C}30`,
+        borderLeft: `3px solid ${C}`,
+        borderRadius: 6,
+        padding: '10px 14px',
+        fontSize: 11,
+        color: FGMUTE,
+        lineHeight: 1.6,
+      }}>
+        <span style={{ color: C, fontWeight: 700, marginRight: 8 }}>Importante</span>
+        Destinations só funcionam em invocação <strong style={{ color: FG }}>assíncrona</strong>. Para SQS polling, configure DLQ na fila SQS (não na Lambda). Para Kinesis/DynamoDB Streams, use destinationConfig.onFailure no Event Source Mapping.
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 10 — Lambda Billing Calculator (custom interactive)
+// Justificativa: o modelo de cobrança Lambda (requests + GB-seconds com
+// granularidade de 1ms + free tier) é abstrato em texto. Calcular em tempo real
+// com sliders e ver o consumo do free tier sendo "comido" é radicalmente mais
+// didático. Foco em entender custo, não otimizar (já temos Memory Tuning).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const LAMBDA_REQ_PRICE = 0.0000002      // $ por requisição (após free tier)
+const LAMBDA_GBS_PRICE = 0.0000166667    // $ por GB-segundo (após free tier)
+const FREE_REQUESTS    = 1_000_000        // 1 M req/mês grátis
+const FREE_GBS         = 400_000          // 400.000 GB-s/mês grátis
+
+function LambdaBillingVisual() {
+  const [memoryMB, setMemoryMB] = useState<number>(512)
+  const [durationMs, setDurationMs] = useState<number>(200)
+  const [requestsPerMonth, setRequestsPerMonth] = useState<number>(5_000_000)
+
+  const memoryGB = memoryMB / 1024
+  const durationS = durationMs / 1000
+  const totalGBs = memoryGB * durationS * requestsPerMonth
+
+  // Custo bruto (sem free tier)
+  const requestCostGross = requestsPerMonth * LAMBDA_REQ_PRICE
+  const computeCostGross = totalGBs * LAMBDA_GBS_PRICE
+  const totalGross = requestCostGross + computeCostGross
+
+  // Free tier
+  const freeReqUsed = Math.min(requestsPerMonth, FREE_REQUESTS)
+  const freeGbsUsed = Math.min(totalGBs, FREE_GBS)
+  const freeTierSavings = freeReqUsed * LAMBDA_REQ_PRICE + freeGbsUsed * LAMBDA_GBS_PRICE
+
+  // Custo líquido
+  const billableRequests = Math.max(0, requestsPerMonth - FREE_REQUESTS)
+  const billableGBs = Math.max(0, totalGBs - FREE_GBS)
+  const requestCostNet = billableRequests * LAMBDA_REQ_PRICE
+  const computeCostNet = billableGBs * LAMBDA_GBS_PRICE
+  const totalNet = requestCostNet + computeCostNet
+
+  const reqFreePct = Math.min(100, (freeReqUsed / FREE_REQUESTS) * 100)
+  const gbsFreePct = Math.min(100, (freeGbsUsed / FREE_GBS) * 100)
+
+  const formatUSD = (v: number): string => {
+    if (v < 0.01 && v > 0) return `$${v.toFixed(6)}`
+    return `$${v.toFixed(2)}`
+  }
+  const formatNum = (v: number): string => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} M`
+    if (v >= 1_000) return `${(v / 1_000).toFixed(1)} K`
+    return v.toFixed(0)
+  }
+
+  const Slider = ({
+    label, value, onChange, min, max, step, suffix, hint,
+  }: { label: string; value: number; onChange: (v: number) => void; min: number; max: number; step: number; suffix: string; hint: string }) => {
+    const pct = ((value - min) / (max - min)) * 100
+    return (
+      <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 10, padding: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ color: C, fontSize: 10, letterSpacing: '.1em', fontWeight: 700 }}>{label}</span>
+          <span style={{ color: FG, fontSize: 18, fontWeight: 900 }}>{value >= 1000 ? formatNum(value) : value}<span style={{ color: FGMUTE, fontSize: 11, marginLeft: 4 }}>{suffix}</span></span>
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={e => onChange(parseInt(e.target.value))}
+          style={{
+            width: '100%',
+            height: 5,
+            background: `linear-gradient(to right, ${C} 0%, ${C} ${pct}%, ${LINE} ${pct}%, ${LINE} 100%)`,
+            borderRadius: 3,
+            outline: 'none',
+            appearance: 'none',
+            cursor: 'pointer',
+          }}
+        />
+        <div style={{ color: FGMUTE, fontSize: 9, marginTop: 6, lineHeight: 1.4 }}>{hint}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ color: FG, margin: 0, fontSize: 16, fontWeight: 800 }}>Calculadora de Custo Lambda</h3>
+        <p style={{ color: FGMUTE, fontSize: 12, margin: '4px 0 0' }}>Ajuste memória, duração e volume — veja como o free tier é consumido e o custo final é calculado em tempo real.</p>
+      </div>
+
+      {/* Sliders */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+        <Slider
+          label="MEMORIA"
+          value={memoryMB}
+          onChange={setMemoryMB}
+          min={128}
+          max={10240}
+          step={64}
+          suffix="MB"
+          hint={`${memoryGB.toFixed(2)} GB · CPU proporcional (1 vCPU @ 1769 MB)`}
+        />
+        <Slider
+          label="DURACAO POR INVOCACAO"
+          value={durationMs}
+          onChange={setDurationMs}
+          min={10}
+          max={15000}
+          step={10}
+          suffix="ms"
+          hint={`${durationS.toFixed(3)} s · cobrado por ms (granularidade fina)`}
+        />
+        <Slider
+          label="REQUISICOES POR MES"
+          value={requestsPerMonth}
+          onChange={setRequestsPerMonth}
+          min={100_000}
+          max={100_000_000}
+          step={100_000}
+          suffix=""
+          hint={`${formatNum(requestsPerMonth)} invocações/mês`}
+        />
+      </div>
+
+      {/* Free tier consumption */}
+      <div style={{
+        background: CARD,
+        border: `1px solid ${LINE}`,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 14,
+      }}>
+        <div style={{ color: GRN, fontSize: 10, letterSpacing: '.15em', fontWeight: 700, marginBottom: 12 }}>FREE TIER (sempre grátis — não expira)</div>
+
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: FGMUTE, marginBottom: 4 }}>
+            <span>Requisições — {formatNum(freeReqUsed)} de {formatNum(FREE_REQUESTS)} usadas</span>
+            <span style={{ color: reqFreePct >= 100 ? RED : GRN, fontWeight: 700 }}>{reqFreePct.toFixed(1)}%</span>
+          </div>
+          <div style={{ background: BG, height: 12, borderRadius: 6, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+            <div style={{
+              background: `linear-gradient(90deg, ${GRN}, ${reqFreePct >= 100 ? RED : GRN})`,
+              height: '100%',
+              width: `${reqFreePct}%`,
+              transition: 'width .3s',
+            }} />
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: FGMUTE, marginBottom: 4 }}>
+            <span>Compute (GB-s) — {formatNum(freeGbsUsed)} de {formatNum(FREE_GBS)} usados</span>
+            <span style={{ color: gbsFreePct >= 100 ? RED : GRN, fontWeight: 700 }}>{gbsFreePct.toFixed(1)}%</span>
+          </div>
+          <div style={{ background: BG, height: 12, borderRadius: 6, overflow: 'hidden', border: `1px solid ${LINE}` }}>
+            <div style={{
+              background: `linear-gradient(90deg, ${GRN}, ${gbsFreePct >= 100 ? RED : GRN})`,
+              height: '100%',
+              width: `${gbsFreePct}%`,
+              transition: 'width .3s',
+            }} />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 10, color: FGMUTE, lineHeight: 1.6 }}>
+          Você consume {formatNum(totalGBs)} GB-s/mês neste workload — {gbsFreePct >= 100 ? 'free tier ESGOTADO de compute, paga pelo excedente' : 'ainda dentro do free tier'}.
+        </div>
+      </div>
+
+      {/* Cálculo */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div style={{ background: CARD, border: `2px solid ${SKY}40`, borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ color: SKY, fontSize: 10, letterSpacing: '.1em', fontWeight: 700, marginBottom: 8 }}>CUSTO POR REQUEST</div>
+          <div style={{ fontSize: 11, color: FGMUTE, lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div>Bruto: {formatNum(requestsPerMonth)} × $0.0000002 = <span style={{ color: FG }}>{formatUSD(requestCostGross)}</span></div>
+            <div style={{ color: GRN }}>− Free: {formatNum(freeReqUsed)} grátis</div>
+            <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 4, paddingTop: 4 }}>
+              <strong style={{ color: SKY }}>= {formatUSD(requestCostNet)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: CARD, border: `2px solid ${PRP}40`, borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ color: PRP, fontSize: 10, letterSpacing: '.1em', fontWeight: 700, marginBottom: 8 }}>CUSTO DE COMPUTE (GB-s)</div>
+          <div style={{ fontSize: 11, color: FGMUTE, lineHeight: 1.7, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div>Bruto: {formatNum(totalGBs)} × $0.0000167 = <span style={{ color: FG }}>{formatUSD(computeCostGross)}</span></div>
+            <div style={{ color: GRN }}>− Free: {formatNum(freeGbsUsed)} GB-s grátis</div>
+            <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 4, paddingTop: 4 }}>
+              <strong style={{ color: PRP }}>= {formatUSD(computeCostNet)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Total final */}
+      <div style={{
+        background: `linear-gradient(135deg, ${C}15, ${C}05)`,
+        border: `2px solid ${C}`,
+        borderRadius: 12,
+        padding: '18px 20px',
+        marginBottom: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ color: C, fontSize: 10, letterSpacing: '.15em', fontWeight: 700, marginBottom: 4 }}>CUSTO MENSAL TOTAL</div>
+          <div style={{ color: FGMUTE, fontSize: 11 }}>
+            {totalNet === 0 ? 'Você está dentro do free tier — custo zero!' : `Você economizou ${formatUSD(freeTierSavings)} via free tier`}
+          </div>
+        </div>
+        <div style={{ color: FG, fontSize: 32, fontWeight: 900, fontFamily: "'JetBrains Mono', monospace" }}>
+          {formatUSD(totalNet)}
+        </div>
+      </div>
+
+      {/* Fórmula */}
+      <div style={{
+        background: CARD,
+        border: `1px solid ${C}30`,
+        borderLeft: `3px solid ${C}`,
+        borderRadius: 6,
+        padding: '10px 14px',
+        fontSize: 10,
+        color: FGMUTE,
+        lineHeight: 1.7,
+        fontFamily: "'JetBrains Mono', monospace",
+      }}>
+        <div style={{ color: C, fontWeight: 700, marginBottom: 4, letterSpacing: '.1em' }}>FORMULA</div>
+        custo = max(0, requests − 1M) × $0.0000002 + max(0, GB-s − 400K) × $0.0000167<br/>
+        onde GB-s = (memória_MB / 1024) × (duração_ms / 1000) × requests
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1261,6 +1715,20 @@ export default function LambdaVisuais() {
           whyLabel="POR QUE ISSO QUEBRA"
         />
       ),
+    },
+    {
+      id: 'destinations',
+      title: 'Destinations Flow',
+      subtitle: 'Roteamento on_success / on_failure para SQS / SNS / EventBridge / Lambda',
+      accent: C,
+      component: <DestinationsFlowVisual />,
+    },
+    {
+      id: 'billing',
+      title: 'Calculadora de Custo',
+      subtitle: 'Ajuste memória, duração e volume — veja o cálculo de GB-s e free tier em tempo real',
+      accent: C,
+      component: <LambdaBillingVisual />,
     },
   ]
 

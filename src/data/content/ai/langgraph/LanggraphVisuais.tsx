@@ -22,6 +22,7 @@ const C      = '#4ade80'  // verde brilhante — identidade visual oficial do La
 const C2     = '#22c55e'
 const BG     = '#0f172a'
 const CARD   = '#1e293b'
+const LINE   = '#334155'
 const FG     = '#e2e8f0'
 const FGMUTE = '#94a3b8'
 const AMB    = '#f59e0b'
@@ -676,6 +677,302 @@ const LANGGRAPH_ANTIPATTERNS: AntiPattern[] = [
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// VISUAL 8 — Supervisor vs Swarm flow (custom side-by-side)
+// Justificativa: ComparisonTable já compara critérios, mas a DIFERENCA DE FLUXO
+// (delegação centralizada vs handoff peer-to-peer) é abstrata em texto.
+// Animação passo a passo lado a lado torna óbvia a distinção controle x emergência.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type FlowStep = {
+  id: number
+  from: string
+  to: string
+  message: string
+  highlightedAgent?: string
+}
+
+const SUPERVISOR_AGENTS = [
+  { id: 'sup',    label: 'Supervisor',  pos: { x: 50, y: 15 }, color: C,   icon: 'S' },
+  { id: 'search', label: 'Search',      pos: { x: 15, y: 70 }, color: BLU, icon: '🔍' },
+  { id: 'code',   label: 'Code',        pos: { x: 50, y: 70 }, color: PUR, icon: '⚡' },
+  { id: 'write',  label: 'Write',       pos: { x: 85, y: 70 }, color: AMB, icon: '✎' },
+]
+
+const SUPERVISOR_FLOW: FlowStep[] = [
+  { id: 1, from: 'user',   to: 'sup',    message: 'invoke({task: "Resume tendências de IA"})' },
+  { id: 2, from: 'sup',    to: 'search', message: 'delega: "busque artigos recentes"', highlightedAgent: 'search' },
+  { id: 3, from: 'search', to: 'sup',    message: 'retorna: [10 artigos]', highlightedAgent: 'sup' },
+  { id: 4, from: 'sup',    to: 'code',   message: 'delega: "analise tendências no JSON"', highlightedAgent: 'code' },
+  { id: 5, from: 'code',   to: 'sup',    message: 'retorna: {trends: [...]}', highlightedAgent: 'sup' },
+  { id: 6, from: 'sup',    to: 'write',  message: 'delega: "compõe relatório markdown"', highlightedAgent: 'write' },
+  { id: 7, from: 'write',  to: 'sup',    message: 'retorna: relatório final', highlightedAgent: 'sup' },
+  { id: 8, from: 'sup',    to: 'user',   message: 'response: relatório completo' },
+]
+
+const SWARM_AGENTS = [
+  { id: 'a', label: 'Researcher',  pos: { x: 20, y: 25 }, color: BLU, icon: 'R' },
+  { id: 'b', label: 'Analyst',     pos: { x: 80, y: 25 }, color: PUR, icon: 'A' },
+  { id: 'c', label: 'Writer',      pos: { x: 50, y: 75 }, color: AMB, icon: 'W' },
+]
+
+const SWARM_FLOW: FlowStep[] = [
+  { id: 1, from: 'user', to: 'a', message: 'invoke({task: "Resume tendências de IA"})', highlightedAgent: 'a' },
+  { id: 2, from: 'a',    to: 'b', message: 'handoff_to_analyst({data: [...]})', highlightedAgent: 'b' },
+  { id: 3, from: 'b',    to: 'a', message: 'handoff_to_researcher({need: "mais sobre X"})', highlightedAgent: 'a' },
+  { id: 4, from: 'a',    to: 'b', message: 'handoff_to_analyst({extra_data: [...]})', highlightedAgent: 'b' },
+  { id: 5, from: 'b',    to: 'c', message: 'handoff_to_writer({insights: [...]})', highlightedAgent: 'c' },
+  { id: 6, from: 'c',    to: 'b', message: 'handoff_to_analyst({verify: "X"})', highlightedAgent: 'b' },
+  { id: 7, from: 'b',    to: 'c', message: 'handoff_to_writer({confirmed: true})', highlightedAgent: 'c' },
+  { id: 8, from: 'c',    to: 'user', message: 'response: relatório final' },
+]
+
+function MultiAgentFlowVisual() {
+  const [step, setStep] = useState<number>(1)
+
+  const renderAgent = (
+    agent: { id: string; label: string; pos: { x: number; y: number }; color: string; icon: string },
+    isHighlighted: boolean,
+    isSupervisor = false,
+  ) => (
+    <div
+      key={agent.id}
+      style={{
+        position: 'absolute',
+        left: `${agent.pos.x}%`,
+        top: `${agent.pos.y}%`,
+        transform: 'translate(-50%, -50%)',
+        width: isSupervisor ? 80 : 70,
+        height: isSupervisor ? 80 : 70,
+        borderRadius: isSupervisor ? '50%' : 12,
+        background: isHighlighted ? `${agent.color}40` : `${agent.color}15`,
+        border: `2.5px solid ${isHighlighted ? agent.color : `${agent.color}80`}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: isHighlighted ? `0 0 24px ${agent.color}60` : 'none',
+        transition: 'all .3s',
+        zIndex: 2,
+      }}
+    >
+      <div style={{ color: agent.color, fontSize: isSupervisor ? 22 : 18, fontWeight: 900 }}>{agent.icon}</div>
+      <div style={{ color: isHighlighted ? FG : FGMUTE, fontSize: 9, fontWeight: 700, marginTop: 2 }}>{agent.label}</div>
+    </div>
+  )
+
+  const renderFlow = (
+    title: string,
+    subtitle: string,
+    color: string,
+    agents: typeof SUPERVISOR_AGENTS,
+    flow: FlowStep[],
+    description: string,
+  ) => {
+    const currentStep = flow[Math.min(step - 1, flow.length - 1)]
+    const isOver = step > flow.length
+
+    // calcular linhas baseadas no fluxo até o step atual
+    const visibleLines = flow.slice(0, step).map((s, i) => {
+      const fromAgent = agents.find(a => a.id === s.from)
+      const toAgent = agents.find(a => a.id === s.to)
+      if (!fromAgent || !toAgent) return null
+      const isCurrent = i === step - 1
+      return { from: fromAgent, to: toAgent, isCurrent, message: s.message, idx: i }
+    }).filter(Boolean) as Array<{ from: typeof SUPERVISOR_AGENTS[0]; to: typeof SUPERVISOR_AGENTS[0]; isCurrent: boolean; message: string; idx: number }>
+
+    return (
+      <div style={{
+        background: CARD,
+        border: `2px solid ${color}40`,
+        borderRadius: 12,
+        padding: 16,
+      }}>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ color, fontSize: 13, fontWeight: 800 }}>{title}</div>
+          <div style={{ color: FGMUTE, fontSize: 10, marginTop: 2 }}>{subtitle}</div>
+        </div>
+
+        {/* Diagrama */}
+        <div style={{
+          background: BG,
+          border: `1px solid ${LINE}`,
+          borderRadius: 10,
+          height: 260,
+          position: 'relative',
+          marginBottom: 12,
+          overflow: 'hidden',
+        }}>
+          {/* Linhas de fluxo (SVG) */}
+          <svg
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+            preserveAspectRatio="none"
+            viewBox="0 0 100 100"
+          >
+            {visibleLines.map((line, i) => {
+              if (line.from.id === 'user' || line.to.id === 'user') return null
+              const opacity = line.isCurrent ? 1 : 0.25
+              const strokeColor = line.isCurrent ? color : `${color}60`
+              return (
+                <g key={i}>
+                  <defs>
+                    <marker id={`arrow-${title}-${i}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill={strokeColor} opacity={opacity} />
+                    </marker>
+                  </defs>
+                  <line
+                    x1={line.from.pos.x}
+                    y1={line.from.pos.y}
+                    x2={line.to.pos.x}
+                    y2={line.to.pos.y}
+                    stroke={strokeColor}
+                    strokeWidth={line.isCurrent ? 0.6 : 0.3}
+                    strokeDasharray={line.isCurrent ? '0' : '1,1'}
+                    opacity={opacity}
+                    markerEnd={`url(#arrow-${title}-${i})`}
+                  />
+                </g>
+              )
+            })}
+          </svg>
+
+          {/* Agentes */}
+          {agents.map(a => renderAgent(a, currentStep && (currentStep.from === a.id || currentStep.to === a.id) && !isOver, a.id === 'sup'))}
+        </div>
+
+        {/* Step atual */}
+        <div style={{
+          background: BG,
+          border: `1px solid ${color}40`,
+          borderLeft: `3px solid ${color}`,
+          borderRadius: 6,
+          padding: '10px 12px',
+          fontSize: 10,
+          color: FG,
+          minHeight: 56,
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
+          <div style={{ color, fontSize: 9, fontWeight: 700, letterSpacing: '.1em', marginBottom: 4 }}>
+            {isOver ? 'CONCLUIDO' : `STEP ${step}: ${currentStep?.from === 'user' ? 'USER' : currentStep?.from.toUpperCase()} → ${currentStep?.to === 'user' ? 'USER' : currentStep?.to.toUpperCase()}`}
+          </div>
+          <div style={{ color: FGMUTE, fontSize: 10, lineHeight: 1.5 }}>
+            {isOver ? 'Fluxo completo. Reinicie para ver novamente.' : currentStep?.message}
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: 10,
+          background: BG,
+          borderRadius: 6,
+          padding: '8px 12px',
+          fontSize: 10,
+          color: FGMUTE,
+          lineHeight: 1.5,
+        }}>
+          <span style={{ color, fontWeight: 700 }}>Padrão:</span> {description}
+        </div>
+      </div>
+    )
+  }
+
+  const maxSteps = Math.max(SUPERVISOR_FLOW.length, SWARM_FLOW.length) + 1
+
+  return (
+    <div style={{ background: BG, border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ color: FG, margin: 0, fontSize: 16, fontWeight: 800 }}>Supervisor vs Swarm — fluxo de delegação lado a lado</h3>
+        <p style={{ color: FGMUTE, fontSize: 12, margin: '4px 0 0' }}>Avance o step para ver como cada padrão executa a mesma tarefa. À esquerda: controle centralizado. À direita: emergência peer-to-peer.</p>
+      </div>
+
+      {/* Controles */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+        <button
+          onClick={() => setStep(Math.max(1, step - 1))}
+          disabled={step <= 1}
+          style={{
+            background: CARD,
+            border: `1px solid ${LINE}`,
+            color: step <= 1 ? FGMUTE : FG,
+            borderRadius: 6,
+            padding: '6px 14px',
+            cursor: step <= 1 ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 11,
+            opacity: step <= 1 ? 0.5 : 1,
+          }}
+        >← Anterior</button>
+        <button
+          onClick={() => setStep(Math.min(maxSteps, step + 1))}
+          disabled={step >= maxSteps}
+          style={{
+            background: C,
+            border: `1px solid ${C}`,
+            color: BG,
+            borderRadius: 6,
+            padding: '6px 14px',
+            cursor: step >= maxSteps ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 11,
+            fontWeight: 700,
+            opacity: step >= maxSteps ? 0.5 : 1,
+          }}
+        >Próximo →</button>
+        <button
+          onClick={() => setStep(1)}
+          style={{
+            background: CARD,
+            border: `1px solid ${LINE}`,
+            color: FG,
+            borderRadius: 6,
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 11,
+          }}
+        >↻ Reiniciar</button>
+        <div style={{ marginLeft: 'auto', color: FGMUTE, fontSize: 11 }}>
+          Step <span style={{ color: C, fontWeight: 700 }}>{Math.min(step, maxSteps)}</span> / {maxSteps}
+        </div>
+      </div>
+
+      {/* Comparação lado a lado */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+        {renderFlow(
+          'SUPERVISOR',
+          'LLM central decide qual agente chamar',
+          C,
+          SUPERVISOR_AGENTS,
+          SUPERVISOR_FLOW,
+          'Toda decisão passa pelo supervisor. Auditável, previsível, fácil de debugar. Supervisor pode virar gargalo em sistemas complexos.',
+        )}
+        {renderFlow(
+          'SWARM',
+          'Agentes decidem entre si via handoffs',
+          BLU,
+          SWARM_AGENTS,
+          SWARM_FLOW,
+          'Cada agente pode passar a vez para qualquer outro. Sem gargalo central, mas o fluxo é emergente — pode loopar e é difícil de prever.',
+        )}
+      </div>
+
+      {/* Insight */}
+      <div style={{
+        background: CARD,
+        border: `1px solid ${C}30`,
+        borderLeft: `3px solid ${C}`,
+        borderRadius: 6,
+        padding: '12px 14px',
+        fontSize: 11,
+        color: FGMUTE,
+        lineHeight: 1.7,
+      }}>
+        <span style={{ color: C, fontWeight: 700, marginRight: 8 }}>Trade-off chave</span>
+        Supervisor troca <strong style={{ color: FG }}>flexibilidade</strong> por <strong style={{ color: FG }}>controle</strong> — perfeito para workflows com papéis fixos. Swarm troca <strong style={{ color: FG }}>controle</strong> por <strong style={{ color: FG }}>flexibilidade</strong> — ideal quando os papéis são verdadeiramente dinâmicos. Comece com supervisor; migre para swarm só se necessário.
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Componente principal
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -778,6 +1075,13 @@ export default function LanggraphVisuais() {
           bgColor={BG}
         />
       ),
+    },
+    {
+      id: 'multiagent-flow',
+      title: 'Supervisor vs Swarm — fluxo',
+      subtitle: 'Animação lado a lado: delegação central vs handoff peer-to-peer na mesma tarefa',
+      accent: C,
+      component: <MultiAgentFlowVisual />,
     },
   ]
 
