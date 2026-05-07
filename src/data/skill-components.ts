@@ -68,6 +68,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesVisuais'), { ssr: false }),
   'http-2-http-3': dynamic(() => import('@/data/content/cs/http-2-http-3/Http2Http3Visuais'), { ssr: false }),
   'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingVisuais'), { ssr: false }),
+  'sharding': dynamic(() => import('@/data/content/arch/sharding/ShardingVisuais'), { ssr: false }),
+  'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -138,5 +140,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'kubernetes': dynamic(() => import('@/data/content/devops/kubernetes/KubernetesPdfs'), { ssr: false }),
   'http-2-http-3': dynamic(() => import('@/data/content/cs/http-2-http-3/Http2Http3Pdfs'), { ssr: false }),
   'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingPdfs'), { ssr: false }),
+  'sharding': dynamic(() => import('@/data/content/arch/sharding/ShardingPdfs'), { ssr: false }),
+  'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
