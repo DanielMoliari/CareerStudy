@@ -66,6 +66,7 @@ export const TECH_IDENTITY: Record<string, TechIdentity> = {
 
   // ── Database ────────────────────────────────────────────────────────────────
   'postgresql':          { primaryColor: '#336791', secondaryColor: '#264f70', bgTint: 'rgba(51,103,145,.09)', textOnPrimary: '#fff', personality: 'data', visualStyle: 'graph' },
+  'explain-analyze':     { primaryColor: '#5b9bd5', secondaryColor: '#336791', bgTint: 'rgba(91,155,213,.09)', textOnPrimary: '#0f172a', personality: 'tool', visualStyle: 'tree' },
   'mongodb':             { primaryColor: '#47A248', secondaryColor: '#357a34', bgTint: 'rgba(71,162,72,.08)', textOnPrimary: '#fff', personality: 'data', visualStyle: 'tree' },
   'redis':               { primaryColor: '#DC382D', secondaryColor: '#b02b22', bgTint: 'rgba(220,56,45,.08)', textOnPrimary: '#fff', personality: 'data', visualStyle: 'graph' },
   'mysql':               { primaryColor: '#4479A1', secondaryColor: '#315d7d', bgTint: 'rgba(68,121,161,.08)', textOnPrimary: '#fff', personality: 'data', visualStyle: 'graph' },
@@ -83,6 +84,8 @@ export const TECH_IDENTITY: Record<string, TechIdentity> = {
 
   // ── DevOps ──────────────────────────────────────────────────────────────────
   'docker':              { primaryColor: '#2496ED', secondaryColor: '#1778c4', bgTint: 'rgba(36,150,237,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'layers' },
+  'docker-compose':      { primaryColor: '#1F8FE0', secondaryColor: '#7E57C2', bgTint: 'rgba(31,143,224,.08)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'flow' },
+  'tdd':                 { primaryColor: '#22c55e', secondaryColor: '#16a34a', bgTint: 'rgba(34,197,94,.08)', textOnPrimary: '#052e16', personality: 'concept', visualStyle: 'flow' },
   'kubernetes':          { primaryColor: '#326CE5', secondaryColor: '#2354b8', bgTint: 'rgba(50,108,229,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'graph' },
   'terraform':           { primaryColor: '#7B42BC', secondaryColor: '#5e3090', bgTint: 'rgba(123,66,188,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'tree' },
   'github-actions':      { primaryColor: '#2088FF', secondaryColor: '#1666cc', bgTint: 'rgba(32,136,255,.08)', textOnPrimary: '#fff', personality: 'tool', visualStyle: 'flow' },

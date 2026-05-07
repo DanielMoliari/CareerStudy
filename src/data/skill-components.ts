@@ -38,6 +38,12 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'prisma': dynamic(() => import('@/data/content/backend/prisma/PrismaVisuais'), { ssr: false }),
   'ec2': dynamic(() => import('@/data/content/cloud/ec2/EC2Visuais'), { ssr: false }),
   'lambda': dynamic(() => import('@/data/content/cloud/lambda/LambdaVisuais'), { ssr: false }),
+  'docker-compose': dynamic(() => import('@/data/content/devops/docker-compose/DockerComposeVisuais'), { ssr: false }),
+  'tdd': dynamic(() => import('@/data/content/devops/tdd/TddVisuais'), { ssr: false }),
+  'grafana': dynamic(() => import('@/data/content/obs/grafana/GrafanaVisuais'), { ssr: false }),
+  'opentelemetry': dynamic(() => import('@/data/content/obs/opentelemetry/OpentelemetryVisuais'), { ssr: false }),
+  'prometheus': dynamic(() => import('@/data/content/obs/prometheus/PrometheusVisuais'), { ssr: false }),
+  'explain-analyze': dynamic(() => import('@/data/content/database/explain-analyze/ExplainAnalyzeVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -78,5 +84,11 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'prisma': dynamic(() => import('@/data/content/backend/prisma/PrismaPdfs'), { ssr: false }),
   'ec2': dynamic(() => import('@/data/content/cloud/ec2/EC2Pdfs'), { ssr: false }),
   'lambda': dynamic(() => import('@/data/content/cloud/lambda/LambdaPdfs'), { ssr: false }),
+  'docker-compose': dynamic(() => import('@/data/content/devops/docker-compose/DockerComposePdfs'), { ssr: false }),
+  'tdd': dynamic(() => import('@/data/content/devops/tdd/TddPdfs'), { ssr: false }),
+  'grafana': dynamic(() => import('@/data/content/obs/grafana/GrafanaPdfs'), { ssr: false }),
+  'opentelemetry': dynamic(() => import('@/data/content/obs/opentelemetry/OpentelemetryPdfs'), { ssr: false }),
+  'prometheus': dynamic(() => import('@/data/content/obs/prometheus/PrometheusPdfs'), { ssr: false }),
+  'explain-analyze': dynamic(() => import('@/data/content/database/explain-analyze/ExplainAnalyzePdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

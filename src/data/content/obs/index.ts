@@ -1,7 +1,7 @@
 import type { SkillContentMap } from "@/types"
-import opentelemetry from "./opentelemetry"
-import prometheus from "./prometheus"
-import grafana from "./grafana"
+import opentelemetry from "./opentelemetry/opentelemetry"
+import prometheus from "./prometheus/prometheus"
+import grafana from "./grafana/grafana"
 import slisSlosSlas from "./slis-slos-slas/slis-slos-slas"
 
 const obs: SkillContentMap = {
