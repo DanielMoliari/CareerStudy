@@ -5,7 +5,7 @@ import s3 from './s3/s3'
 import lambda from './lambda/lambda'
 import rds from './rds'
 import iam from './iam'
-import vpc from './vpc'
+import vpc from './vpc/vpc'
 import terraform from './terraform/terraform'
 import pulumi from './pulumi'
 

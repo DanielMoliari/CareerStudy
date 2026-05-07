@@ -44,6 +44,12 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'opentelemetry': dynamic(() => import('@/data/content/obs/opentelemetry/OpentelemetryVisuais'), { ssr: false }),
   'prometheus': dynamic(() => import('@/data/content/obs/prometheus/PrometheusVisuais'), { ssr: false }),
   'explain-analyze': dynamic(() => import('@/data/content/database/explain-analyze/ExplainAnalyzeVisuais'), { ssr: false }),
+  'github-actions': dynamic(() => import('@/data/content/devops/github-actions/GithubActionsVisuais'), { ssr: false }),
+  'mvcc': dynamic(() => import('@/data/content/database/mvcc/MvccVisuais'), { ssr: false }),
+  'vpc': dynamic(() => import('@/data/content/cloud/vpc/VpcVisuais'), { ssr: false }),
+  'cap-theorem': dynamic(() => import('@/data/content/cs/cap-theorem/CapTheoremVisuais'), { ssr: false }),
+  'big-o': dynamic(() => import('@/data/content/cs/big-o/BigOVisuais'), { ssr: false }),
+  'owasp-top-10': dynamic(() => import('@/data/content/sec/owasp-top-10/OwaspTop10Visuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -90,5 +96,11 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'opentelemetry': dynamic(() => import('@/data/content/obs/opentelemetry/OpentelemetryPdfs'), { ssr: false }),
   'prometheus': dynamic(() => import('@/data/content/obs/prometheus/PrometheusPdfs'), { ssr: false }),
   'explain-analyze': dynamic(() => import('@/data/content/database/explain-analyze/ExplainAnalyzePdfs'), { ssr: false }),
+  'github-actions': dynamic(() => import('@/data/content/devops/github-actions/GithubActionsPdfs'), { ssr: false }),
+  'mvcc': dynamic(() => import('@/data/content/database/mvcc/MvccPdfs'), { ssr: false }),
+  'vpc': dynamic(() => import('@/data/content/cloud/vpc/VpcPdfs'), { ssr: false }),
+  'cap-theorem': dynamic(() => import('@/data/content/cs/cap-theorem/CapTheoremPdfs'), { ssr: false }),
+  'big-o': dynamic(() => import('@/data/content/cs/big-o/BigOPdfs'), { ssr: false }),
+  'owasp-top-10': dynamic(() => import('@/data/content/sec/owasp-top-10/OwaspTop10Pdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

@@ -77,6 +77,7 @@ export const TECH_IDENTITY: Record<string, TechIdentity> = {
 
   // ── Cloud ───────────────────────────────────────────────────────────────────
   'aws':                 { primaryColor: '#FF9900', secondaryColor: '#cc7a00', bgTint: 'rgba(255,153,0,.08)', textOnPrimary: '#1a0f00', personality: 'infra', visualStyle: 'layers' },
+  'vpc':                 { primaryColor: '#4A90E2', secondaryColor: '#2c6ec0', bgTint: 'rgba(74,144,226,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'layers' },
   'gcp':                 { primaryColor: '#4285F4', secondaryColor: '#2c6de0', bgTint: 'rgba(66,133,244,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'layers' },
   'azure':               { primaryColor: '#0078D4', secondaryColor: '#005fa8', bgTint: 'rgba(0,120,212,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'layers' },
   'cloudflare':          { primaryColor: '#F48120', secondaryColor: '#c46510', bgTint: 'rgba(244,129,32,.08)', textOnPrimary: '#fff', personality: 'infra', visualStyle: 'layers' },
@@ -110,6 +111,11 @@ export const TECH_IDENTITY: Record<string, TechIdentity> = {
 
   // ── Segurança ───────────────────────────────────────────────────────────────
   'owasp-api-top-10':    { primaryColor: '#000000', secondaryColor: '#333', bgTint: 'rgba(255,255,255,.05)', textOnPrimary: '#ef4444', personality: 'concept', visualStyle: 'layers' },
+  'owasp-top-10':        { primaryColor: '#EF4444', secondaryColor: '#b91c1c', bgTint: 'rgba(239,68,68,.08)', textOnPrimary: '#fff', personality: 'concept', visualStyle: 'layers' },
+
+  // ── CS / Algoritmos ─────────────────────────────────────────────────────────
+  'big-o':               { primaryColor: '#10B981', secondaryColor: '#059669', bgTint: 'rgba(16,185,129,.08)', textOnPrimary: '#04231a', personality: 'concept', visualStyle: 'graph' },
+  'cap-theorem':         { primaryColor: '#A855F7', secondaryColor: '#7e22ce', bgTint: 'rgba(168,85,247,.08)', textOnPrimary: '#fff', personality: 'concept', visualStyle: 'graph' },
 
   // ── Arquitetura ──────────────────────────────────────────────────────────────
   'microservices':       { primaryColor: '#7E57C2', secondaryColor: '#5e3da0', bgTint: 'rgba(126,87,194,.08)', textOnPrimary: '#fff', personality: 'concept', visualStyle: 'graph' },

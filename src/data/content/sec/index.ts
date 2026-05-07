@@ -1,5 +1,5 @@
 import type { SkillContentMap } from '@/types'
-import owaspTop10 from './owasp-top-10'
+import owaspTop10 from './owasp-top-10/owasp-top-10'
 import owaspApiTop10 from './owasp-api-top-10/owasp-api-top-10'
 import threatModeling from './threat-modeling'
 import sastSemgrep from './sast-semgrep'

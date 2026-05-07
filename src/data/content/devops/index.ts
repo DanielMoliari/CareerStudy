@@ -1,7 +1,7 @@
 import type { SkillContentMap } from '@/types'
 import docker from './docker/docker'
 import dockerCompose from './docker-compose/docker-compose'
-import githubActions from './github-actions'
+import githubActions from './github-actions/github-actions'
 import tdd from './tdd/tdd'
 import playwright from './playwright/playwright'
 import kubernetes from './kubernetes'
