@@ -82,6 +82,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfVisuais'), { ssr: false }),
   'trpc': dynamic(() => import('@/data/content/frontend/trpc/TrpcVisuais'), { ssr: false }),
   'accessibility-a11y': dynamic(() => import('@/data/content/frontend/accessibility-a11y/AccessibilityA11yVisuais'), { ssr: false }),
+  'design-systems': dynamic(() => import('@/data/content/frontend/design-systems/DesignSystemsVisuais'), { ssr: false }),
+  'b-tree-lsm-tree': dynamic(() => import('@/data/content/database/b-tree-lsm-tree/BTreeLsmTreeVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -166,5 +168,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfPdfs'), { ssr: false }),
   'trpc': dynamic(() => import('@/data/content/frontend/trpc/TrpcPdfs'), { ssr: false }),
   'accessibility-a11y': dynamic(() => import('@/data/content/frontend/accessibility-a11y/AccessibilityA11yPdfs'), { ssr: false }),
+  'design-systems': dynamic(() => import('@/data/content/frontend/design-systems/DesignSystemsPdfs'), { ssr: false }),
+  'b-tree-lsm-tree': dynamic(() => import('@/data/content/database/b-tree-lsm-tree/BTreeLsmTreePdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
