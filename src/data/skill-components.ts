@@ -56,6 +56,12 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenVisuais'), { ssr: false }),
   'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtVisuais'), { ssr: false }),
   'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingVisuais'), { ssr: false }),
+  'design-patterns': dynamic(() => import('@/data/content/arch/design-patterns/DesignPatternsVisuais'), { ssr: false }),
+  'dependency-injection': dynamic(() => import('@/data/content/arch/dependency-injection/DependencyInjectionVisuais'), { ssr: false }),
+  'prompt-engineering': dynamic(() => import('@/data/content/ai/prompt-engineering/PromptEngineeringVisuais'), { ssr: false }),
+  'openai-sdk': dynamic(() => import('@/data/content/ai/openai-sdk/OpenaiSdkVisuais'), { ssr: false }),
+  'tls-https': dynamic(() => import('@/data/content/cs/tls-https/TlsHttpsVisuais'), { ssr: false }),
+  'tcp-ip-dns': dynamic(() => import('@/data/content/cs/tcp-ip-dns/TcpIpDnsVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -114,5 +120,11 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenPdfs'), { ssr: false }),
   'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtPdfs'), { ssr: false }),
   'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingPdfs'), { ssr: false }),
+  'design-patterns': dynamic(() => import('@/data/content/arch/design-patterns/DesignPatternsPdfs'), { ssr: false }),
+  'dependency-injection': dynamic(() => import('@/data/content/arch/dependency-injection/DependencyInjectionPdfs'), { ssr: false }),
+  'prompt-engineering': dynamic(() => import('@/data/content/ai/prompt-engineering/PromptEngineeringPdfs'), { ssr: false }),
+  'openai-sdk': dynamic(() => import('@/data/content/ai/openai-sdk/OpenaiSdkPdfs'), { ssr: false }),
+  'tls-https': dynamic(() => import('@/data/content/cs/tls-https/TlsHttpsPdfs'), { ssr: false }),
+  'tcp-ip-dns': dynamic(() => import('@/data/content/cs/tcp-ip-dns/TcpIpDnsPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
