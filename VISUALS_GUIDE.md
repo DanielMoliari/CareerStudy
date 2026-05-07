@@ -83,15 +83,42 @@ Se a resposta não for um "sim" claro, não crie.
 
 ## Visão geral do processo
 
-O processo tem 5 fases sequenciais. Não pule nenhuma:
+O processo tem 5 fases sequenciais. **Não pule nenhuma e não inverta a ordem.**
 
 ```
 1. LEITURA       → entender o estado atual antes de escrever qualquer linha
-2. CONTEÚDO      → enriquecer o .ts da skill (Q&As, diagramas, exercícios…)
+2. CONTEÚDO      → enriquecer o .ts até score 10/10 — OBRIGATÓRIO antes de visuais
 3. VISUAIS       → criar *Visuais.tsx com os visuais interativos premium
 4. PDFs          → criar *Pdfs.tsx com os guias de bolso offline
-5. VERIFICAÇÃO   → TypeScript + Playwright + browser + atualização de registros
+5. VERIFICAÇÃO   → TypeScript + atualização de registros + generate-meta.js
 ```
+
+### ⚠️ REGRA CRÍTICA: conteúdo antes de visuais
+
+**Nunca crie Visuais.tsx ou Pdfs.tsx para uma skill com score < 10.**
+
+Visuais e PDFs são camadas premium em cima de conteúdo rico. Sem conteúdo rico, os visuais ficam sem contexto e os PDFs ficam rasos. A ordem é inegociável:
+
+1. Verifique o score no `meta.ts`
+2. Se score < 10: complete o `.ts` primeiro (FASE 2 completa)
+3. Só depois avance para FASE 3 (Visuais) e FASE 4 (PDFs)
+
+**Score 10/10 significa todos estes campos presentes e completos:**
+- `interview`: ≥20 Q&As com `level`, `a` em HTML rico, `tip` acionável — mínimo metade `senior`
+- `diagrams`: ≥3 diagramas HTML/CSS inline com prefix CSS único por skill
+- `mnemonics`: ≥3 itens `{ label, trick, explanation }`
+- `cheatsheet`: presente — DiagramBlock denso e escaneável
+- `mindmap`: presente — DiagramBlock mostrando o ecossistema completo da skill
+- `exercises`: ≥3 itens com `level` e `concepts: string[]`
+- `videos`: ≥4 itens com URLs reais
+- `resources`: ≥5 itens com URLs reais
+- `codeExamples`: ≥3 itens com código real e útil
+
+**Qualidade dos Q&As — padrão mínimo:**
+- Resposta em HTML rico: `<strong>`, `<code>`, `<ul><li>`, `<br>` conforme necessário
+- Profundidade real: trade-offs, edge cases, comportamento interno — não definições básicas
+- `tip` acionável: "Comece pelo problema X, mencione Y, demonstre conhecimento de Z"
+- Perguntas nível `senior` devem cobrir: performance, segurança, casos extremos, decisões arquiteturais
 
 ---
 
@@ -136,29 +163,51 @@ Leia os tipos TypeScript do projeto. Especialmente `SkillContent`, `InterviewQA`
 
 ## FASE 2 — Conteúdo da skill (.ts)
 
-### Padrão de completude (score 10/10)
+O objetivo desta fase é levar o `.ts` a score 10/10 antes de qualquer visual ou PDF. Leia o que já existe, identifique o que está faltando ou fraco, e complete/reescreva com profundidade real. Conteúdo mediano não vira score 10 — reescreva Q&As rasos, substitua diagramas genéricos, aprofunde exercícios superficiais.
 
-Todos os campos abaixo são obrigatórios para score máximo:
+### O que fazer em cada campo
 
-| Campo | Mínimo | Observação |
-|-------|--------|------------|
-| `interview` | ≥20 Q&As | `level: 'pleno' \| 'senior'`, campo `a` em HTML rico, campo `tip` obrigatório |
-| `diagrams` | ≥3 itens | HTML/CSS inline; usar prefix CSS único por skill (ex: `.ts-` para TypeScript) para não vazar estilos globais |
-| `mnemonics` | ≥3 itens | `{ label, trick, explanation }` |
-| `cheatsheet` | presente | `DiagramBlock` com HTML/CSS denso e escaneável |
-| `mindmap` | presente | `DiagramBlock` com HTML/CSS mostrando o ecossistema da skill |
-| `exercises` | ≥3 itens | `{ level: 'iniciante' \| 'intermediario' \| 'senior', concepts: string[] }` |
-| `videos` | ≥4 itens | `{ title, channel, url }` — URLs reais e verificadas |
-| `resources` | ≥5 itens | `{ title, url, kind }` — docs oficiais, artigos, repos |
-| `codeExamples` | ≥3 itens | `{ title, code, language }` — exemplos reais e úteis |
+**`interview` — Q&As de entrevista**
+- Alvo: ≥20 perguntas, mínimo metade `senior`
+- Cada `a` em HTML rico: `<strong>`, `<code>`, `<ul><li>`, `<br>` — não texto plano
+- `tip` sempre presente e acionável: o que mencionar primeiro, o que aprofundar, o que demonstra senioridade
+- Perguntas devem cobrir: conceitos fundamentais (pleno), trade-offs e decisões arquiteturais (sênior), edge cases e comportamento interno (sênior), erros comuns e como evitar (ambos)
+- **`InterviewQA` NÃO tem campo `bullets`** — todo conteúdo vai dentro de `a` como HTML
 
-### Qualidade esperada dos Q&As
+**`diagrams` — diagramas HTML/CSS**
+- Alvo: ≥3 diagramas interativos ou ilustrativos
+- HTML/CSS inline dentro de DiagramBlock — não SVG externo
+- Usar prefix CSS único por skill (`.ec2-`, `.prisma-`) para não vazar estilos globais
+- Cada diagrama deve mostrar algo que texto não mostra bem: fluxos, hierarquias, comparações visuais
 
-- Resposta no campo `a` em HTML rico: use `<strong>`, `<code>`, `<ul><li>`, `<br>` conforme necessário
-- **`InterviewQA` NÃO tem campo `bullets`** — todo conteúdo vai dentro do `a` como HTML
-- Profundidade pleno/sênior real: não responda "hooks são funções que…", responda com trade-offs, edge cases, comportamento interno
-- `tip` deve ser acionável: "Comece pelo problema X, depois explique Y, mencione Z para mostrar profundidade"
-- Pelo menos metade das perguntas no nível `senior`
+**`mnemonics` — mnemônicos de memorização**
+- Alvo: ≥3 itens `{ label, trick, explanation }`
+- `trick`: a âncora verbal (acrônimo, rima, analogia)
+- `explanation`: o que cada letra/parte representa com contexto real
+
+**`cheatsheet` — referência densa**
+- Uma `DiagramBlock` com HTML/CSS compacto e escaneável
+- Deve substituir a consulta à documentação para os 80% dos casos mais comuns
+- Sintaxes, comandos, padrões, regras — tudo numa tela
+
+**`mindmap` — ecossistema visual**
+- Uma `DiagramBlock` mostrando o mapa mental completo da skill
+- Categorias, subcategorias, relações entre conceitos
+- Útil para revisão rápida antes de entrevista
+
+**`exercises` — exercícios práticos**
+- Alvo: ≥3 itens com `level: 'iniciante' | 'intermediario' | 'senior'`
+- **`concepts: string[]` é obrigatório** — lista os conceitos exercitados
+- Exercícios reais que alguém pode fazer: não "leia sobre X", mas "implemente Y que faz Z"
+
+**`codeExamples` — exemplos de código**
+- Alvo: ≥3 itens `{ title, code, language }`
+- Código real, comentado quando necessário, que demonstra o conceito com contexto
+- Preferir exemplos que mostram padrão correto + por que funciona
+
+**`videos` e `resources`**
+- ≥4 vídeos e ≥5 recursos com URLs reais e verificadas
+- Priorizar: documentação oficial, canais reconhecidos, artigos técnicos profundos
 
 ### Armadilhas de tipo comuns
 

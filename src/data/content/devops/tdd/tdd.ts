@@ -642,6 +642,7 @@ fc.assert(
     {
       title: "Kata FizzBuzz — TDD step-by-step com Vitest",
       description: "Implementação clássica passo a passo. Cada teste novo expande o spec. Note a progressão: hardcoded → if simples → generalização. Não antecipe — deixe o teste forçar.",
+      language: 'typescript',
       code: `import { test, expect } from 'vitest'
 
 // 1. RED — primeiro teste
@@ -709,6 +710,7 @@ expect(fizzbuzz(input)).toBe(expected)
     {
       title: "Setup Vitest — config, mocks, coverage",
       description: "Setup mínimo de Vitest pra projeto Node/TS com mocks parciais, coverage com v8 e UI interativa pro debug.",
+      language: 'typescript',
       code: `// vitest.config.ts
 import { defineConfig } from 'vitest/config'
 
@@ -755,6 +757,7 @@ expect(result.name).toBe('Ana')
     {
       title: "Refatorando legacy com Golden Master",
       description: "Função enorme sem teste. Estratégia: captura output atual como snapshot, depois refatora com suite verde. Preserva comportamento mesmo sem entender 100%.",
+      language: 'typescript',
       code: `// 1. CARACTERIZA o comportamento atual
 import { test, expect } from 'vitest'
 import { processarRelatorio } from './legacy'
@@ -800,6 +803,7 @@ return d.itens
     {
       title: "Teste de integração com Testcontainers — Postgres real",
       description: "Em vez de mockar repositório, sobe Postgres real em container só pra teste. Mais fiel que mock, mais rápido que CI compartilhada.",
+      language: 'typescript',
       code: `import { test, expect, beforeAll, afterAll } from 'vitest'
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { Pool } from 'pg'
@@ -846,6 +850,413 @@ await expect(
   repo.create({ email: 'unico@x.com', name: 'B' })
 ).rejects.toThrow(/unique/i)
 })`,
+    },
+    {
+      title: "Red-Green-Refactor — ciclo completo num use case real (criar pedido)",
+      description: "Implementação de um use case de negócio (criar pedido com desconto progressivo) seguindo o ciclo TDD estritamente. Cada passo é commitado separado: Red (teste falha), Green (mínimo passa), Refactor (limpa). Note como o design emerge da pressão dos testes.",
+      language: 'typescript',
+      code: `import { describe, test, expect } from 'vitest'
+
+// ═══════════════════════════════════════════════════════
+// ITERAÇÃO 1 — pedido vazio retorna total zero
+// ═══════════════════════════════════════════════════════
+
+// 🔴 RED — teste primeiro, falha porque criarPedido nem existe
+test('pedido sem itens retorna total zero', () => {
+const pedido = criarPedido({ itens: [] })
+expect(pedido.total).toBe(0)
+})
+
+// 🟢 GREEN — código mínimo, hardcoded mesmo
+function criarPedido(input: { itens: Array<{ preco: number; qtd: number }> }) {
+return { total: 0 }   // hardcoded — fake it till you make it
+}
+
+// ═══════════════════════════════════════════════════════
+// ITERAÇÃO 2 — pedido com 1 item soma preço × qtd
+// ═══════════════════════════════════════════════════════
+
+// 🔴 RED — generaliza
+test('pedido com um item retorna preço × quantidade', () => {
+const pedido = criarPedido({ itens: [{ preco: 100, qtd: 2 }] })
+expect(pedido.total).toBe(200)
+})
+
+// 🟢 GREEN — agora forçado a calcular
+function criarPedido(input: { itens: Array<{ preco: number; qtd: number }> }) {
+const total = input.itens.reduce((sum, i) => sum + i.preco * i.qtd, 0)
+return { total }
+}
+
+// ═══════════════════════════════════════════════════════
+// ITERAÇÃO 3 — desconto de 10% acima de R$ 500
+// ═══════════════════════════════════════════════════════
+
+// 🔴 RED — regra de negócio
+test('aplica 10% de desconto quando subtotal passa de 500', () => {
+const pedido = criarPedido({ itens: [{ preco: 600, qtd: 1 }] })
+expect(pedido.total).toBe(540)   // 600 - 10%
+})
+
+test('não aplica desconto quando subtotal é 500 ou menos', () => {
+const pedido = criarPedido({ itens: [{ preco: 500, qtd: 1 }] })
+expect(pedido.total).toBe(500)
+})
+
+// 🟢 GREEN
+function criarPedido(input: { itens: Array<{ preco: number; qtd: number }> }) {
+const subtotal = input.itens.reduce((sum, i) => sum + i.preco * i.qtd, 0)
+const total = subtotal > 500 ? subtotal * 0.9 : subtotal
+return { total }
+}
+
+// 🔵 REFACTOR — extrai a regra, separa cálculo de aplicação
+const DESCONTO_LIMITE = 500
+const DESCONTO_PERCENTUAL = 0.1
+
+function calcularSubtotal(itens: Array<{ preco: number; qtd: number }>): number {
+return itens.reduce((sum, i) => sum + i.preco * i.qtd, 0)
+}
+
+function aplicarDescontoProgressivo(subtotal: number): number {
+if (subtotal <= DESCONTO_LIMITE) return subtotal
+return subtotal * (1 - DESCONTO_PERCENTUAL)
+}
+
+function criarPedido(input: { itens: Array<{ preco: number; qtd: number }> }) {
+const subtotal = calcularSubtotal(input.itens)
+const total = aplicarDescontoProgressivo(subtotal)
+return { subtotal, total, desconto: subtotal - total }
+}
+
+// ═══════════════════════════════════════════════════════
+// ITERAÇÃO 4 — table-driven pra cobrir edge cases
+// ═══════════════════════════════════════════════════════
+
+describe('criarPedido — desconto progressivo', () => {
+test.each([
+  [[], 0, 0],                                      // vazio
+  [[{ preco: 100, qtd: 1 }], 100, 100],            // < limite
+  [[{ preco: 500, qtd: 1 }], 500, 500],            // boundary inferior
+  [[{ preco: 500, qtd: 1 }, { preco: 1, qtd: 1 }], 501, 450.9],  // boundary superior
+  [[{ preco: 1000, qtd: 1 }], 1000, 900],          // > limite
+])('itens=%j subtotal=%i → total=%f', (itens, subtotal, totalEsperado) => {
+  const p = criarPedido({ itens })
+  expect(p.subtotal).toBe(subtotal)
+  expect(p.total).toBeCloseTo(totalEsperado, 2)
+})
+})
+
+// 💡 OBSERVE: design emergiu naturalmente — funções pequenas,
+// constantes nomeadas, separação cálculo vs aplicação. Sem
+// planejar arquitetura, o teste forçou a estrutura limpa.`,
+    },
+    {
+      title: "Test doubles na prática — stub, mock e spy na mesma suite",
+      description: "Cada tipo de double resolve um problema diferente. Stub fornece dado de entrada. Mock verifica comunicação. Fake é implementação real simplificada. Spy observa chamada real sem trocar comportamento. Aqui um único caso de uso (registrar usuário) testado de 4 formas.",
+      language: 'typescript',
+      code: `import { describe, test, expect, vi, beforeEach } from 'vitest'
+
+// Sistema sob teste
+interface UserRepo {
+findByEmail(email: string): Promise<User | null>
+save(user: User): Promise<User>
+}
+interface EmailService {
+sendWelcome(to: string): Promise<void>
+}
+interface Logger {
+info(msg: string, meta?: object): void
+error(msg: string, err?: Error): void
+}
+interface User { id: string; email: string; createdAt: Date }
+
+class RegistrarUsuario {
+constructor(
+  private repo: UserRepo,
+  private email: EmailService,
+  private logger: Logger,
+) {}
+async executar(email: string): Promise<User> {
+  const existente = await this.repo.findByEmail(email)
+  if (existente) throw new Error('email já cadastrado')
+  const user = await this.repo.save({
+    id: crypto.randomUUID(),
+    email,
+    createdAt: new Date(),
+  })
+  await this.email.sendWelcome(email)
+  this.logger.info('user registrado', { id: user.id })
+  return user
+}
+}
+
+// ═══════════════════════════════════════════════════════
+// 1️⃣ STUB — retorna valor canned, não verifica chamada
+// ═══════════════════════════════════════════════════════
+describe('RegistrarUsuario — STUB', () => {
+test('retorna user quando email não existe', async () => {
+  const stubRepo: UserRepo = {
+    findByEmail: async () => null,                       // stub: sempre null
+    save: async (u) => ({ ...u, id: 'fixed-id' }),       // stub: retorna o que passou + id
+  }
+  const stubEmail: EmailService = { sendWelcome: async () => {} }
+  const stubLogger: Logger = { info: () => {}, error: () => {} }
+
+  const useCase = new RegistrarUsuario(stubRepo, stubEmail, stubLogger)
+  const result = await useCase.executar('ana@x.com')
+
+  expect(result.email).toBe('ana@x.com')
+  expect(result.id).toBe('fixed-id')
+})
+})
+
+// ═══════════════════════════════════════════════════════
+// 2️⃣ MOCK — verifica chamada com argumentos esperados
+// ═══════════════════════════════════════════════════════
+describe('RegistrarUsuario — MOCK', () => {
+test('envia email de boas-vindas para o endereço correto', async () => {
+  const repo: UserRepo = {
+    findByEmail: vi.fn().mockResolvedValue(null),
+    save: vi.fn().mockImplementation(async (u) => u),
+  }
+  const sendWelcome = vi.fn().mockResolvedValue(undefined)   // mock!
+  const email: EmailService = { sendWelcome }
+  const logger: Logger = { info: vi.fn(), error: vi.fn() }
+
+  await new RegistrarUsuario(repo, email, logger).executar('ana@x.com')
+
+  // verifica INTERAÇÃO — foi chamado? com o quê? quantas vezes?
+  expect(sendWelcome).toHaveBeenCalledTimes(1)
+  expect(sendWelcome).toHaveBeenCalledWith('ana@x.com')
+})
+
+test('não envia email quando user já existe', async () => {
+  const repo: UserRepo = {
+    findByEmail: vi.fn().mockResolvedValue({ id: '1', email: 'ana@x.com', createdAt: new Date() }),
+    save: vi.fn(),
+  }
+  const sendWelcome = vi.fn()
+  const useCase = new RegistrarUsuario(repo, { sendWelcome }, { info: vi.fn(), error: vi.fn() })
+
+  await expect(useCase.executar('ana@x.com')).rejects.toThrow('email já cadastrado')
+  expect(sendWelcome).not.toHaveBeenCalled()         // negativa também é mock
+})
+})
+
+// ═══════════════════════════════════════════════════════
+// 3️⃣ FAKE — implementação real simplificada (in-memory)
+// ═══════════════════════════════════════════════════════
+class InMemoryUserRepo implements UserRepo {
+private users = new Map<string, User>()
+async findByEmail(email: string) {
+  return [...this.users.values()].find((u) => u.email === email) ?? null
+}
+async save(u: User) {
+  this.users.set(u.id, u)
+  return u
+}
+size() { return this.users.size }
+}
+
+describe('RegistrarUsuario — FAKE', () => {
+let repo: InMemoryUserRepo
+beforeEach(() => { repo = new InMemoryUserRepo() })
+
+test('persiste user e impede duplicidade no segundo registro', async () => {
+  const useCase = new RegistrarUsuario(
+    repo,                                             // fake real, não mock
+    { sendWelcome: async () => {} },
+    { info: () => {}, error: () => {} },
+  )
+
+  await useCase.executar('ana@x.com')
+  expect(repo.size()).toBe(1)
+
+  // fake mantém estado real entre chamadas — comportamento autêntico
+  await expect(useCase.executar('ana@x.com')).rejects.toThrow('email já cadastrado')
+  expect(repo.size()).toBe(1)
+})
+})
+
+// ═══════════════════════════════════════════════════════
+// 4️⃣ SPY — observa função real sem trocar comportamento
+// ═══════════════════════════════════════════════════════
+describe('RegistrarUsuario — SPY', () => {
+test('logger.info recebe id do user criado', async () => {
+  const repo = new InMemoryUserRepo()
+  const realLogger: Logger = {
+    info: (msg, meta) => { /* implementação real, ex: pino */ },
+    error: () => {},
+  }
+  const infoSpy = vi.spyOn(realLogger, 'info')        // wrappa o real
+
+  const user = await new RegistrarUsuario(
+    repo,
+    { sendWelcome: async () => {} },
+    realLogger,                                       // logger real, observado
+  ).executar('ana@x.com')
+
+  // spy registra chamadas mas deixa o método original executar
+  expect(infoSpy).toHaveBeenCalledWith('user registrado', { id: user.id })
+  infoSpy.mockRestore()                               // restaura o original
+})
+})
+
+// 💡 REGRA DE OURO:
+//   - MOCK quando você testa COMUNICAÇÃO (notificou? chamou?)
+//   - FAKE quando você testa ESTADO (salvou? indexou?)
+//   - STUB quando você só precisa fornecer entrada
+//   - SPY raramente — geralmente é sinal de teste de implementação`,
+    },
+    {
+      title: "Outside-in TDD — começa pelo teste de aceitação, desce para unitários",
+      description: "London School (mockist, outside-in). Você começa escrevendo o teste E2E/aceitação que descreve o comportamento de fora pra dentro. Quando ele quebra por componente faltante, você desce um nível e escreve teste unitário pra esse componente. Cada nível 'descoberto' guia o design.",
+      language: 'typescript',
+      code: `import { describe, test, expect, vi } from 'vitest'
+
+// ═══════════════════════════════════════════════════════
+// 🎯 NÍVEL 1 — TESTE DE ACEITAÇÃO (outermost)
+// Descreve o comportamento de fora — não conhece detalhe
+// ═══════════════════════════════════════════════════════
+
+// 🔴 RED — teste de aceitação falha porque NADA existe ainda
+describe('Aceitação: usuário cria conta e recebe email', () => {
+test('POST /register → 201 + email enviado', async () => {
+  const app = await criarApp()                           // composição da app
+  const emailSpy = vi.fn()
+  app.replaceEmailService({ sendWelcome: emailSpy })     // injeta double na borda
+
+  const resp = await app.inject({
+    method: 'POST',
+    url: '/register',
+    payload: { email: 'ana@x.com', senha: 'segura123' },
+  })
+
+  expect(resp.statusCode).toBe(201)
+  expect(JSON.parse(resp.body)).toMatchObject({ email: 'ana@x.com' })
+  expect(emailSpy).toHaveBeenCalledWith('ana@x.com')
+})
+})
+
+// O teste acima quebra. Erro: criarApp não existe. Ok — desce um nível.
+
+// ═══════════════════════════════════════════════════════
+// 🎯 NÍVEL 2 — CONTROLLER (HTTP boundary)
+// O teste de aceitação revelou que precisamos de controller
+// ═══════════════════════════════════════════════════════
+
+// 🔴 RED — teste do controller, mocka o use case
+describe('RegisterController', () => {
+test('chama use case com email e senha do body', async () => {
+  const useCase = { executar: vi.fn().mockResolvedValue({ id: '1', email: 'ana@x.com' }) }
+  const controller = new RegisterController(useCase)
+
+  const resp = await controller.handle({
+    body: { email: 'ana@x.com', senha: 'segura123' },
+  })
+
+  expect(useCase.executar).toHaveBeenCalledWith({
+    email: 'ana@x.com',
+    senha: 'segura123',
+  })
+  expect(resp.status).toBe(201)
+  expect(resp.body).toEqual({ id: '1', email: 'ana@x.com' })
+})
+
+test('retorna 400 quando email é inválido', async () => {
+  const useCase = { executar: vi.fn() }
+  const controller = new RegisterController(useCase)
+
+  const resp = await controller.handle({
+    body: { email: 'nao-eh-email', senha: 'x' },
+  })
+
+  expect(resp.status).toBe(400)
+  expect(useCase.executar).not.toHaveBeenCalled()        // valida antes de chamar
+})
+})
+
+// 🟢 GREEN — controller mínimo
+class RegisterController {
+constructor(private useCase: { executar: (i: any) => Promise<any> }) {}
+async handle(req: { body: { email: string; senha: string } }) {
+  if (!req.body.email.includes('@')) {
+    return { status: 400, body: { error: 'email inválido' } }
+  }
+  const user = await this.useCase.executar(req.body)
+  return { status: 201, body: user }
+}
+}
+
+// O controller mocka o use case — mas precisa do use case real existir.
+// Desce mais um nível.
+
+// ═══════════════════════════════════════════════════════
+// 🎯 NÍVEL 3 — USE CASE (regra de negócio)
+// ═══════════════════════════════════════════════════════
+
+describe('RegistrarUsuarioUseCase', () => {
+test('persiste user e dispara email', async () => {
+  const repo = { findByEmail: vi.fn().mockResolvedValue(null), save: vi.fn().mockImplementation(u => u) }
+  const email = { sendWelcome: vi.fn().mockResolvedValue(undefined) }
+  const hasher = { hash: vi.fn().mockResolvedValue('senha-hash') }
+
+  const useCase = new RegistrarUsuarioUseCase(repo, email, hasher)
+  await useCase.executar({ email: 'ana@x.com', senha: 'segura123' })
+
+  expect(repo.save).toHaveBeenCalledWith(
+    expect.objectContaining({ email: 'ana@x.com', senhaHash: 'senha-hash' }),
+  )
+  expect(email.sendWelcome).toHaveBeenCalledWith('ana@x.com')
+})
+
+test('lança quando email já existe', async () => {
+  const repo = {
+    findByEmail: vi.fn().mockResolvedValue({ id: '1' }),
+    save: vi.fn(),
+  }
+  const useCase = new RegistrarUsuarioUseCase(
+    repo,
+    { sendWelcome: vi.fn() },
+    { hash: vi.fn() },
+  )
+
+  await expect(
+    useCase.executar({ email: 'ana@x.com', senha: 'x' }),
+  ).rejects.toThrow('email já cadastrado')
+})
+})
+
+// 🟢 GREEN — use case mínimo
+class RegistrarUsuarioUseCase {
+constructor(
+  private repo: any,
+  private email: any,
+  private hasher: any,
+) {}
+async executar({ email, senha }: { email: string; senha: string }) {
+  if (await this.repo.findByEmail(email)) throw new Error('email já cadastrado')
+  const senhaHash = await this.hasher.hash(senha)
+  const user = await this.repo.save({ id: crypto.randomUUID(), email, senhaHash })
+  await this.email.sendWelcome(email)
+  return user
+}
+}
+
+// ═══════════════════════════════════════════════════════
+// 🔵 SUBINDO de volta
+// Com unitários verdes, o teste de aceitação volta a verde
+// porque todas as peças existem e foram compostas em criarApp.
+// ═══════════════════════════════════════════════════════
+
+// 💡 LONDON vs CHICAGO:
+// - London (outside-in, mockist): você desceu mockando colaboradores —
+//   design por descoberta, ports e adapters emergem naturalmente.
+// - Chicago (inside-out, classicist): você começaria pelo nível 3 (domain)
+//   sem mocks, e só depois construiria controller e HTTP. Menos descoberta
+//   de fronteira, mais foco em entidades primeiro.
+// Nenhuma é "certa" — escolha pelo que está testando.`,
     },
   ],
   gotchas: [
@@ -924,6 +1335,58 @@ await expect(
       q: "Property-Based Testing — quando vale a pena?",
       level: 'senior',
       a: "<p><strong>Property-Based Testing (PBT)</strong>: em vez de exemplos manuais (input X → output Y), você define uma <em>invariante</em> que vale pra qualquer input, e a ferramenta (fast-check em JS, Hypothesis em Python, QuickCheck em Haskell) gera centenas de inputs aleatórios validando a invariante.</p><pre><code>import fc from 'fast-check'\n\ntest('reverse(reverse(x)) === x', () =&gt; {\n  fc.assert(\n    fc.property(fc.string(), s =&gt; {\n      expect(reverse(reverse(s))).toBe(s)\n    })\n  )\n})\n// gera 100 strings aleatórias incluindo vazias, unicode, longas, com espaços</code></pre><p><strong>Vantagens</strong>:</p><ul><li>Pega edge cases que dev humano não imagina (string vazia, null, números enormes, caracteres unicode).</li><li>Quando falha, faz <strong>shrinking</strong> — reduz o input ao mínimo que ainda falha (string '\\u0000' em vez de string aleatória de 100 chars).</li></ul><p><strong>Quando vale</strong>: parser, serializer, codificador, função matemática, algoritmo, qualquer função com invariantes claras (idempotência, comutatividade, round-trip).</p><p><strong>Quando não vale</strong>: lógica de negócio com casos discretos ('cliente gold ganha 15% desconto') — exemplo manual é mais claro. Side effects difíceis de testar como property.</p><p>É complementar a TDD por exemplo, não substituto. Em libs sérias (lodash, ramda, date-fns), PBT é padrão.</p>",
+    },
+    {
+      q: "Diferença entre London School e Chicago School de TDD?",
+      level: 'senior',
+      a: "<p>Duas escolas que apareceram nos anos 2000 com filosofias opostas sobre como conduzir o ciclo TDD.</p><p><strong>Chicago School (classicist, inside-out)</strong> — Kent Beck, Bob Martin:</p><ul><li>Começa pela <strong>entidade do domínio</strong> (objeto de negócio puro) e cresce pra fora.</li><li>Mocks raros — prefere objetos reais sempre que possível, mocka só fronteira.</li><li>Testa <strong>estado</strong>: dado entrada X, estado final é Y?</li><li>Refactor agressivo entre red/green — design emerge tardiamente.</li></ul><p><strong>London School (mockist, outside-in)</strong> — Steve Freeman, Nat Pryce (livro GOOS):</p><ul><li>Começa pelo <strong>teste de aceitação</strong> (HTTP, UI) e desce mockando colaboradores.</li><li>Mocks abundantes — cada classe testada em isolamento total.</li><li>Testa <strong>interação</strong>: a classe X chamou o colaborador Y com argumentos Z?</li><li>Design <strong>guiado pelo teste</strong> — cada mock revela uma interface (port) que vai precisar ser implementada.</li></ul><p><strong>Trade-offs</strong>:</p><ul><li>Chicago: testes mais robustos a refactor (não acoplam à implementação), mas mais lentos pra desenvolver porque você integra real desde cedo.</li><li>London: design mais hexagonal sai 'de graça' do estilo, MAS testes ficam acoplados à composição (refactor de quem chama quem quebra muitos testes).</li></ul><p><strong>Na prática</strong>: misturo — Chicago no domínio (entidades puras com objetos reais) e London nas bordas (controller/use case com mocks de ports). É o padrão recomendado em GOOS e em arquitetura hexagonal moderna.</p>",
+      tip: "Mencione GOOS (Growing Object-Oriented Software, Guided by Tests) — livro seminal da London School. Quem cita ganha pontos com entrevistador sênior.",
+    },
+    {
+      q: "Mock vs Stub vs Spy vs Fake vs Dummy — definições precisas e quando NÃO usar cada um?",
+      level: 'senior',
+      a: "<p>Taxonomia formalizada por Gerard Meszaros (xUnit Test Patterns) e popularizada por Martin Fowler em 'Mocks Aren't Stubs':</p><ul><li><strong>Dummy</strong>: objeto passado mas nunca usado. Existe só pra preencher parâmetro. Ex: <code>new Service(null, null, dummyLogger)</code>. <strong>NÃO use</strong>: prefira sobrecarga ou opcionais — dummy esconde acoplamento.</li><li><strong>Stub</strong>: retorna valor canned em chamadas. Não verifica nada. <code>{ get: () =&gt; 42 }</code>. <strong>NÃO use</strong> quando você precisa verificar interação — vira mock.</li><li><strong>Spy</strong>: registra chamadas (argumentos, ordem, frequência) MAS executa o método real. <code>vi.spyOn(obj, 'method')</code>. <strong>NÃO use</strong> em produção via afterEach — sempre <code>mockRestore</code>.</li><li><strong>Mock</strong>: stub + verificação de interação. <code>expect(m).toHaveBeenCalledWith(...)</code>. <strong>NÃO use</strong> pra dependência cuja interação muda em refactor — testa estado.</li><li><strong>Fake</strong>: implementação real simplificada. In-memory DB, fake clock, fake fs. <strong>NÃO use</strong> quando o real é viável (testcontainers) — fake pode divergir do real e mentir.</li></ul><p><strong>Como evitar over-mocking</strong>:</p><ol><li>Regra de Steve Freeman: 'Don't mock types you don't own'. Não mocke API externa direto — wrappa numa interface sua e mocka a sua.</li><li>Mocka só a borda (rede, DB, clock, fs). Domínio interno usa objetos reais.</li><li>Se um teste tem 5+ mocks, é sinal de design ruim — classe sob teste tem responsabilidades demais.</li><li>Prefira fake (estado real) sobre mock (verificação) sempre que possível — fake testa o COMPORTAMENTO, mock testa o PROTOCOLO.</li></ol><p><strong>Anti-pattern clássico</strong>: <em>'mock-and-pray'</em> — mocka tudo, teste passa, prod quebra porque o mock divergiu da real. Mitigue com <strong>contract tests</strong> (Pact) ou compartilhe fixtures entre teste unitário e integração.</p>",
+    },
+    {
+      q: "Por que testar comportamento e não implementação? Como você diferencia 'queries de estado' de 'verificação de interação' na prática?",
+      level: 'senior',
+      a: "<p>Teste de implementação verifica <strong>como</strong> o código faz; teste de comportamento verifica <strong>o que</strong> ele entrega. A diferença manifesta no que você assertiona:</p><p><strong>Query de estado (comportamento)</strong>:</p><pre><code>// faz a coisa, depois pergunta como ficou\ncarrinho.adicionar(produto)\nexpect(carrinho.total()).toBe(99.90)\nexpect(carrinho.itens()).toHaveLength(1)</code></pre><p>Sobrevive a refactor: pode trocar Map por Array, persistir em DB ou memória, agrupar itens — o teste continua válido enquanto a saída observável for correta.</p><p><strong>Verificação de interação (implementação)</strong>:</p><pre><code>// observa o caminho que o código tomou\ncarrinho.adicionar(produto)\nexpect(repo.save).toHaveBeenCalled()\nexpect(eventBus.emit).toHaveBeenCalledWith('item-added', expect.any(Object))\nexpect(cache.invalidate).toHaveBeenCalledTimes(1)</code></pre><p>Quebra em refactor: mudou pra batch save? Trocou eventBus por outbox pattern? Cache foi removido porque virou desnecessário? Todos os testes quebram <em>sem que comportamento tenha mudado</em>.</p><p><strong>Quando interação É comportamento (legítimo testar)</strong>:</p><ul><li>Notificação externa: 'envia email' É o comportamento esperado, não um meio.</li><li>Side effect observável de domínio: 'publica evento OrderCreated no message bus' é parte do contrato.</li><li>Idempotência: 'não chama API de pagamento duas vezes pra mesma ordem' é um requisito.</li></ul><p><strong>Heurística</strong>: pergunte 'se eu trocar a implementação interna mantendo o output, o teste deveria passar?'. Se SIM, o teste está bom. Se NÃO, está acoplado à implementação. Refactor não deve quebrar testes — se quebra, ou mudou comportamento (revisa) ou seu teste está observando demais (corrige).</p>",
+    },
+    {
+      q: "Mutation testing com Stryker — o que é mutation score e por que coverage 100% não garante testes bons?",
+      level: 'senior',
+      a: "<p><strong>Cobertura de código</strong> mede quais linhas/branches foram <em>executadas</em> pelos testes. Mas executar não é validar:</p><pre><code>function ehAdulto(idade: number): boolean {\n  return idade &gt;= 18\n}\n\ntest('ehAdulto', () =&gt; {\n  ehAdulto(20)   // executa, sem assert!\n  ehAdulto(10)\n})</code></pre><p>Coverage diz 100%. Mas se eu trocar <code>&gt;=</code> por <code>&gt;</code>, ou <code>&gt;=</code> por <code>===</code>, o teste continua passando. Não testa nada.</p><p><strong>Mutation testing</strong> resolve isso. A ferramenta (Stryker pra JS, Pitest pra Java, mutmut pra Python) gera 'mutantes' do seu código:</p><ul><li>Troca <code>&gt;=</code> por <code>&gt;</code>, <code>===</code> por <code>!==</code>, <code>+</code> por <code>-</code></li><li>Remove <code>return</code>s, troca booleanos, deleta linhas inteiras</li><li>Substitui literais (<code>0</code> → <code>1</code>, <code>'a'</code> → <code>'b'</code>)</li></ul><p>Pra cada mutação, roda sua suite. Se algum teste falha → mutante 'killed' (bom, sua suite detectou). Se todos passam → mutante 'survived' (ruim, sua suite é cega).</p><p><strong>Mutation Score = killed / (killed + survived)</strong>. Threshold típico:</p><ul><li>≥ 80%: suite robusta</li><li>60-80%: tem buracos sérios</li><li>&lt; 60%: testes decorativos, refaz</li></ul><p><strong>Por que importa</strong>: gerência exige '100% coverage' → dev escreve assert vazio só pra passar → fraude estatística. Com mutation testing, fraude é detectada — assert vazio deixa quase todos os mutantes vivos.</p><p><strong>Trade-off</strong>: lento. Roda a suite N vezes (centenas). Use em CI nightly ou em código crítico (parser, regra de negócio, biblioteca). Não em todo PR — vira gargalo.</p><p><strong>Stryker config básico</strong>: <code>thresholds: { high: 80, low: 60, break: 50 }</code>. Break falha o build se score cair abaixo de 50.</p>",
+    },
+    {
+      q: "TDD em código legacy sem testes — como começar? Characterization tests, seam points, strangler fig.",
+      level: 'senior',
+      a: "<p>Cenário: você herda um código de 5 anos com zero teste, lógica entrelaçada, dependências globais. Quer adicionar feature ou corrigir bug com segurança. Estratégia clássica de Michael Feathers (Working Effectively with Legacy Code):</p><p><strong>1. Characterization Test (Golden Master)</strong>: você não documenta o que o código DEVERIA fazer — documenta o que ele FAZ hoje. Roda com inputs reais, captura output como snapshot. Vira contrato.</p><pre><code>test('characterization — função X com inputs reais', () =&gt; {\n  const inputs = loadFixtures('producao-amostra.json')\n  const outputs = inputs.map(funcaoLegacy)\n  expect(outputs).toMatchSnapshot()\n})</code></pre><p>Snapshot é a 'rede de segurança': qualquer mudança que altere comportamento aparece como diff.</p><p><strong>2. Seam Points</strong>: lugares onde você pode mudar comportamento sem editar o código original. Tipos:</p><ul><li><strong>Object seam</strong>: extrair dependência pra interface e injetar. Permite mockar.</li><li><strong>Preprocessing seam</strong> (C/C++): macro substituição. Em JS/TS use ESM mock.</li><li><strong>Link seam</strong>: substituir biblioteca em build/test. Em JS, vi.mock substitui módulo.</li></ul><p>Com seams, você consegue isolar pedaços e adicionar teste sem refactor invasivo.</p><p><strong>3. Sprout Method/Class</strong>: nova lógica vai numa função/classe nova, com TDD pleno. Função legacy só chama a nova. Aos poucos, lógica antiga é estrangulada.</p><p><strong>4. Strangler Fig Pattern</strong> (Martin Fowler): nova versão do sistema cresce ao lado da antiga. Rotas/funcionalidades migram uma a uma. Quando 100% migrou, antigo é deletado. Aplica em escala de feature, não de método.</p><p><strong>5. Aceite cobertura baixa no começo</strong>: legacy não vai pra 100% rapidamente. Suba aos poucos, sem dogmatismo. Cada PR deixa o código <em>um pouco</em> mais testado que encontrou (Boy Scout Rule).</p><p><strong>O que NÃO fazer</strong>: refatorar agressivamente sem rede de teste. Vira rewrite acidental, demora 3x o estimado, gerência cancela no meio.</p>",
+      tip: "Cite o livro de Feathers explicitamente — sinal claro pra entrevistador sênior. Mencione 'Sprout Method' e 'Strangler Fig' por nome — diferencia de candidato que só fala em 'refatorar com cuidado'.",
+    },
+    {
+      q: "F.I.R.S.T na prática — qual viola cada princípio, e qual a consequência concreta?",
+      level: 'senior',
+      a: "<p>Cada letra é uma falha real que vi em time de produção:</p><p><strong>F (Fast) violado</strong>: teste com setTimeout(2000), fetch real, sleep entre passos. <strong>Consequência</strong>: dev roda <code>npm test</code> e vai tomar café. Resultado: ele para de rodar, deixa pro CI. Bug que o teste pegaria fica em main por horas. <strong>Fix</strong>: mock I/O, vi.useFakeTimers, paralelize.</p><p><strong>I (Independent) violado</strong>: teste B precisa que teste A tenha rodado primeiro (ex: A insere user, B consulta). <strong>Consequência</strong>: rodar suite com <code>--shuffle</code> falha aleatoriamente. CI passa, dev local falha (ordem diferente). Diagnóstico custa horas. <strong>Fix</strong>: setup completo em beforeEach, sem estado global, banco limpo entre testes.</p><p><strong>R (Repeatable) violado</strong>: teste depende de Date.now, Math.random, fuso horário do CI, internet. <strong>Consequência</strong>: 'flaky' — passa às vezes, falha às vezes. Time perde fé na suite, ignora vermelho, deixa bug passar. <strong>Fix</strong>: clock fake, seed do random, mocka rede com MSW, evita asserts dependentes de tempo real.</p><p><strong>S (Self-validating) violado</strong>: teste sem assert, ou com <code>console.log</code> pra inspeção manual. <strong>Consequência</strong>: passa sempre — não testa nada. Mutation testing reprova com 0% mutation score. <strong>Fix</strong>: assert explícito sempre, lint rule no-empty-test, ESLint plugin jest/expect-expect.</p><p><strong>T (Timely) violado</strong>: teste escrito 'depois quando der tempo'. <strong>Consequência</strong>: nunca dá tempo. Backlog de teste cresce, código novo entra sem cobertura, refactor fica perigoso. <strong>Fix</strong>: PR sem teste = revisão bloqueada, cultura de TDD ou pelo menos test-after-code-but-before-merge.</p><p><strong>Critério mental</strong>: antes de cada commit de teste, varre as 5 propriedades. Falha 1 = red flag. Falha 2 = teatro de teste — deleta e refaz.</p>",
+    },
+    {
+      q: "Test pyramid vs Testing Trophy vs Testing Honeycomb — quando cada modelo faz sentido?",
+      level: 'senior',
+      a: "<p>Três heurísticas concorrentes pra distribuir esforço de teste:</p><p><strong>1. Pirâmide (Mike Cohn, 2009)</strong> — clássica:</p><ul><li>70% unitário (rápido, isolado), 20% integração, 10% E2E.</li><li><strong>Faz sentido</strong>: backend, lógica de negócio rica, projeto onde unidades têm comportamento próprio testável.</li><li><strong>Falha em</strong>: frontend moderno (componentes têm pouca lógica isolada — testar render isolado é teatro), microservices (a interação ENTRE serviços é o que importa, não a lógica interna).</li></ul><p><strong>2. Testing Trophy (Kent C. Dodds, 2018)</strong> — frontend-friendly:</p><ul><li>Base de tipos estáticos (TS, ESLint), depois unitário, MAIOR peso em integração, topo de E2E.</li><li><strong>Faz sentido</strong>: SPA React/Vue, microfrontends. Componentes testados via integração (React Testing Library) pegam mais bugs reais que unitário puro.</li><li>Argumento de KCD: 'o que dá mais confiança por dólar é integração'.</li></ul><p><strong>3. Testing Honeycomb (Spotify, 2018)</strong> — microservices:</p><ul><li>Pouco unitário (lógica é fina), MUITO integração (contratos, DB, queue), pouco E2E.</li><li><strong>Faz sentido</strong>: serviço cuja responsabilidade é orquestrar, não calcular. Fluxo HTTP → DB → response domina; lógica intermediária é mapeamento.</li><li>Tipicamente: testcontainers + contract tests (Pact) entre serviços.</li></ul><p><strong>Como escolher</strong>:</p><ul><li>App tem lógica de negócio rica e isolável? <strong>Pirâmide</strong>.</li><li>App é UI com pouca lógica e muita composição? <strong>Trophy</strong>.</li><li>App é serviço fino orquestrando externos? <strong>Honeycomb</strong>.</li></ul><p><strong>Anti-pattern comum</strong> ('Ice Cream Cone'): pirâmide invertida — muito E2E, pouco unitário. Aparece quando time não confia na lógica isolada, ou quando design não permite testar unidade. CI demora 40min, suite flaky, ninguém sabe onde olhar quando quebra.</p><p>O importante não é o ratio exato — é o gradiente: muitos testes rápidos focados embaixo, poucos lentos abrangentes em cima. Isso vale pros 3 modelos.</p>",
+    },
+    {
+      q: "Testes flaky — causas reais e processo de eliminação?",
+      level: 'senior',
+      a: "<p>Flaky = teste que passa às vezes e falha às vezes <em>sem mudança no código</em>. Não é incômodo — é dívida tóxica. Time perde confiança na suite, começa a fazer <code>retry on failure</code> (escondendo bug), e eventualmente ignora vermelho.</p><p><strong>Causas mais comuns (em ordem de frequência)</strong>:</p><ol><li><strong>Shared state</strong>: variável de módulo, banco compartilhado, mock que vaza pra outro teste. <em>Fix</em>: <code>beforeEach</code> reseta tudo, banco limpo por teste, <code>vi.clearAllMocks()</code> em afterEach.</li><li><strong>Ordem de execução</strong>: teste B assume que A criou estado. <em>Detecção</em>: <code>vitest --shuffle</code>. <em>Fix</em>: tornar testes independentes.</li><li><strong>Tempo / timing</strong>: setTimeout, race condition, asserts dependentes de Date.now. <em>Fix</em>: <code>vi.useFakeTimers()</code>, fixar clock, evitar real sleep.</li><li><strong>Concorrência</strong>: paralelismo do test runner conflita com recurso (porta, arquivo, banco). <em>Fix</em>: porta dinâmica por worker, namespace de DB por <code>VITEST_POOL_ID</code>, ou desativa paralelismo nos integrações pesadas.</li><li><strong>Rede</strong>: serviço externo, DNS, retry. <em>Fix</em>: MSW intercepta fetch; nunca rede real em unit/integration; em E2E, retry só onde rede é inerente.</li><li><strong>Não-determinismo</strong>: <code>Math.random</code>, <code>crypto.randomUUID</code>, ordem de Map (em JS &lt; 2020). <em>Fix</em>: injete via DI, use seed.</li><li><strong>Seletor frágil em E2E</strong>: <code>nth-child(3)</code>, classe gerada por CSS-in-JS. <em>Fix</em>: <code>getByRole</code>, <code>getByTestId</code>.</li></ol><p><strong>Processo de eliminação (não 'aumentar retry')</strong>:</p><ol><li><strong>Quarentena</strong>: marca como <code>test.skip</code> com link pra issue. NÃO deixa ignorando — vira pesadelo de manutenção.</li><li><strong>Reproduce</strong>: rode 100x localmente. Se sempre passa, rode com <code>--shuffle</code>, <code>--no-cache</code>, paralelismo máximo. Geralmente falha em &lt; 10 runs.</li><li><strong>Bissect</strong>: comente metade dos testes, reproduza. Reduz até achar a interação culpada.</li><li><strong>Causa raiz</strong>: identifique a categoria (lista acima). Aplica o fix correspondente.</li><li><strong>Regression test</strong>: depois do fix, rode 1000x em CI nightly por 1 semana. Confirma que ficou estável.</li></ol><p><strong>Métrica de saúde</strong>: time saudável tem &lt; 0.1% de flaky rate (1 em 1000 runs). Acima de 1% (1 em 100) já tóxico — quem vai parar pra investigar quando 'só rerun resolve'?</p><p><strong>Anti-pattern</strong>: aumentar <code>retry: 3</code> no config. Esconde flake real. Vale só pra E2E onde a rede é inerente — não pra unitário.</p>",
+    },
+    {
+      q: "TDD influencia design — por que código testável tende a ser mais desacoplado (SOLID emergente)?",
+      level: 'senior',
+      a: "<p>Quando você escreve teste primeiro, você usa o código <em>antes dele existir</em>. A API é desenhada do ponto de vista do consumidor, não do implementador. Cada decisão de design é pressionada pela facilidade ou dor de testar. Resultado: SOLID e Clean Architecture aparecem 'de graça' como subproduto.</p><p><strong>Mapeamento concreto TDD → SOLID</strong>:</p><ul><li><strong>S (Single Responsibility)</strong>: testar uma classe que faz 5 coisas dói (muitos asserts, muitos setups). Você naturalmente quebra. Cada classe vira uma 'razão pra mudar'.</li><li><strong>O (Open/Closed)</strong>: extensão por composição é fácil de mockar; modificação é difícil de testar isoladamente. TDD empurra pra extensão.</li><li><strong>L (Liskov Substitution)</strong>: se você testa contra interface (<code>UserRepo</code>), qualquer implementação (real, fake, mock) vale. Liskov vira automático.</li><li><strong>I (Interface Segregation)</strong>: mockar interface gigante é doloroso (10 métodos pra stubar). Você divide em interfaces pequenas, focadas. Cliente do teste agradece.</li><li><strong>D (Dependency Inversion)</strong>: pra mockar, você precisa <strong>injetar</strong> dependência (não importar global). DI é a porta de entrada do TDD.</li></ul><p><strong>Mapeamento TDD → Hexagonal/Clean</strong>:</p><ul><li>Pra testar lógica sem subir DB, você é forçado a separar lógica pura de I/O → camadas Domain e Application surgem.</li><li>Pra mockar I/O, você cria interfaces (ports) → adapters viram explícitos.</li><li>Pra testar use case isolado, você é forçado a separá-lo de framework (Express, Next) → composição vai pro 'main' fora dos testes.</li></ul><p>Time que pratica TDD chega em arquitetura hexagonal sem ler livro nenhum — design emerge da pressão dos testes. Não é coincidência: Kent Beck, Bob Martin e Alistair Cockburn descreveram esses princípios DEPOIS de anos praticando.</p><p><strong>Caveat importante</strong>: TDD não previne design ruim sozinho. Você pode escrever testes acoplados a implementação (testando interação interna) e produzir código mockista frágil. A disciplina é: <strong>teste comportamento observável</strong>, deixe a estrutura interna livre. SOLID emerge de testar o output, não o caminho.</p>",
+    },
+    {
+      q: "BDD vs TDD — quando Gherkin/Cucumber faz sentido e quando é overhead?",
+      level: 'senior',
+      a: "<p><strong>TDD</strong> é prática técnica: ciclo Red-Green-Refactor, escrito por dev pra dev, em código de teste (Jest, JUnit). O cliente do teste é o próprio dev.</p><p><strong>BDD</strong> (Behavior-Driven Development) é evolução do TDD com foco em colaboração com não-devs. Specs em linguagem natural (Given/When/Then, Gherkin), ferramentas como Cucumber, SpecFlow, Behave conectam essas specs a código de teste. O cliente do teste passa a ser PO/QA/negócio.</p><pre><code>Feature: Cashback de cliente premium\n  Scenario: Cliente gold com compra acima de 500\n    Given um cliente com plano 'gold'\n    And um carrinho com R$ 600\n    When ele finaliza a compra\n    Then ele recebe R$ 30 de cashback\n    And ele recebe email de confirmação</code></pre><p><strong>Quando BDD vale</strong>:</p><ul><li>Time com PO/QA escrevendo specs colaborativamente. PO consegue ler o teste e validar regra.</li><li>Domínio com regras complexas que precisam validação humana (financeiro, seguro, saúde).</li><li>Projeto regulado: spec é documento auditável (HIPAA, SOX). Cucumber gera relatório executável legível.</li><li>Time grande/distribuído onde alinhamento de entendimento é caro.</li></ul><p><strong>Quando BDD é overhead</strong>:</p><ul><li>Time só de devs. Linguagem natural não adiciona valor — perde tempo escrevendo Gherkin que ninguém não-dev vai ler.</li><li>Projeto técnico (lib, infra, ferramenta de dev). Comportamento já é técnico — não tem business stakeholder.</li><li>Startup com requisitos voláteis. Manter feature files sincronizados com código vira fricção.</li><li>Time pequeno (&lt; 10) onde dev e PO sentam juntos — alinhamento via conversa é mais rápido que via Gherkin.</li></ul><p><strong>Critério</strong>: BDD vale quando o cliente do teste é não-dev. Se só dev escreve e lê, TDD com nomes descritivos (<code>describe('cliente gold com compra acima de 500', ...)</code>) é igual de bom e mais simples.</p><p><strong>Variantes relacionadas</strong>: <strong>ATDD</strong> (Acceptance Test-Driven Development) — primo do BDD, mesma ideia, foco em testes de aceitação como fonte da verdade. <strong>Specification by Example</strong> (Gojko Adzic, livro homônimo) — trata os exemplos como specs vivas, com ou sem Gherkin.</p><p><strong>Anti-pattern</strong>: dev escreve Gherkin pra cumprir 'política de BDD' e PO nunca lê. Vira overhead burocrático sem ganho. Se PO não vai ler, mate o BDD.</p>",
     },
   ],
   videos: [

@@ -883,7 +883,202 @@ const metadata = EventMetadata.parse(event.metadata)
       level: "senior",
       a: "<p><strong>Prisma Accelerate:</strong> proxy HTTP + connection pooling global + cache distribuído. Resolve:</p><ul><li><strong>Cold start em serverless</strong> — cada Lambda nova abriria conexão TCP (300-500ms). Accelerate mantém pool quente globalmente.</li><li><strong>Edge runtime</strong> — workers sem TCP nativo só fazem HTTP.</li><li><strong>Cache</strong> — TTL e SWR (stale-while-revalidate) por query, distribuído em edge.</li></ul><p><strong>Prisma Pulse:</strong> Change Data Capture (CDC) gerenciado — você subscreve a mudanças em tabelas via stream. Resolve:</p><ul><li><strong>Real-time sem polling</strong> — em vez de SELECT a cada 5s, você recebe push quando algo muda.</li><li><strong>Substitui webhooks internos</strong> — qualquer INSERT/UPDATE/DELETE pode disparar lógica downstream sem precisar acoplar nas mutations.</li><li><strong>Casos:</strong> notificações push, sincronização cross-service, materialização de views, analytics em tempo real.</li></ul><p>Ambos são pagos — para apps high-traffic considerar custos. Alternativa Pulse: Postgres logical replication direto + biblioteca como pg-logical-replication.</p>",
     },
+    {
+      q: "Como o Prisma Client é gerado internamente? O que o generator faz?",
+      level: "senior",
+      a: "<p>O <code>prisma generate</code> roda um pipeline em três fases:</p><ol><li><strong>Parse do schema:</strong> <code>schema.prisma</code> é lido e convertido em uma DMMF (Data Model Meta Format) — uma representação JSON do schema com todos os models, fields, relações, enums e atributos.</li><li><strong>Geração de tipos TypeScript:</strong> a partir da DMMF, o generator gera <code>index.d.ts</code> dentro de <code>node_modules/.prisma/client</code> com tipos como <code>User</code>, <code>UserCreateInput</code>, <code>UserWhereInput</code>, <code>UserSelect</code>, <code>UserInclude</code>, e <code>UserGetPayload&lt;T&gt;</code> (este último faz a inferência dinâmica baseada em select/include).</li><li><strong>Geração do runtime:</strong> gera <code>index.js</code> que instancia uma engine Rust (Query Engine) embutida — um binário que recebe queries via JSON-RPC e devolve resultados parseados.</li></ol><p>Por isso o Client está em <code>node_modules/.prisma/client</code> (não <code>@prisma/client</code> direto) — é gerado localmente após install. O package <code>@prisma/client</code> é só um stub que re-exporta de <code>.prisma/client</code>. <strong>Esquecer de rodar generate</strong> em CI/Docker faz o app falhar com <code>@prisma/client did not initialize yet</code> — adicione <code>postinstall: prisma generate</code> no package.json.</p>",
+      tip: "Mencionar a DMMF e o Query Engine em Rust diferencia sênior. O Query Engine é o motivo do bundle pesado e do problema em edge runtime.",
+    },
+    {
+      q: "Qual a diferença entre nested writes, $transaction array e $transaction interactive?",
+      level: "senior",
+      a: "<p>São três formas de garantir atomicidade, com tradeoffs distintos:</p><ul><li><strong>Nested writes</strong> (<code>create: { posts: { create: [...] } }</code>): Prisma encapsula múltiplas inserções relacionadas em uma única transação implícita. Mais conciso, ideal para criar entidade + relações em uma única chamada. Limitação: só funciona em árvore de relações conhecidas em compile-time, não permite lógica condicional entre as ops.</li><li><strong>$transaction([op1, op2, op3])</strong> (sequential array): roda múltiplas Promise<Op> atomicamente. Cada op não vê o resultado da anterior — todas são preparadas antes e executadas em sequência. Bom para batch de operações independentes, sem ramo condicional.</li><li><strong>$transaction(async tx => {})</strong> (interactive): callback recebe um client transacional. Permite ler, decidir e escrever com lógica. Necessário sempre que a próxima operação depende do resultado da anterior (ex: validar saldo antes de debitar). <strong>Custo:</strong> segura conexão do pool durante toda a execução do callback — evite I/O externo dentro.</li></ul><p>Regra prática: <strong>nested write</strong> para criar uma árvore de objetos relacionados; <strong>array</strong> para batch independente; <strong>interactive</strong> quando há lógica de decisão. Em todos, a transação reverte tudo em caso de erro lançado.</p>",
+    },
+    {
+      q: "Como Prisma se comporta em serverless? Por que connection pooling vira problema?",
+      level: "senior",
+      a: "<p>O modelo serverless rompe a premissa do pool tradicional: cada invocação Lambda/Vercel Function pode criar uma nova instância de PrismaClient → cada uma abre seu próprio pool TCP no Postgres → em pico de tráfego, 1000 invocações concorrentes = 1000 conexões TCP — o Postgres trava com <code>too many connections</code> (default 100).</p><p><strong>Soluções em ordem de adoção:</strong></p><ol><li><strong>PgBouncer/Supavisor em frente ao Postgres</strong> (modo transaction): o app conecta no PgBouncer, que multiplexa milhares de conexões em poucas conexões reais ao Postgres. Use <code>?pgbouncer=true</code> no DATABASE_URL para Prisma desabilitar prepared statements (incompatíveis com PgBouncer transaction mode).</li><li><strong>Prisma Accelerate:</strong> proxy HTTP gerenciado com pool global. Cada query vira HTTP — sem TCP. Bônus: cache distribuído com TTL/SWR.</li><li><strong>Limite de conexões por instância:</strong> <code>?connection_limit=1</code> em serverless para forçar uma conexão por Lambda (pequeno pool, mas previsível).</li></ol><p><strong>Cuidado adicional:</strong> em serverless, NÃO chame <code>$disconnect()</code> entre requests — Lambda reusa a instância (warm start). Disconnect só ao encerrar o processo (cold shutdown) ou em scripts CLI.</p>",
+      tip: "Mencionar PgBouncer em transaction mode e o flag <code>pgbouncer=true</code> é diferencial. É o caminho mais comum em produção com Postgres self-hosted.",
+    },
+    {
+      q: "Como fazer schema migration com zero downtime usando Prisma?",
+      level: "senior",
+      a: "<p>O padrão é <strong>expand-contract</strong> em três fases — nunca em uma migration só:</p><ol><li><strong>Expand (migration 1):</strong> adicione a nova estrutura sem remover a antiga. Ex: nova coluna <code>email_v2</code>, ou nova tabela. App ainda lê e escreve na antiga. Deploy do app em paralelo ainda funciona — a nova coluna é nullable ou tem default.</li><li><strong>Migrate data + dual-write (deploy de app):</strong> app começa a escrever em ambas as colunas. Backfill via job (raw SQL ou script) para popular a nova coluna nos registros antigos. Validar que <code>SELECT WHERE email_v2 IS NULL</code> retorna zero.</li><li><strong>Contract (migration 2):</strong> app passa a ler e escrever apenas na nova. Após validar em produção, drop da coluna antiga. Tempo entre fases: dias a semanas dependendo do tráfego.</li></ol><p><strong>Anti-patterns que causam downtime:</strong> renomear coluna em uma migration só (Prisma gera DROP + ADD — perde dados!), adicionar coluna NOT NULL sem default em tabela grande (lock prolongado), adicionar índice em tabela grande sem CONCURRENTLY (Prisma migrate deploy não usa CONCURRENTLY por default — pode ser necessário SQL manual).</p><p><strong>Para alterações destrutivas:</strong> edite o arquivo <code>migration.sql</code> antes de aplicar — Prisma gera o SQL mas você pode reescrever (ex: trocar DROP+ADD por RENAME).</p>",
+    },
+    {
+      q: "Como a inferência de tipos do Prisma funciona com select/include aninhados?",
+      level: "senior",
+      a: "<p>O segredo está em dois utility types gerados: <code>Prisma.UserGetPayload&lt;T&gt;</code> e os tipos de validação <code>Prisma.UserSelect</code>, <code>Prisma.UserInclude</code>. Quando você chama <code>findMany({ select: { id: true, posts: { select: { title: true } } } })</code>, o TypeScript aplica:</p><ol><li>O argumento é validado contra <code>Prisma.UserFindManyArgs</code> — autocomplete dos campos.</li><li>O retorno é tipado como <code>Promise&lt;Prisma.UserGetPayload&lt;{ select: { id: true, posts: { select: { title: true } } } }&gt;[]&gt;</code>.</li><li><code>UserGetPayload</code> é uma <strong>conditional type</strong> que percorre o select/include recursivamente e constrói o tipo exato — <code>{ id: string; posts: { title: string }[] }</code>.</li></ol><p><strong>Como extrair tipos para usar em DTOs:</strong></p><pre><code>const userSelect = Prisma.validator&lt;Prisma.UserSelect&gt;()({\n  id: true, name: true, posts: { select: { title: true } },\n})\ntype UserDTO = Prisma.UserGetPayload&lt;{ select: typeof userSelect }&gt;</code></pre><p><code>Prisma.validator</code> garante que o objeto seja válido sem instanciar — útil para reutilizar selects entre query e tipo. Esse padrão é a base para repositórios type-safe e DTOs compartilhados entre back e front (via tRPC ou tipos exportados).</p>",
+    },
+    {
+      q: "Quais os riscos do $queryRawUnsafe e quando ele é justificável?",
+      level: "senior",
+      a: "<p><code>$queryRawUnsafe(sql, ...params)</code> aceita uma string SQL pré-construída — sem template tag e sem parametrização automática como o <code>$queryRaw</code>. <strong>O risco:</strong> qualquer interpolação de input do usuário na string vira SQL injection. <code>$queryRawUnsafe(\`SELECT * FROM \"User\" WHERE name = '\${userInput}'\`)</code> é exatamente o caso clássico — <code>'; DROP TABLE \"User\"; --</code> destrói o banco.</p><p><strong>Quando é justificável:</strong></p><ul><li>Identificadores dinâmicos (nomes de tabela/coluna) que <code>$queryRaw</code> não suporta — template tag escapa apenas valores. Use uma whitelist rigorosa: <code>const allowed = ['name','email']; if (!allowed.includes(col)) throw...</code></li><li>SQL gerado programaticamente sem input externo (ex: ferramentas internas de admin).</li><li>Construção condicional complexa quando <code>Prisma.sql</code> + <code>Prisma.empty</code> + <code>Prisma.join</code> ficam ilegíveis.</li></ul><p><strong>Regra de ouro:</strong> 99% dos casos cabem em <code>$queryRaw\\`...\\${var}\\`</code> ou em composição com <code>Prisma.sql\\`WHERE ...\\${val}\\`</code>. Antes de usar Unsafe, pergunte: <em>existe uma alternativa parametrizada?</em> Se a resposta é sim, use ela. Se não, valide rigorosamente todo input com Zod ou whitelist antes de interpolar.</p>",
+      tip: "Saber que template tags só escapam VALUES (não identificadores) e que isso é o motivo legítimo de Unsafe é o nível de profundidade esperado.",
+    },
+    {
+      q: "Como testar código que usa Prisma sem depender de um banco real em cada teste?",
+      level: "senior",
+      a: "<p>Há três estratégias, em ordem crescente de fidelidade:</p><ol><li><strong>Mock do PrismaClient</strong> com <code>jest-mock-extended</code> ou <code>vitest-mock-extended</code>: <code>const prisma = mockDeep&lt;PrismaClient&gt;()</code> — injetável, retornos configuráveis. Rápido e isolado, mas não testa o SQL gerado nem o schema. Bom para testes de unidade de lógica de domínio.</li><li><strong>SQLite em memória</strong> com <code>file::memory:?cache=shared</code>: cada suíte cria um schema novo via <code>prisma migrate deploy</code>. Mais lento (segundos) mas testa queries reais. Limitação: SQLite não suporta tudo do Postgres (jsonb, full-text, arrays).</li><li><strong>Postgres real em Docker via testcontainers-node</strong>: cada suíte (ou cada teste) sobe um container Postgres efêmero, roda migrate deploy, executa testes, derruba. Lento (5-10s startup) mas máxima fidelidade. Use template database (<code>CREATE DATABASE test_X TEMPLATE prisma_template</code>) para resetar entre testes em milissegundos sem rodar migrations.</li></ol><p><strong>Padrão recomendado em produção:</strong> mocks para unit tests de domínio, testcontainers para integration tests. Em CI, paralelize com worker per test file usando databases isolados.</p>",
+    },
+    {
+      q: "Como usar Prisma em arquitetura hexagonal/clean? Onde ele se encaixa?",
+      level: "senior",
+      a: "<p>Em arquitetura hexagonal, Prisma é um <strong>adapter de infraestrutura</strong> — fica na borda externa, nunca vaza para o domínio. O domínio define interfaces de repositório (<code>UserRepository</code>) e entidades puras; a camada de infraestrutura implementa essas interfaces com Prisma.</p><pre><code>// domain/user.ts — entidade pura, sem Prisma\nexport class User {\n  constructor(readonly id: string, readonly email: Email, ...) {}\n  // regras de negócio\n}\n// domain/user-repository.ts — porta\nexport interface UserRepository {\n  findById(id: string): Promise&lt;User | null&gt;\n  save(user: User): Promise&lt;void&gt;\n}\n// infra/prisma-user-repository.ts — adapter\nexport class PrismaUserRepository implements UserRepository {\n  constructor(private prisma: PrismaClient) {}\n  async findById(id: string) {\n    const row = await this.prisma.user.findUnique({ where: { id } })\n    return row ? this.toDomain(row) : null\n  }\n  private toDomain(row: PrismaUser): User { ... }\n}</code></pre><p><strong>Cuidados:</strong> não retorne tipos do Prisma do repositório — sempre converta para entidades de domínio. Não use <code>include</code> profundo — isso vaza estrutura de dados (tabelas, FKs) para o domínio. Em domain, trabalhe com aggregates carregados explicitamente. Para transações que abrangem múltiplos repositórios, use <strong>Unit of Work</strong>: passe o <code>tx</code> do <code>$transaction</code> para os repositórios via factory.</p>",
+      tip: "O ponto crítico é não retornar tipos gerados pelo Prisma do repositório — converta para o domínio. Demonstrar isso revela maturidade arquitetural.",
+    },
   ],
+  mindmap: {
+    title: "Mapa mental — ecossistema Prisma completo",
+    html: `<style>
+.prsm-mm-wrap{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px}
+.prsm-mm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px}
+.prsm-mm-card{background:#1e293b;border-radius:8px;padding:11px 13px;border-left:3px solid;font-size:10px;line-height:1.65}
+.prsm-mm-title{font-size:11px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.prsm-mm-bullet{color:#475569;display:block;margin:2px 0;padding-left:10px;position:relative}
+.prsm-mm-bullet::before{content:'›';color:#5A67D8;position:absolute;left:0}
+.prsm-mm-sub{color:#94a3b8;font-weight:600;margin:6px 0 3px;font-size:10px}
+.prsm-mm-center{background:linear-gradient(135deg,#5A67D8 0%,#7c3aed 100%);border-radius:10px;padding:14px 18px;text-align:center;color:#fff;font-weight:700;font-size:13px;margin-bottom:14px;box-shadow:0 4px 12px rgba(90,103,216,.3)}
+.prsm-mm-tag{display:inline-block;background:rgba(90,103,216,.15);color:#a5b4fc;font-size:9px;padding:1px 6px;border-radius:4px;margin-left:4px}
+</style>
+<div class="prsm-mm-wrap">
+<p style="color:#e2e8f0;font-size:12px;margin:0 0 4px;font-weight:600">Mapa mental — ecossistema Prisma completo</p>
+<p style="color:#475569;font-size:10px;margin:0 0 14px">Da DSL declarativa aos serviços gerenciados — visão de 360°</p>
+<div class="prsm-mm-center">PRISMA ORM</div>
+<div class="prsm-mm-grid">
+  <div class="prsm-mm-card" style="border-color:#5A67D8">
+    <div class="prsm-mm-title" style="color:#5A67D8">Schema Language <span class="prsm-mm-tag">.prisma</span></div>
+    <div class="prsm-mm-sub">Blocos</div>
+    <span class="prsm-mm-bullet">datasource — provider, url, shadowDatabaseUrl</span>
+    <span class="prsm-mm-bullet">generator — client, output, previewFeatures</span>
+    <span class="prsm-mm-bullet">model — tabelas e atributos</span>
+    <span class="prsm-mm-bullet">enum — valores literais tipados</span>
+    <div class="prsm-mm-sub">Tipos</div>
+    <span class="prsm-mm-bullet">String, Int, BigInt, Float, Decimal</span>
+    <span class="prsm-mm-bullet">Boolean, DateTime, Json, Bytes</span>
+    <span class="prsm-mm-bullet">Modificadores: ? (nullable), [] (array)</span>
+    <div class="prsm-mm-sub">Atributos</div>
+    <span class="prsm-mm-bullet">@id, @unique, @default, @relation, @map, @updatedAt</span>
+    <span class="prsm-mm-bullet">@@id, @@unique, @@index, @@map, @@fulltext</span>
+    <span class="prsm-mm-bullet">@db.VarChar/Text/Decimal — tipos nativos SQL</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#4ade80">
+    <div class="prsm-mm-title" style="color:#4ade80">Client API <span class="prsm-mm-tag">@prisma/client</span></div>
+    <div class="prsm-mm-sub">CRUD por model</div>
+    <span class="prsm-mm-bullet">findUnique / findUniqueOrThrow / findFirst</span>
+    <span class="prsm-mm-bullet">findMany — where, select, include, orderBy</span>
+    <span class="prsm-mm-bullet">create / createMany (skipDuplicates)</span>
+    <span class="prsm-mm-bullet">update / updateMany / upsert</span>
+    <span class="prsm-mm-bullet">delete / deleteMany</span>
+    <div class="prsm-mm-sub">Filtering</div>
+    <span class="prsm-mm-bullet">equals, not, in, notIn, lt/lte/gt/gte</span>
+    <span class="prsm-mm-bullet">contains, startsWith, endsWith (mode: insensitive)</span>
+    <span class="prsm-mm-bullet">AND, OR, NOT compostos</span>
+    <span class="prsm-mm-bullet">some, every, none — em relações</span>
+    <div class="prsm-mm-sub">Aggregation</div>
+    <span class="prsm-mm-bullet">count, aggregate (_avg, _sum, _max, _min)</span>
+    <span class="prsm-mm-bullet">groupBy — by, _count, having</span>
+    <div class="prsm-mm-sub">Pagination</div>
+    <span class="prsm-mm-bullet">skip + take (offset)</span>
+    <span class="prsm-mm-bullet">cursor + take (cursor-based — preferir em listas grandes)</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#a78bfa">
+    <div class="prsm-mm-title" style="color:#a78bfa">Migrations <span class="prsm-mm-tag">prisma migrate</span></div>
+    <div class="prsm-mm-sub">Comandos</div>
+    <span class="prsm-mm-bullet">migrate dev — gera + aplica + regenera client</span>
+    <span class="prsm-mm-bullet">migrate deploy — só aplica (CI/CD, idempotente)</span>
+    <span class="prsm-mm-bullet">migrate reset — apaga banco (só dev)</span>
+    <span class="prsm-mm-bullet">migrate status — pendentes vs aplicadas</span>
+    <span class="prsm-mm-bullet">migrate resolve — força marca como aplicada</span>
+    <div class="prsm-mm-sub">Conceitos</div>
+    <span class="prsm-mm-bullet">Shadow database — diff sem afetar produção</span>
+    <span class="prsm-mm-bullet">Drift detection — schema ≠ banco real</span>
+    <span class="prsm-mm-bullet">Expand-contract — zero downtime</span>
+    <span class="prsm-mm-bullet">db push — sync sem migration (NUNCA prod)</span>
+    <span class="prsm-mm-bullet">db pull — introspect banco existente</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#fbbf24">
+    <div class="prsm-mm-title" style="color:#fbbf24">Transactions</div>
+    <span class="prsm-mm-bullet">Nested writes — árvore de creates relacionados</span>
+    <span class="prsm-mm-bullet">$transaction([op1, op2]) — array atômico</span>
+    <span class="prsm-mm-bullet">$transaction(async tx =&gt; {}) — interactive</span>
+    <div class="prsm-mm-sub">Opções</div>
+    <span class="prsm-mm-bullet">isolationLevel: ReadCommitted, RepeatableRead, Serializable</span>
+    <span class="prsm-mm-bullet">timeout (default 5s) e maxWait</span>
+    <div class="prsm-mm-sub">Pitfalls</div>
+    <span class="prsm-mm-bullet">Sempre usar tx, NUNCA prisma global no callback</span>
+    <span class="prsm-mm-bullet">Evitar I/O externo dentro (segura conexão)</span>
+    <span class="prsm-mm-bullet">SELECT FOR UPDATE via $queryRaw para lock pessimista</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#ef4444">
+    <div class="prsm-mm-title" style="color:#ef4444">Extensions <span class="prsm-mm-tag">$extends</span></div>
+    <span class="prsm-mm-bullet">query — intercepta args/result (soft delete, multi-tenancy)</span>
+    <span class="prsm-mm-bullet">model — métodos customizados por model</span>
+    <span class="prsm-mm-bullet">client — métodos no client raiz</span>
+    <span class="prsm-mm-bullet">result — campos virtuais computados (needs + compute)</span>
+    <div class="prsm-mm-sub">Features</div>
+    <span class="prsm-mm-bullet">Composáveis — encadeia múltiplos $extends</span>
+    <span class="prsm-mm-bullet">Type-safe — TypeScript reconhece adições</span>
+    <span class="prsm-mm-bullet">Substituem $use middleware (deprecated)</span>
+    <span class="prsm-mm-bullet">$allModels — aplicar a todos os models de uma vez</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#22d3ee">
+    <div class="prsm-mm-title" style="color:#22d3ee">Raw SQL</div>
+    <span class="prsm-mm-bullet">$queryRaw — retorna linhas (template tag, parametrizado)</span>
+    <span class="prsm-mm-bullet">$executeRaw — retorna count de linhas afetadas</span>
+    <span class="prsm-mm-bullet">$queryRawUnsafe — string crua (SQL injection risk!)</span>
+    <div class="prsm-mm-sub">Composição</div>
+    <span class="prsm-mm-bullet">Prisma.sql — fragmentos parametrizados</span>
+    <span class="prsm-mm-bullet">Prisma.empty — fragmento vazio</span>
+    <span class="prsm-mm-bullet">Prisma.join — array → IN list</span>
+    <div class="prsm-mm-sub">Casos</div>
+    <span class="prsm-mm-bullet">CTE, window functions, full-text avançado</span>
+    <span class="prsm-mm-bullet">UPSERT com ON CONFLICT (Postgres-only)</span>
+    <span class="prsm-mm-bullet">Identificadores dinâmicos (whitelist obrigatória)</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#f97316">
+    <div class="prsm-mm-title" style="color:#f97316">Prisma Cloud</div>
+    <div class="prsm-mm-sub">Accelerate</div>
+    <span class="prsm-mm-bullet">Proxy HTTP — edge runtime nativo</span>
+    <span class="prsm-mm-bullet">Connection pooling global</span>
+    <span class="prsm-mm-bullet">Cache distribuído — TTL + SWR</span>
+    <span class="prsm-mm-bullet">withAccelerate extension</span>
+    <div class="prsm-mm-sub">Pulse</div>
+    <span class="prsm-mm-bullet">Change Data Capture (CDC) gerenciado</span>
+    <span class="prsm-mm-bullet">Subscribe a INSERT/UPDATE/DELETE em real-time</span>
+    <span class="prsm-mm-bullet">Substitui webhooks internos e polling</span>
+    <div class="prsm-mm-sub">Optimize (preview)</div>
+    <span class="prsm-mm-bullet">Recomendações automáticas de índice e query</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#ec4899">
+    <div class="prsm-mm-title" style="color:#ec4899">Studio &amp; Tooling</div>
+    <span class="prsm-mm-bullet">prisma studio — GUI no browser para inspecionar dados</span>
+    <span class="prsm-mm-bullet">prisma format — formatador do schema.prisma</span>
+    <span class="prsm-mm-bullet">prisma validate — checa schema sem gerar</span>
+    <span class="prsm-mm-bullet">prisma db seed — script de seed configurado em package.json</span>
+    <div class="prsm-mm-sub">Logging &amp; Debug</div>
+    <span class="prsm-mm-bullet">log: ['query', 'error', 'warn']</span>
+    <span class="prsm-mm-bullet">$on('query') — events com SQL e duration</span>
+    <span class="prsm-mm-bullet">previewFeatures: 'metrics', 'tracing'</span>
+  </div>
+  <div class="prsm-mm-card" style="border-color:#14b8a6">
+    <div class="prsm-mm-title" style="color:#14b8a6">Generators</div>
+    <span class="prsm-mm-bullet">prisma-client-js — cliente padrão (Node + edge)</span>
+    <span class="prsm-mm-bullet">zod-prisma-types — schemas Zod automáticos</span>
+    <span class="prsm-mm-bullet">prisma-erd-generator — diagramas ER automáticos</span>
+    <span class="prsm-mm-bullet">prisma-trpc-generator — routers tRPC</span>
+    <span class="prsm-mm-bullet">prisma-dbml-generator — DBML para dbdiagram.io</span>
+    <span class="prsm-mm-bullet">prisma-json-types-generator — tipa Json fields</span>
+    <div class="prsm-mm-sub">Custom</div>
+    <span class="prsm-mm-bullet">Qualquer ferramenta CLI pode receber a DMMF e gerar código</span>
+  </div>
+</div>
+<div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:10px;color:#64748b;line-height:1.7;border:1px solid #1e3a5f">
+  <span style="color:#5A67D8;font-weight:700">Trilha sugerida:</span> domine schema language e CRUD básico → migrations dev/deploy → relations e nested writes → transactions interactive → extensions (soft delete, multi-tenancy) → Accelerate em edge → Pulse para real-time. Entrevistas plenas focam nos 4 primeiros; sêniors em todos.
+</div>
+</div>`,
+    caption: "O ecossistema Prisma vai muito além do Client. Schema language declarativa, migrations versionadas, transactions com isolation levels, extensions composáveis, e os serviços gerenciados Accelerate (edge + cache) e Pulse (CDC) cobrem o ciclo completo de uma camada de dados moderna.",
+  },
   codeExamples: [
     {
       title: "Schema completo — blog multi-tenant com soft delete e audit",

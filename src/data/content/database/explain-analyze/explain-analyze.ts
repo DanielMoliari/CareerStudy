@@ -542,6 +542,482 @@ CREATE INDEX ON pedidos(criado_em) WHERE status = 'pendente';
       level: "senior",
       a: "<p>auto_explain é uma extensão que loga automaticamente o plano EXPLAIN de queries que excedem um threshold de tempo. Útil para capturar queries problemáticas ocasionais que não estão presentes no momento em que você investiga.</p><p>Configuração: no postgresql.conf, <code>shared_preload_libraries = 'auto_explain'</code>, <code>auto_explain.log_min_duration = '1s'</code> (loga queries > 1s), <code>auto_explain.log_analyze = on</code> (inclui ANALYZE), <code>auto_explain.log_buffers = on</code>, <code>auto_explain.log_format = 'json'</code>.</p><p>Cuidados: log_analyze adiciona overhead (mede tempos reais) — em workloads de altíssimo volume, considere log_min_duration alto. log_format = 'json' facilita parsing automático com tools como pgBadger ou scripts customizados. Não confunda com pg_stat_statements: auto_explain mostra o plano específico de cada execução, pg_stat_statements agrega métricas por padrão de query.</p>",
     },
+    {
+      q: "Como interpretar startup cost vs total cost? Quando o startup é alto?",
+      level: "senior",
+      a: "<p><strong>cost=startup..total</strong>. <strong>Startup cost</strong> é o custo (em unidades relativas) para retornar a <strong>primeira</strong> linha. <strong>Total cost</strong> é o custo para retornar <strong>todas</strong> as linhas. Não são milissegundos — são unidades baseadas em <code>seq_page_cost</code> (default 1.0), <code>random_page_cost</code> (default 4.0 em HDD, 1.1 em SSD), <code>cpu_tuple_cost</code> (0.01) e <code>cpu_operator_cost</code> (0.0025).</p><p><strong>Quando startup é alto:</strong></p><ul><li><strong>Hash Join:</strong> precisa construir a hash table inteira antes de retornar uma linha — startup cost ≈ custo de ler todo o inner.</li><li><strong>Sort:</strong> precisa ordenar tudo antes de devolver a primeira (exceto Sort com índice ordenado).</li><li><strong>Aggregate sem GROUP BY:</strong> precisa processar todas as linhas para calcular SUM/AVG/COUNT.</li><li><strong>Materialize:</strong> primeiro acesso constrói o resultado intermediário em memória.</li></ul><p><strong>Quando startup é baixo:</strong> Index Scan, Seq Scan, Nested Loop — retornam linhas conforme acham (streaming). Importa para queries com LIMIT: <code>LIMIT 10</code> em plano com startup alto pode ser muito mais lento do que o total cost sugere — você paga quase o custo total para pegar as primeiras linhas.</p><p><strong>Diagnóstico prático:</strong> se total/startup é próximo de 1, o nó constrói tudo antes de devolver. LIMIT pequeno + Hash Join = considere reescrever com Nested Loop indexado.</p>",
+      tip: "Conhecer a relação entre startup cost e LIMIT é o que diferencia em entrevista de performance — explica por que algumas queries com LIMIT pequeno são surpreendentemente lentas.",
+    },
+    {
+      q: "Por que actual rows e estimated rows divergem? O que é statistics staleness?",
+      level: "senior",
+      a: "<p>O planner usa estatísticas armazenadas em <code>pg_statistic</code> para estimar quantas linhas cada filtro retorna. Estas estatísticas são populadas pelo comando <code>ANALYZE</code> (ou <code>VACUUM ANALYZE</code>, ou autovacuum quando <code>autovacuum_analyze_threshold</code> é atingido).</p><p><strong>Causas de divergência:</strong></p><ol><li><strong>Statistics staleness:</strong> tabela mudou muito desde o último ANALYZE. Autovacuum só dispara após N linhas modificadas — em INSERT-heavy workloads pode demorar.</li><li><strong>Sample size insuficiente:</strong> ANALYZE amostra 300 × <code>default_statistics_target</code> linhas (default 100 → 30k rows amostradas). Para tabelas com distribuições muito skewed, aumente: <code>ALTER TABLE t ALTER COLUMN c SET STATISTICS 1000;</code></li><li><strong>Histograma com poucos buckets:</strong> default 100 buckets — distribuição com long tail (ex: 90% dos pedidos são de 1% dos clientes) pode ter buckets imprecisos.</li><li><strong>Correlação entre colunas:</strong> o planner assume independência entre filtros. <code>WHERE cidade='SP' AND bairro='Pinheiros'</code> pode ter seletividade muito menor que cada um isolado. Solução: <code>CREATE STATISTICS</code> (Postgres 10+) com <code>dependencies</code> e <code>mcv</code>.</li><li><strong>Funções no WHERE:</strong> <code>WHERE LOWER(email) = 'x'</code> não usa estatísticas da coluna email. Crie índice em <code>(LOWER(email))</code> ou estatísticas via <code>CREATE STATISTICS ON (LOWER(email)) FROM t</code>.</li></ol><p>Tolerância: divergência até 2x é normal. >5x merece investigação. >10x é problema sério — o planner pode escolher Nested Loop com outer enorme.</p>",
+    },
+    {
+      q: "Quando o planner escolhe Seq Scan mesmo com índice — qual o threshold de seletividade?",
+      level: "senior",
+      a: "<p>O planner faz uma análise custo-benefício. Index Scan tem custo por linha = <code>random_page_cost × N</code> (cada linha = 1 random I/O potencial na heap). Seq Scan tem custo = <code>seq_page_cost × pages_da_tabela</code>.</p><p><strong>Threshold aproximado:</strong> quando o filtro retorna mais de <strong>5-10% das linhas</strong>, Seq Scan tende a vencer. Para SSD (<code>random_page_cost = 1.1</code>), o break-even sobe para 15-20%.</p><p><strong>Fatores que pesam:</strong></p><ul><li><strong>correlation</strong> (em <code>pg_stats</code>): se as linhas estão fisicamente ordenadas pelo campo do índice (correlation próximo de 1), Index Scan fica eficiente até para retornos altos. Se desordenadas (correlation próximo de 0), Index Scan vira random I/O caro.</li><li><strong>random_page_cost</strong>: ajustar para SSDs com <code>ALTER SYSTEM SET random_page_cost = 1.1;</code> faz o planner preferir índices em mais cenários.</li><li><strong>effective_cache_size</strong>: o planner considera quanto da tabela está em cache. Cache grande = Index Scan mais atraente.</li></ul><p><strong>Diagnóstico:</strong> <code>SET enable_seqscan = OFF</code> força Index Scan e re-mede. Se ficar mais rápido, ajuste <code>random_page_cost</code> ou crie índice parcial mais seletivo. Se Seq Scan ainda for mais rápido, o planner está certo — o índice realmente não ajuda para essa query.</p>",
+      tip: "Mencionar correlation, random_page_cost ajustado para SSD e effective_cache_size mostra profundidade real de tuning.",
+    },
+    {
+      q: "Como o planner escolhe entre Hash Join, Merge Join e Nested Loop?",
+      level: "senior",
+      a: "<p>O planner gera planos alternativos com cada algoritmo e escolhe o de menor custo. Cada um tem perfil distinto:</p><ul><li><strong>Nested Loop:</strong> custo ≈ <code>outer_rows × custo_inner_por_linha</code>. Vence quando outer é pequeno (até ~100-1000 linhas) E inner tem Index Scan rápido. Catastrófico quando outer é grande sem índice no inner — vira full scan × N.</li><li><strong>Hash Join:</strong> custo ≈ <code>build_inner + scan_outer × hash_lookup</code>. Vence em joins grandes sem índice — paraleliza bem, custo proporcional ao tamanho. Requer hash table caber em <code>work_mem</code> (senão spill = Batches > 1).</li><li><strong>Merge Join:</strong> custo ≈ <code>scan_left + scan_right</code> se ambos já ordenados. Vence quando ambos os lados têm índice na join key (ordem natural). Adiciona Sort se não — pode ficar mais caro que Hash.</li></ul><p><strong>Heurística do planner:</strong> outer pequeno + inner indexado → Nested Loop; tabelas grandes sem ordem comum → Hash Join; range joins (<code>BETWEEN</code>, <code>&lt;</code>) ou ambos pré-ordenados → Merge Join.</p><p><strong>Forçar para debug:</strong> <code>SET enable_nestloop = OFF; SET enable_hashjoin = OFF;</code> e re-analise. Útil para verificar se o planner está pegando o algoritmo certo. Em produção, NÃO desabilite globalmente — só por sessão para diagnóstico.</p>",
+    },
+    {
+      q: "Como work_mem afeta o plano de execução? Quando aparece spill?",
+      level: "pleno",
+      a: "<p><code>work_mem</code> é a memória máxima que cada operação de Sort, Hash, Materialize ou Bitmap pode usar antes de fazer <strong>spill to disk</strong> (gravar em arquivos temporários). Default 4MB — geralmente baixo demais para queries analíticas.</p><p><strong>Sinais de spill no EXPLAIN ANALYZE:</strong></p><ul><li><strong>Hash Join:</strong> <code>Buckets: N Batches: M</code> com M > 1. Cada batch é uma escrita em disco e leitura subsequente. Memory Usage abaixo de work_mem indica spill ocorreu.</li><li><strong>Sort:</strong> <code>Sort Method: external merge Disk: NkB</code>. Sort em disco usa merge sort em vários passes — drasticamente mais lento que quicksort em memória.</li><li><strong>Buffers:</strong> <code>temp read=N written=N</code> — leituras/escritas em arquivos temporários. Cada um custa I/O.</li></ul><p><strong>Solução por sessão:</strong> <code>SET work_mem = '256MB'; SELECT ...; RESET work_mem;</code> antes de queries pesadas específicas. Evita aumentar globalmente.</p><p><strong>Cuidado com aumento global:</strong> work_mem é por <strong>operação</strong>, não por conexão. Uma query com 3 sorts + 2 hashes pode consumir 5 × work_mem. Em pico: <code>max_connections × queries_simultaneas × ops_por_query × work_mem</code> pode exceder a RAM. Regra prática: work_mem global = RAM_disponível / (max_connections × 4).</p>",
+      tip: "Saber que work_mem é por operação (não por conexão) é o ponto onde plenos sêniores se separam dos júniors.",
+    },
+    {
+      q: "Como ler informação de Buffers? Diferença entre shared/local/temp?",
+      level: "pleno",
+      a: "<p><code>EXPLAIN (ANALYZE, BUFFERS)</code> revela três classes de buffers:</p><ul><li><strong>shared</strong> — shared buffer pool (cache global do Postgres). <code>shared hit</code> = página estava em cache (memória, rápido). <code>shared read</code> = página lida do disco (cache miss, lento). <code>shared dirtied</code> = página modificada (será escrita pelo writer/checkpoint). <code>shared written</code> = página flushada para disco durante a query (raro em SELECT).</li><li><strong>local</strong> — buffers de tabelas temporárias (<code>CREATE TEMP TABLE</code>). Não compartilhados entre sessões.</li><li><strong>temp</strong> — arquivos temporários para spill (Sort/Hash). <code>temp read=N written=N</code> indica work_mem insuficiente.</li></ul><p><strong>Hit ratio</strong> = <code>shared_hit / (shared_hit + shared_read)</code>. >99% em OLTP normal. <90% indica: dataset > shared_buffers, working set frio, ou query touchando tabelas raramente acessadas.</p><p><strong>Páginas:</strong> cada buffer é 8KB. <code>shared read=10000</code> = 80MB lidos do disco — em SSD ~80ms; em HDD ~10s.</p><p><strong>Caso de uso prático:</strong> query roda rápido em desenvolvimento (cache quente, hit ratio alto) mas lenta em produção (cache frio, hit ratio baixo). BUFFERS revela isso. Solução: aumentar <code>shared_buffers</code> (default 128MB — geralmente subdimensionado), ou pre-aquecer cache com <code>pg_prewarm</code>.</p>",
+    },
+    {
+      q: "Quando aparece Parallel Query? Como controlar parallelism?",
+      level: "senior",
+      a: "<p>Postgres 9.6+ suporta queries paralelas. Aparece no plano como <code>Gather</code> ou <code>Gather Merge</code> no topo, com <code>Workers Planned: N Workers Launched: N</code> nos nós filhos. Cada worker processa uma parte da tabela em paralelo, e o coordinator (Gather) consolida.</p><p><strong>Quando o planner escolhe parallel:</strong></p><ul><li>Tabela grande (custom > <code>min_parallel_table_scan_size</code>, default 8MB).</li><li>Operação parallelizável: Seq Scan, Index Scan (limitado), Hash Join, Aggregate (parallel-aware).</li><li>Recursos disponíveis: <code>max_parallel_workers_per_gather</code> (default 2) > 0.</li></ul><p><strong>Quando NÃO aparece (ou deveria mas não aparece):</strong></p><ul><li>Tabela pequena — overhead de spawn de workers não compensa.</li><li>Função no SELECT marcada como <code>VOLATILE</code> ou <code>PARALLEL UNSAFE</code> (functions definidas pelo usuário precisam ser marcadas <code>PARALLEL SAFE</code>).</li><li>FOR UPDATE / FOR SHARE — não parallelizável.</li><li><code>max_parallel_workers</code> esgotado por outras queries.</li></ul><p><strong>Tuning:</strong> aumentar <code>max_parallel_workers_per_gather</code> para 4-8 em servidores grandes. <code>parallel_setup_cost</code> (default 1000) e <code>parallel_tuple_cost</code> (default 0.1) controlam quando o planner considera paralelo vantajoso. Para forçar em testes: <code>SET force_parallel_mode = on;</code>.</p><p><strong>Tempos no plano:</strong> actual time em nós paralelos é <strong>por worker</strong>. Multiplicar por workers dá CPU total, mas o tempo real (wall clock) é divido entre workers — daí o ganho.</p>",
+    },
+    {
+      q: "Como combinar pg_stat_statements e EXPLAIN ANALYZE no fluxo de tuning real?",
+      level: "senior",
+      a: "<p>São ferramentas complementares — usar isoladas é trabalhar às cegas:</p><ol><li><strong>pg_stat_statements para priorizar:</strong> ordene por <code>total_exec_time</code> DESC. As primeiras 5-10 queries representam tipicamente >80% do CPU do banco (princípio de Pareto). Não foque em queries individuais lentas — foque no que mais custa em volume agregado.</li><li><strong>EXPLAIN ANALYZE para diagnosticar:</strong> pegue a query top do pg_stat_statements (substitua os <code>$1, $2</code> pelos valores típicos via <code>pg_stat_statements.query</code>) e rode EXPLAIN. Identifique o nó problemático (Seq Scan, rows mismatch, spill).</li><li><strong>Aplique a correção:</strong> índice, refatoração de query, aumento de work_mem, atualização de estatísticas.</li><li><strong>pg_stat_statements_reset() + monitoramento:</strong> resete as estatísticas, deixe rodar 24h em produção, e re-confira o ranking. A query otimizada deve ter caído drasticamente em total_exec_time.</li></ol><p><strong>Métricas-chave do pg_stat_statements:</strong></p><ul><li><code>total_exec_time</code> — quanto a query consome no total (priorizar).</li><li><code>mean_exec_time</code> — latência média (UX).</li><li><code>stddev_exec_time / mean_exec_time</code> — coeficiente de variação. Alto = planner instável (estatísticas erradas).</li><li><code>shared_blks_hit / (hit + read)</code> — cache hit ratio por query. Baixo = candidata a otimização de I/O.</li></ul><p><strong>Anti-pattern:</strong> otimizar uma query lenta isolada (que aparece no log) que custa 50ms/dia, ignorando uma query de 10ms × 100k chamadas/dia (17 minutos de CPU/dia).</p>",
+      tip: "Falar do fluxo prioritizar → diagnosticar → corrigir → medir, com Pareto e coeficiente de variação, mostra maturidade operacional sênior.",
+    },
+  ],
+  mindmap: {
+    title: "Mapa mental — EXPLAIN ANALYZE e tuning de Postgres",
+    html: `<style>
+.ea-mm-wrap{font-family:'JetBrains Mono',monospace;background:#0f172a;border-radius:12px;padding:22px}
+.ea-mm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px}
+.ea-mm-card{background:#1e293b;border-radius:8px;padding:11px 13px;border-left:3px solid;font-size:10px;line-height:1.65}
+.ea-mm-title{font-size:11px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.ea-mm-bullet{color:#475569;display:block;margin:2px 0;padding-left:10px;position:relative}
+.ea-mm-bullet::before{content:'›';color:#5b9bd5;position:absolute;left:0}
+.ea-mm-sub{color:#94a3b8;font-weight:600;margin:6px 0 3px;font-size:10px}
+.ea-mm-center{background:linear-gradient(135deg,#336791 0%,#1e3a5f 100%);border-radius:10px;padding:14px 18px;text-align:center;color:#fff;font-weight:700;font-size:13px;margin-bottom:14px;box-shadow:0 4px 12px rgba(51,103,145,.3)}
+.ea-mm-tag{display:inline-block;background:rgba(91,155,213,.15);color:#93c5fd;font-size:9px;padding:1px 6px;border-radius:4px;margin-left:4px}
+</style>
+<div class="ea-mm-wrap">
+<p style="color:#e2e8f0;font-size:12px;margin:0 0 4px;font-weight:600">Mapa mental — EXPLAIN ANALYZE e tuning Postgres</p>
+<p style="color:#475569;font-size:10px;margin:0 0 14px">Da leitura de plano até as ferramentas de produção</p>
+<div class="ea-mm-center">EXPLAIN ANALYZE — DIAGNÓSTICO POSTGRES</div>
+<div class="ea-mm-grid">
+  <div class="ea-mm-card" style="border-color:#5b9bd5">
+    <div class="ea-mm-title" style="color:#5b9bd5">Node Types <span class="ea-mm-tag">algoritmos</span></div>
+    <div class="ea-mm-sub">Scans</div>
+    <span class="ea-mm-bullet">Seq Scan — varredura sequencial</span>
+    <span class="ea-mm-bullet">Index Scan — B-Tree + heap fetch</span>
+    <span class="ea-mm-bullet">Index Only Scan — sem heap (visibility map)</span>
+    <span class="ea-mm-bullet">Bitmap Heap/Index Scan — combina índices</span>
+    <span class="ea-mm-bullet">Tid Scan — acesso direto por ctid</span>
+    <div class="ea-mm-sub">Joins</div>
+    <span class="ea-mm-bullet">Nested Loop — outer × inner (ideal: outer pequeno + inner indexado)</span>
+    <span class="ea-mm-bullet">Hash Join — build + probe (paralelizável)</span>
+    <span class="ea-mm-bullet">Merge Join — zipper de inputs ordenados</span>
+    <div class="ea-mm-sub">Outros</div>
+    <span class="ea-mm-bullet">Sort, Aggregate, Materialize, Limit, Unique</span>
+    <span class="ea-mm-bullet">Gather, Gather Merge — parallel coordinator</span>
+    <span class="ea-mm-bullet">CTE Scan, Subquery Scan, Function Scan</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#f59e0b">
+    <div class="ea-mm-title" style="color:#f59e0b">Cost Model</div>
+    <div class="ea-mm-sub">Campos por nó</div>
+    <span class="ea-mm-bullet">cost=startup..total — unidades relativas</span>
+    <span class="ea-mm-bullet">rows — linhas estimadas</span>
+    <span class="ea-mm-bullet">width — bytes por linha (usado para work_mem)</span>
+    <span class="ea-mm-bullet">actual time, actual rows, loops (com ANALYZE)</span>
+    <div class="ea-mm-sub">Parâmetros de custo</div>
+    <span class="ea-mm-bullet">seq_page_cost (1.0), random_page_cost (4.0)</span>
+    <span class="ea-mm-bullet">cpu_tuple_cost (0.01), cpu_operator_cost (0.0025)</span>
+    <span class="ea-mm-bullet">effective_cache_size — quanto cabe em cache</span>
+    <div class="ea-mm-sub">Ajustes para SSD</div>
+    <span class="ea-mm-bullet">random_page_cost = 1.1 (vs 4.0 default HDD)</span>
+    <span class="ea-mm-bullet">effective_io_concurrency = 200 (vs 1 HDD)</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#a78bfa">
+    <div class="ea-mm-title" style="color:#a78bfa">Buffers <span class="ea-mm-tag">cache</span></div>
+    <div class="ea-mm-sub">Shared</div>
+    <span class="ea-mm-bullet">shared hit — página em cache (rápido)</span>
+    <span class="ea-mm-bullet">shared read — lida do disco (cache miss)</span>
+    <span class="ea-mm-bullet">shared dirtied — modificada (será flushada)</span>
+    <span class="ea-mm-bullet">shared written — escrita durante query</span>
+    <div class="ea-mm-sub">Local &amp; Temp</div>
+    <span class="ea-mm-bullet">local — temp tables da sessão</span>
+    <span class="ea-mm-bullet">temp read/written — spill (work_mem insuficiente)</span>
+    <div class="ea-mm-sub">Métricas</div>
+    <span class="ea-mm-bullet">Hit ratio = hit / (hit + read) — alvo &gt;99%</span>
+    <span class="ea-mm-bullet">Cada buffer = 8KB</span>
+    <span class="ea-mm-bullet">shared_buffers — config (default 128MB)</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#22c55e">
+    <div class="ea-mm-title" style="color:#22c55e">Pipeline da query</div>
+    <span class="ea-mm-bullet">Parser — SQL → AST (sintaxe)</span>
+    <span class="ea-mm-bullet">Rewriter — views, RLS, rules</span>
+    <span class="ea-mm-bullet">Planner — gera planos, estima custo, escolhe</span>
+    <span class="ea-mm-bullet">Executor — executa nó a nó</span>
+    <div class="ea-mm-sub">Onde EXPLAIN intercepta</div>
+    <span class="ea-mm-bullet">EXPLAIN — após Planner, antes do Executor</span>
+    <span class="ea-mm-bullet">EXPLAIN ANALYZE — deixa Executor rodar e mede</span>
+    <span class="ea-mm-bullet">Cuidado: ANALYZE em DML executa de verdade!</span>
+    <span class="ea-mm-bullet">Solução: BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#ef4444">
+    <div class="ea-mm-title" style="color:#ef4444">Statistics</div>
+    <div class="ea-mm-sub">Catálogos</div>
+    <span class="ea-mm-bullet">pg_statistic — internas (binário)</span>
+    <span class="ea-mm-bullet">pg_stats — view legível (consulte aqui)</span>
+    <span class="ea-mm-bullet">pg_class.reltuples — estimativa de linhas</span>
+    <div class="ea-mm-sub">Manutenção</div>
+    <span class="ea-mm-bullet">ANALYZE — popula estatísticas (sample)</span>
+    <span class="ea-mm-bullet">VACUUM ANALYZE — limpa + analisa</span>
+    <span class="ea-mm-bullet">autovacuum_analyze_threshold — gatilho automático</span>
+    <span class="ea-mm-bullet">default_statistics_target (100) — sample size</span>
+    <div class="ea-mm-sub">Extended (10+)</div>
+    <span class="ea-mm-bullet">CREATE STATISTICS — correlação entre colunas</span>
+    <span class="ea-mm-bullet">dependencies, ndistinct, mcv (most common values)</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#fbbf24">
+    <div class="ea-mm-title" style="color:#fbbf24">Sinais de alerta</div>
+    <span class="ea-mm-bullet">Seq Scan em tabela grande + Filter alto</span>
+    <span class="ea-mm-bullet">rows estimado ≠ actual (5x+) — stats desatualizadas</span>
+    <span class="ea-mm-bullet">Nested Loop com loops alto no inner</span>
+    <span class="ea-mm-bullet">Hash Batches &gt; 1 — spill para disco</span>
+    <span class="ea-mm-bullet">Sort Method: external merge — work_mem baixo</span>
+    <span class="ea-mm-bullet">temp read/written altos — spill</span>
+    <span class="ea-mm-bullet">shared read &gt;&gt; hit — cache frio / dataset grande</span>
+    <span class="ea-mm-bullet">Rows Removed by Filter alto — falta índice/parcial</span>
+    <span class="ea-mm-bullet">Recheck Cond — Bitmap lossy (work_mem)</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#22d3ee">
+    <div class="ea-mm-title" style="color:#22d3ee">Flags do EXPLAIN</div>
+    <span class="ea-mm-bullet">ANALYZE — executa e mede</span>
+    <span class="ea-mm-bullet">BUFFERS — cache hits/reads</span>
+    <span class="ea-mm-bullet">VERBOSE — colunas de output, schema</span>
+    <span class="ea-mm-bullet">FORMAT TEXT/JSON/XML/YAML</span>
+    <span class="ea-mm-bullet">SETTINGS (12+) — params não-default</span>
+    <span class="ea-mm-bullet">WAL (13+) — registros WAL gerados</span>
+    <span class="ea-mm-bullet">GENERIC_PLAN (16+) — sem valores reais</span>
+    <div class="ea-mm-sub">Debug do planner</div>
+    <span class="ea-mm-bullet">SET enable_seqscan = off — força índice</span>
+    <span class="ea-mm-bullet">SET enable_hashjoin = off — força outro algoritmo</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#f97316">
+    <div class="ea-mm-title" style="color:#f97316">Tools de produção</div>
+    <div class="ea-mm-sub">pg_stat_statements</div>
+    <span class="ea-mm-bullet">Métricas agregadas por query pattern</span>
+    <span class="ea-mm-bullet">total_exec_time, mean, stddev, calls, rows</span>
+    <span class="ea-mm-bullet">Top-N para priorizar otimização (Pareto)</span>
+    <div class="ea-mm-sub">auto_explain</div>
+    <span class="ea-mm-bullet">Loga plano de queries lentas automaticamente</span>
+    <span class="ea-mm-bullet">log_min_duration, log_analyze, log_buffers</span>
+    <div class="ea-mm-sub">Monitoring</div>
+    <span class="ea-mm-bullet">pgBadger — parsea logs em relatório HTML</span>
+    <span class="ea-mm-bullet">pg_stat_activity — queries em execução</span>
+    <span class="ea-mm-bullet">pganalyze, pgwatch2, datadog APM</span>
+  </div>
+  <div class="ea-mm-card" style="border-color:#ec4899">
+    <div class="ea-mm-title" style="color:#ec4899">Estratégias de otimização</div>
+    <div class="ea-mm-sub">Índices</div>
+    <span class="ea-mm-bullet">B-Tree — igualdade, range, ORDER BY</span>
+    <span class="ea-mm-bullet">Composto — ordem importa (prefixos)</span>
+    <span class="ea-mm-bullet">Parcial — WHERE para subset frequente</span>
+    <span class="ea-mm-bullet">INCLUDE — Index Only Scan</span>
+    <span class="ea-mm-bullet">GIN — JSONB, full-text, arrays</span>
+    <span class="ea-mm-bullet">BRIN — tabelas append-only enormes (logs)</span>
+    <div class="ea-mm-sub">Query rewriting</div>
+    <span class="ea-mm-bullet">CTE materializada vs inline (12+)</span>
+    <span class="ea-mm-bullet">EXISTS vs IN vs JOIN — semântica idêntica, plano diferente</span>
+    <span class="ea-mm-bullet">LIMIT push-down em subqueries</span>
+    <div class="ea-mm-sub">Configuração</div>
+    <span class="ea-mm-bullet">work_mem por sessão (não global)</span>
+    <span class="ea-mm-bullet">shared_buffers — 25% RAM</span>
+    <span class="ea-mm-bullet">pg_hint_plan — último recurso</span>
+  </div>
+</div>
+<div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:10px;color:#64748b;line-height:1.7;border:1px solid #1e3a5f">
+  <span style="color:#5b9bd5;font-weight:700">Fluxo de tuning:</span> pg_stat_statements identifica queries de maior impacto → EXPLAIN (ANALYZE, BUFFERS) diagnostica nó problemático → ajusta estatísticas / cria índice / aumenta work_mem → re-mede com pg_stat_statements_reset() → confirma redução em total_exec_time.
+</div>
+</div>`,
+    caption: "EXPLAIN ANALYZE é só uma peça do tuning. O fluxo completo combina pg_stat_statements (priorizar), EXPLAIN ANALYZE (diagnosticar), índices/work_mem/estatísticas (corrigir), e métricas de produção (validar). Os 9 quadrantes resumem o ferramental de tuning de Postgres.",
+  },
+  codeExamples: [
+    {
+      title: "Reading EXPLAIN ANALYZE — diagnóstico passo a passo",
+      description: "Sequência prática para investigar uma query lenta: identificar o nó problemático, atualizar estatísticas, criar índice e validar.",
+      code: `-- 1. Capture o plano com ANALYZE + BUFFERS
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT u.email, COUNT(p.id) AS total_pedidos
+FROM usuarios u
+LEFT JOIN pedidos p ON p.usuario_id = u.id
+WHERE u.status = 'ativo'
+  AND u.criado_em > NOW() - INTERVAL '30 days'
+GROUP BY u.id, u.email
+ORDER BY total_pedidos DESC
+LIMIT 100;
+
+-- Plano problemático observado:
+-- Limit  (cost=120000.5..120000.75 rows=100)
+--   ->  Sort  (rows=50000)
+--         Sort Key: COUNT(p.id) DESC
+--         Sort Method: external merge  Disk: 4096kB  ← spill!
+--         ->  HashAggregate
+--               ->  Hash Right Join
+--                     ->  Seq Scan on pedidos  ← sem índice!
+--                           rows=2000000
+--                     ->  Seq Scan on usuarios
+--                           Filter: (status='ativo' AND criado_em > ...)
+--                           Rows Removed by Filter: 480000  ← 96%!
+
+-- 2. Atualize estatísticas (descarta hipótese de stats erradas)
+VACUUM ANALYZE usuarios;
+VACUUM ANALYZE pedidos;
+
+-- 3. Crie índice composto para o filtro de usuarios
+CREATE INDEX CONCURRENTLY ON usuarios(status, criado_em DESC)
+  WHERE status = 'ativo';   -- índice parcial: só ativos
+
+-- 4. Crie índice na FK do join
+CREATE INDEX CONCURRENTLY ON pedidos(usuario_id);
+
+-- 5. Aumente work_mem para a sessão (resolve sort spill)
+SET work_mem = '64MB';
+
+-- 6. Re-execute e compare
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...;
+-- Plano esperado:
+--   Index Scan on usuarios  (rows=20000)  ← seletivo!
+--   Nested Loop com Index Scan em pedidos
+--   Sort Method: quicksort (em memória, sem disk)`,
+      language: "sql",
+    },
+    {
+      title: "auto_explain — configuração para produção",
+      description: "Setup do auto_explain para capturar planos de queries lentas em produção, sem rodar EXPLAIN manualmente.",
+      code: `-- postgresql.conf — alterar e fazer reload
+shared_preload_libraries = 'auto_explain,pg_stat_statements'  -- requer restart
+
+-- Parâmetros do auto_explain
+auto_explain.log_min_duration = '1s'         -- loga queries > 1s
+auto_explain.log_analyze = on                -- inclui tempos reais
+auto_explain.log_buffers = on                -- inclui cache info
+auto_explain.log_verbose = on
+auto_explain.log_format = 'json'             -- estruturado para parsers
+auto_explain.log_nested_statements = on      -- queries dentro de funções
+auto_explain.sample_rate = 1.0               -- 100% das queries lentas
+                                             -- reduzir em alto tráfego (0.1 = 10%)
+
+-- pg_stat_statements
+pg_stat_statements.track = all
+pg_stat_statements.max = 10000               -- top-N queries
+
+-- Reload (não precisa restart se mudou só auto_explain.*)
+SELECT pg_reload_conf();
+
+-- Verificar se está ativo
+SHOW auto_explain.log_min_duration;
+SELECT * FROM pg_stat_statements LIMIT 1;
+
+-- Por sessão (sem alterar postgresql.conf)
+LOAD 'auto_explain';
+SET auto_explain.log_min_duration = '100ms';
+SET auto_explain.log_analyze = on;
+-- Suas queries serão logadas no log do Postgres com plano completo
+
+-- Parsing dos logs com pgBadger (instale separadamente)
+-- pgbadger /var/log/postgresql/postgresql.log -o report.html`,
+      language: "sql",
+    },
+    {
+      title: "pg_stat_statements — top queries para otimizar",
+      description: "Queries prontas para identificar o que mais pesa no banco: maior tempo total, maior variação de latência, pior hit ratio.",
+      code: `-- 1. Habilitar (uma vez por database)
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+-- 2. Top 10 por tempo total — o que mais custa em volume
+SELECT
+  LEFT(query, 100) AS query,
+  calls,
+  ROUND((total_exec_time / 1000)::numeric, 2) AS total_segundos,
+  ROUND(mean_exec_time::numeric, 2) AS media_ms,
+  ROUND(max_exec_time::numeric, 2) AS max_ms,
+  rows
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 10;
+
+-- 3. Queries instáveis (planner inconsistente — stats erradas)
+SELECT
+  LEFT(query, 80) AS query,
+  calls,
+  ROUND(mean_exec_time::numeric, 2) AS media_ms,
+  ROUND(stddev_exec_time::numeric, 2) AS stddev_ms,
+  ROUND((stddev_exec_time / NULLIF(mean_exec_time, 0))::numeric, 2) AS coef_variacao
+FROM pg_stat_statements
+WHERE calls > 100 AND mean_exec_time > 10
+ORDER BY (stddev_exec_time / NULLIF(mean_exec_time, 0)) DESC
+LIMIT 10;
+
+-- 4. Pior cache hit ratio — candidatas a otimização de I/O
+SELECT
+  LEFT(query, 80) AS query,
+  calls,
+  shared_blks_hit,
+  shared_blks_read,
+  ROUND(100.0 * shared_blks_hit /
+    NULLIF(shared_blks_hit + shared_blks_read, 0), 1) AS hit_ratio,
+  pg_size_pretty(shared_blks_read * 8192) AS dados_lidos_disco
+FROM pg_stat_statements
+WHERE shared_blks_read > 1000
+ORDER BY shared_blks_read DESC
+LIMIT 10;
+
+-- 5. Queries com spill — temp blocks alto
+SELECT
+  LEFT(query, 80) AS query,
+  calls,
+  temp_blks_read,
+  temp_blks_written,
+  pg_size_pretty(temp_blks_written * 8192) AS spill_size
+FROM pg_stat_statements
+WHERE temp_blks_written > 0
+ORDER BY temp_blks_written DESC
+LIMIT 10;
+
+-- 6. Reset para medir impacto após otimização
+SELECT pg_stat_statements_reset();
+-- Aguarde 24h em produção, re-execute query 2 e veja se a query otimizada caiu`,
+      language: "sql",
+    },
+    {
+      title: "Cobertura completa de índices via EXPLAIN — antes e depois",
+      description: "Comparativo de Index Scan vs Index Only Scan vs Bitmap Heap Scan, mostrando como INCLUDE e índices parciais mudam o plano.",
+      code: `-- Setup
+CREATE TABLE pedidos (
+  id           BIGSERIAL PRIMARY KEY,
+  usuario_id   BIGINT NOT NULL,
+  status       TEXT NOT NULL,
+  total        NUMERIC(10,2) NOT NULL,
+  criado_em    TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO pedidos (usuario_id, status, total)
+SELECT
+  (random() * 10000)::bigint,
+  CASE WHEN random() < 0.05 THEN 'pago' ELSE 'pendente' END,
+  (random() * 1000)::numeric(10,2)
+FROM generate_series(1, 1000000);
+
+VACUUM ANALYZE pedidos;
+
+-- CASE 1: sem índice — Seq Scan
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT total FROM pedidos WHERE usuario_id = 42 AND status = 'pago';
+-- Seq Scan on pedidos (rows=1000000)
+--   Filter: (usuario_id = 42 AND status = 'pago')
+--   Rows Removed by Filter: 999998
+
+-- CASE 2: índice composto — Index Scan + heap fetch
+CREATE INDEX idx_pedidos_user_status ON pedidos(usuario_id, status);
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT total FROM pedidos WHERE usuario_id = 42 AND status = 'pago';
+-- Index Scan using idx_pedidos_user_status
+--   Index Cond: (usuario_id = 42 AND status = 'pago')
+-- Buffers: shared hit=10  ← mais 1-2 hits para buscar 'total' na heap
+
+-- CASE 3: INCLUDE — Index Only Scan, sem heap
+DROP INDEX idx_pedidos_user_status;
+CREATE INDEX idx_pedidos_user_status_inc
+  ON pedidos(usuario_id, status) INCLUDE (total);
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT total FROM pedidos WHERE usuario_id = 42 AND status = 'pago';
+-- Index Only Scan using idx_pedidos_user_status_inc
+-- Buffers: shared hit=4  ← sem heap fetch (visibility map)
+-- Heap Fetches: 0
+
+-- CASE 4: índice parcial — menor e mais eficiente para queries de 'pago'
+DROP INDEX idx_pedidos_user_status_inc;
+CREATE INDEX idx_pedidos_pagos
+  ON pedidos(usuario_id) INCLUDE (total)
+  WHERE status = 'pago';
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT total FROM pedidos WHERE usuario_id = 42 AND status = 'pago';
+-- Index Only Scan using idx_pedidos_pagos
+-- Index é ~5% do tamanho do composto (só linhas com status='pago')
+-- Cabe inteiro em RAM mesmo em tabela enorme
+
+-- Comparativo de tamanho
+SELECT
+  indexname,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS size
+FROM pg_stat_user_indexes
+WHERE relname = 'pedidos';`,
+      language: "sql",
+    },
+    {
+      title: "Diagnóstico de Hash Join com spill — work_mem tuning",
+      description: "Caso completo: identificar Batches > 1, calcular work_mem necessário, aplicar por sessão, validar resultado.",
+      code: `-- Query analítica que junta pedidos com usuarios em milhões de linhas
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT u.regiao, COUNT(p.id), SUM(p.total)
+FROM usuarios u
+JOIN pedidos p ON p.usuario_id = u.id
+WHERE p.criado_em > NOW() - INTERVAL '90 days'
+GROUP BY u.regiao;
+
+-- Plano com spill:
+-- HashAggregate
+--   ->  Hash Join
+--         ->  Seq Scan on pedidos
+--               Rows: 5000000
+--         ->  Hash
+--               Buckets: 32768  Batches: 16  Memory Usage: 4096kB
+--                                  ↑ Batches > 1 = spill!
+--   Buffers: shared hit=5000 read=120000 temp read=8000 written=8000
+--                                          ↑ I/O em arquivos temp
+
+-- Cálculo do work_mem necessário
+-- 1. Identifique o lado da Hash (inner — usuarios neste caso)
+SELECT
+  pg_size_pretty(pg_table_size('usuarios')) AS table_size,
+  COUNT(*) AS rows,
+  AVG(pg_column_size(u.*)) AS avg_row_bytes
+FROM usuarios u;
+-- Suponha: 200000 rows × 100 bytes = ~20MB
+
+-- 2. Hash table precisa de ~1.5x o tamanho dos dados (overhead do bucket)
+-- 20MB × 1.5 = 30MB → SET work_mem = '64MB' (margem)
+
+-- Aplicar por sessão e re-medir
+SET work_mem = '64MB';
+EXPLAIN (ANALYZE, BUFFERS) SELECT ...;
+-- Plano esperado:
+-- Hash
+--   Buckets: 524288  Batches: 1  Memory Usage: 25600kB  ← Batches=1!
+-- Buffers: shared hit=5000 read=120000  ← sem temp!
+
+-- Para casos recorrentes (usuário ou role específico)
+ALTER USER analytics_role SET work_mem = '256MB';
+-- Aplica automaticamente em qualquer sessão deste role
+
+-- Cuidado: work_mem é POR operação, POR conexão
+-- Cálculo de safety: work_mem × max_connections × ops_por_query
+-- 256MB × 100 conexões × 3 ops = 76.8GB (!) — limite global por isso
+
+-- Alternativa em tabelas particionadas: o spill cai porque cada partição é menor
+-- Considere particionar pedidos por data (criado_em) — bom para 90 days janela`,
+      language: "sql",
+    },
+  ],
+  videos: [
+    { title: "Postgres EXPLAIN — How to Read Query Plans", channel: "Hussein Nasser", url: "https://www.youtube.com/results?search_query=postgres+explain+hussein+nasser", topic: "leitura de plano", note: "Visão clara de cost, rows, loops e como interpretar." },
+    { title: "Understanding EXPLAIN ANALYZE in Postgres", channel: "Database Star", url: "https://www.youtube.com/results?search_query=understanding+explain+analyze+postgres+database+star", topic: "fundamentos", note: "Walkthrough de planos reais com diagnóstico passo a passo." },
+    { title: "PostgreSQL Query Optimization Tips", channel: "EnterpriseDB", url: "https://www.youtube.com/results?search_query=postgresql+query+optimization+enterprisedb", topic: "otimização", note: "Padrões comuns de Seq Scan evitável e Nested Loop quente." },
+    { title: "Index Tuning with EXPLAIN", channel: "Use The Index, Luke", url: "https://www.youtube.com/results?search_query=index+tuning+postgres+use+the+index+luke", topic: "índices", note: "B-Tree, parcial, INCLUDE, e Bitmap Scan." },
+    { title: "pg_stat_statements — Find Slow Queries", channel: "Postgres.FM", url: "https://www.youtube.com/results?search_query=pg_stat_statements+find+slow+queries+postgres+fm", topic: "produção", note: "Pareto, total_exec_time, fluxo de priorização." },
+    { title: "Hash Join, Merge Join, Nested Loop Explained", channel: "ScyllaDB / Database Internals", url: "https://www.youtube.com/results?search_query=hash+join+merge+join+nested+loop+explained", topic: "joins internos", note: "Quando o planner escolhe cada um e por quê." },
+    { title: "Parallel Query in PostgreSQL", channel: "Postgres Conference", url: "https://www.youtube.com/results?search_query=parallel+query+postgresql+conference", topic: "parallel", note: "Gather, workers, parametros de tuning." },
   ],
   mnemonics: [
     {

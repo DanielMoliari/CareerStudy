@@ -772,6 +772,679 @@ histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by 
         a: "Four Golden Signals do Google SRE: 1) Latência: histogram_quantile(0.99, ...) > SLA — alertar em p99 acima do SLO. 2) Tráfego: sum(rate(requests_total[5m])) — baseline, não alertar diretamente (queda pode ser alerta). 3) Erros: sum(rate(errors[5m]))/sum(rate(requests[5m])) > 0.01 — alerta crítico em taxa de erro acima do error budget. 4) Saturação: utilização de CPU, memória, disco, filas — alertar em saturação alta com predict_linear para antecipar esgotamento. Os quatro juntos cobrem praticamente todos os problemas que afetam usuários.",
         level: "senior",
       },
+      {
+        q: "Histogram vs Summary — por que Histogram é preferível em produção, o que Summary não permite, e como histogram_quantile funciona com le=\"+Inf\"?",
+        a: "<p><strong>Histogram</strong>: o cliente expõe contadores cumulativos por bucket: <code>http_request_duration_bucket{le=\"0.1\"} 800</code>, <code>{le=\"0.5\"} 950</code>, <code>{le=\"1\"} 990</code>, <code>{le=\"+Inf\"} 1000</code>. Cada bucket conta requests com duração ≤ <code>le</code> (inclusivo). O bucket <code>+Inf</code> conta TUDO (igual ao <code>_count</code>). <code>histogram_quantile()</code> calcula o percentil <em>no servidor Prometheus</em> agregando entre instâncias.</p><p><strong>Summary</strong>: o cliente calcula percentis localmente (no processo) e expõe: <code>http_request_duration{quantile=\"0.99\"} 0.45</code>. O Prometheus armazena o número direto.</p><p><strong>Por que Histogram é preferível</strong>:</p><ol><li><strong>Agregação entre instâncias funciona</strong>: 5 pods com Histogram → <code>sum(rate(...bucket)) by (le)</code> + <code>histogram_quantile</code> dá o p99 global correto. Com Summary, p99(pod1) + p99(pod2) / 2 ≠ p99(global) — matematicamente inválido.</li><li><strong>Buckets escolhidos no servidor</strong>: você pode calcular qualquer percentil (p50, p90, p95, p99, p99.9) com a mesma métrica. Summary precisa configurar quantiles fixos no cliente — mudar requer redeploy.</li><li><strong>Flexibilidade de SLO</strong>: 'qual % de requests &lt; 500ms?' = <code>rate(bucket{le=\"0.5\"}) / rate(_count)</code>. Não dá para fazer com Summary.</li><li><strong>Custo CPU baixo no cliente</strong>: incrementar bucket = O(log n) no insert. Summary mantém estrutura t-digest/quantile sketch — mais custoso.</li></ol><p><strong>Bucket <code>+Inf</code></strong>: obrigatório. <code>histogram_quantile</code> usa o último bucket finito + <code>+Inf</code> para extrapolar. Se p99 cai entre <code>le=\"1\"</code> (980 obs) e <code>le=\"+Inf\"</code> (1000 obs), interpola linearmente entre 1s e +Inf — resultado é uma estimativa inferior ao bucket superior. Lições: <strong>inclua bucket cobrindo seu SLA</strong>. Para SLA 500ms, buckets devem ter <code>le=\"0.5\"</code>; senão o p99 cai entre 0.25 e +Inf e a estimativa fica errada por ordem de grandeza.</p><p><strong>Native Histograms (Prom 2.40+)</strong>: nova feature que armazena distribuição completa em uma série única (em vez de N buckets). 100× mais barato em storage, buckets exponenciais automáticos, histogram_quantile mais preciso. Habilite gradualmente — ainda experimental.</p>",
+        tip: "Mencionar 'matematicamente inválido p99(A) + p99(B) / 2' impressiona e fecha qualquer discussão de Summary.",
+        level: "senior",
+      },
+      {
+        q: "Label cardinality problem em profundidade — como calcular o número de séries, o que acontece com explosão na TSDB, e como detectar com prometheus_tsdb_head_series?",
+        a: "<p><strong>Cálculo</strong>: cardinalidade de uma métrica = <em>produto cartesiano</em> de valores únicos de cada label. Métrica <code>http_requests_total</code> com labels <code>{service, method, status, handler}</code>: 50 services × 4 methods × 10 status × 200 handlers = <strong>400.000 séries</strong> só dessa métrica.</p><p><strong>O que acontece na TSDB</strong>:</p><ol><li><strong>Memória (head chunks)</strong>: Prometheus mantém ~2h de samples por série em memória. Cada série = ~3KB (labels + samples + index). 400k séries = 1.2GB só de head. 10M séries = 30GB+.</li><li><strong>WAL (Write-Ahead Log)</strong>: cada sample é escrito no WAL em disco. Mais séries = mais escrita = saturação de I/O.</li><li><strong>Index file</strong>: para cada bloco de 2h, índices invertidos por label. Cresce com cardinalidade × tempo. Queries lentas se índice não cabe em memória.</li><li><strong>Compactação</strong>: blocos de 2h são compactados em blocos maiores (24h, 7d). Compactação trava com cardinalidade alta — TSDB pode ficar dias sem compactar e crescer descontroladamente.</li><li><strong>Queries</strong>: <code>rate(metric[5m])</code> sem filtro retorna todas as séries — query OOM mata o Prometheus.</li></ol><p><strong>Detecção em produção</strong>:</p><ul><li><code>prometheus_tsdb_head_series</code>: total de séries ativas. Alerte em &gt; 1M (depende do hardware).</li><li><code>prometheus_tsdb_head_chunks</code>: chunks ativos. Cresce linearmente com séries.</li><li><code>topk(10, count by(__name__)({__name__=~\".+\"}))</code>: top 10 métricas com mais séries — primeiro suspeito.</li><li><code>topk(10, count by(__name__, label)({__name__=~\".+\"}))</code>: descobrir QUAL label de QUAL métrica explodiu.</li><li>Endpoint <code>/api/v1/status/tsdb</code>: retorna top 10 séries, top 10 labels por valores únicos, top 10 nomes de métrica. UI em <code>/tsdb-status</code> também.</li><li><code>prometheus_target_scrapes_exceeded_sample_limit_total</code>: targets dropados por exceder <code>sample_limit</code> (proteção configurável).</li></ul><p><strong>Mitigação</strong>:</p><ol><li><strong>Drop labels via relabel_configs no scrape</strong>: <code>action: labeldrop, regex: 'pod_template_hash|controller_uid'</code> remove labels da Kubernetes que explodem cardinalidade.</li><li><strong>metric_relabel_configs</strong>: pós-scrape, permite dropar séries inteiras (<code>action: drop</code>) ou métricas específicas.</li><li><strong>sample_limit</strong> e <code>label_limit</code> nos scrape_configs: protege Prometheus de scrape mal-comportado.</li><li><strong>Recording rule pré-agregando</strong>: dropa dimensão de cardinalidade alta consolidando antes da query.</li><li><strong>Rollback do deploy</strong> que adicionou label nova — geralmente cardinalidade explode com novo deploy mal-revisado.</li></ol>",
+        tip: "Listar 5 métricas internas + endpoint /tsdb-status + 5 mitigações concretas mostra que você diagnosticou explosão real em produção.",
+        level: "senior",
+      },
+      {
+        q: "Recording rules vs alerting rules — por que recording rules reduzem carga, como nomear, quando vale a pena?",
+        a: "<p><strong>Recording rules</strong>: pré-computam expressão PromQL e salvam o resultado como <em>nova série temporal</em> a cada <code>interval</code> (default 1m). Avaliação acontece no Prometheus, não nas queries do dashboard.</p><p><strong>Alerting rules</strong>: avaliam expressão e disparam alerta se for <em>truthy</em> por <code>for: Xm</code>. O resultado vai para Alertmanager, não vira série persistente (mas <code>ALERTS</code> é uma pseudo-série).</p><p><strong>Por que recording rules reduzem carga</strong>:</p><ol><li><strong>Dashboard sem recording rule</strong>: 10 painéis × 6 paineis SLO × refresh 30s × <code>histogram_quantile</code> sobre 30 dias = Prometheus reprocessa 1.8GB de dados a cada 30s. Memória explode, queries em fila.</li><li><strong>Com recording rule</strong>: <code>job:sli_errors:ratio_rate30d</code> pré-computado a cada 1m. Dashboard consulta a série pré-computada (1 ponto por minuto, KB de dados). Refresh instantâneo.</li><li><strong>Alertas mais rápidos</strong>: alerta sobre recording rule é avaliado em ms; sobre query bruta pode levar segundos.</li><li><strong>Reuso</strong>: a mesma recording rule serve dashboard + alert + outras rules. Calcule uma vez.</li></ol><p><strong>Convenção de nomenclatura</strong>: <code>level:metric:operations</code>:</p><ul><li><strong>level</strong>: granularidade de agregação (<code>cluster</code>, <code>service</code>, <code>job</code>, <code>instance</code>). Indica em qual dimensão você JÁ agregou.</li><li><strong>metric</strong>: nome lógico (<code>http_errors</code>, <code>sli_availability</code>).</li><li><strong>operations</strong>: função aplicada (<code>rate5m</code>, <code>ratio_rate1h</code>, <code>quantile99_5m</code>).</li></ul><p>Exemplos:</p><ul><li><code>job:http_requests:rate5m</code> — rate agregado por job, janela 5m.</li><li><code>job:http_request_duration:p99_5m</code> — p99 por job em 5m.</li><li><code>service:sli_errors:ratio_rate30d</code> — error ratio por service em 30 dias (custosa, ideal para recording rule).</li></ul><p><strong>Quando vale a pena</strong>:</p><ol><li>Query é cara E é executada frequentemente (dashboard, alertas) — sempre.</li><li>Janela &gt; 1h com <code>histogram_quantile</code>, <code>rate</code>, <code>increase</code> — sempre.</li><li>SLI/SLO com janelas multi-window (5m, 1h, 6h, 24h, 30d) — recording rule por janela.</li></ol><p><strong>Quando NÃO vale</strong>: query rara/exploratória (use direto), alerta sobre métrica counter simples (basta rate sobre janela curta).</p>",
+        level: "senior",
+      },
+      {
+        q: "Multi-window multi-burn-rate alerting (Google SRE Book) — por que alertar em 5m AND 1h elimina falsos positivos, e como calcular burn rate?",
+        a: `<p><strong>Burn rate</strong>: razão de quão rápido o error budget está sendo consumido. <em>Burn rate 1</em> = consumindo no ritmo exato para esgotar o budget no fim do período do SLO. <em>Burn rate 14</em> = consumindo 14× mais rápido — esgota o budget em ~2 dias (em vez de 30).</p><p><strong>Cálculo</strong>: <code>burn_rate = error_rate_real / (1 - SLO)</code>. Com SLO 99.9%: error budget = 0.1% = 0.001. Se error_rate atual = 1.4% = 0.014 → burn_rate = 0.014 / 0.001 = 14×.</p><p><strong>Problema do threshold simples</strong> (<code>error_rate &gt; 0.01 for: 5m</code>):</p><ul><li>Janela curta (5m) sem confirmação longa = <strong>falso positivo</strong> em qualquer spike (rolling restart, deploy, transient network glitch).</li><li>Janela longa só (1h) = <strong>detecção lenta</strong> — incidente real demora 1h para alertar.</li><li>Threshold fixo (<code>&gt; 0.01</code>) ignora SLO — se SLO é 99.99%, 1% é catastrófico; se SLO é 99%, 1% está dentro do budget.</li></ul><p><strong>Multi-window multi-burn-rate (SRE Workbook)</strong>: 4 alertas combinando burn rate + janelas curta/longa.</p><table style="font-size:.9em"><tr><th>Severity</th><th>Burn rate</th><th>Curta</th><th>Longa</th><th>Esgota em</th></tr><tr><td>Page (urgente)</td><td>14×</td><td>5m</td><td>1h</td><td>~2d</td></tr><tr><td>Page</td><td>6×</td><td>30m</td><td>6h</td><td>~5d</td></tr><tr><td>Ticket</td><td>3×</td><td>2h</td><td>24h</td><td>~10d</td></tr><tr><td>Ticket</td><td>1×</td><td>6h</td><td>3d</td><td>~30d</td></tr></table><p><strong>Por que AND elimina falsos positivos</strong>: alerta crítico só dispara quando AMBAS as janelas excedem o burn rate. Spike de 5m → curta dispara, longa não → AND falso → sem alerta. Incidente real (degradação contínua) → ambas escalam → AND verdadeiro → alerta.</p><p><strong>Implementação PromQL</strong>:</p><pre><code>- alert: APIBurnRateCritical
+  expr: |
+    (
+      job:sli_errors:ratio_rate5m{job="api"} &gt; (14.4 * 0.001)
+      and
+      job:sli_errors:ratio_rate1h{job="api"} &gt; (14.4 * 0.001)
+    )
+  for: 2m
+  labels: { severity: critical }</code></pre><p><strong>Mnemônico</strong>: <strong>14·6·3·1</strong> (burn rates) com janelas <strong>5m+1h, 30m+6h, 2h+24h, 6h+3d</strong>. Decora isso e você ganha 80% das discussões de SRE em entrevista.</p>`,
+        tip: "A tabela de 4 alertas com tempos exatos vem direto do SRE Workbook capítulo 5 — saber de cor é diferencial.",
+        level: "senior",
+      },
+      {
+        q: "Remote write para long-term storage — como configurar, WAL, back-pressure, diferenças para Thanos vs Mimir vs Cortex?",
+        a: `<p><strong>Remote write</strong>: protocolo HTTP que Prometheus usa para enviar samples a outro sistema em tempo real. Diferente de Thanos (que sobe blocos a cada 2h), remote write é streaming.</p><p><strong>Configuração</strong>:</p><pre><code>remote_write:
+  - url: "http://mimir:9009/api/v1/push"
+    headers:
+      X-Scope-OrgID: tenant-prod
+    queue_config:
+      capacity: 10000          # tamanho do buffer in-memory
+      max_shards: 200          # paralelismo de envio
+      min_shards: 1
+      max_samples_per_send: 2000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 5s
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*|prometheus_.*'
+        action: drop           # não envie métricas internas</code></pre><p><strong>WAL como buffer</strong>: Prometheus usa o Write-Ahead Log local como fonte para remote write. Se o backend remoto cair, samples ficam no WAL local. Quando volta, Prometheus reenvia a partir do checkpoint. Limite: tamanho do WAL (default 2h, configurável). Se backend ficar fora &gt; 2h, samples antigos são perdidos.</p><p><strong>Back-pressure</strong>: se Prometheus produz mais samples/s do que remote write consegue enviar, o WAL cresce. Métricas para monitorar:</p><ul><li><code>prometheus_remote_storage_samples_pending</code>: pendentes para envio. Alta = back-pressure.</li><li><code>prometheus_remote_storage_samples_dropped_total</code>: descartados (queue cheia).</li><li><code>prometheus_remote_storage_shards</code>: número atual de shards (entre <code>min</code> e <code>max</code>).</li><li><code>prometheus_remote_storage_highest_timestamp_in_seconds</code> vs <code>prometheus_remote_storage_queue_highest_sent_timestamp</code>: <em>lag</em> de envio.</li></ul><p><strong>Thanos vs Mimir vs Cortex</strong>:</p><ul><li><strong>Thanos</strong>: <em>NÃO usa remote write</em>. Sidecar lê blocos TSDB locais e sobe para object storage a cada 2h. Vantagem: zero overhead online no Prometheus, blocks já compactos. Desvantagem: latência de 2h até query global, perde dados em crash de WAL.</li><li><strong>Mimir/Cortex</strong>: <em>usam remote write</em>. Distributor recebe via remote write, encaminha a Ingesters que mantêm WAL e blocos próprios. Vantagem: ingestion online (queries veem dados em segundos), multi-tenant, escala horizontal pura. Desvantagem: overhead de rede contínuo, dependência crítica de saúde do Mimir.</li><li><strong>Cortex</strong>: foi descontinuado pela CNCF — Mimir é o sucessor (fork da Grafana Labs com otimizações). Use Mimir.</li></ul><p><strong>Decisão</strong>: já tem Prometheus em vários clusters → Thanos (incremental). Greenfield ou multi-tenant SaaS → Mimir (arquitetura limpa).</p>`,
+        level: "senior",
+      },
+      {
+        q: "scrape_interval vs evaluation_interval vs for em alertas — o que acontece se um alerta tem for: 1m e scrape_interval: 30s?",
+        a: "<p>Três timers distintos com efeitos compostos:</p><ol><li><strong><code>scrape_interval</code></strong> (default 1m): de quanto em quanto Prometheus faz scrape do <code>/metrics</code> de cada target. Datapoints aparecem na TSDB nesse ritmo.</li><li><strong><code>evaluation_interval</code></strong> (default 1m): de quanto em quanto Prometheus avalia <em>todas</em> as rules (recording + alerting). Pode ser global ou por <code>group: { interval: 30s }</code>.</li><li><strong><code>for</code></strong> (em alerta): tempo MÍNIMO que a expressão deve permanecer truthy antes de transitar de <code>Pending</code> para <code>Firing</code>. Evita flapping de spikes.</li></ol><p><strong>Cenário: <code>scrape_interval: 30s</code>, <code>evaluation_interval: 30s</code>, <code>for: 1m</code></strong>:</p><ol><li>T=0: alerta começa Normal.</li><li>T=30s: scrape novo, evaluation. Expr = true → estado vira <strong>Pending</strong>. Pending timestamp = T=30s.</li><li>T=60s: scrape, eval. Expr = true. Pending há 30s, mas <code>for: 1m</code> exige 60s. Continua Pending.</li><li>T=90s: scrape, eval. Expr = true. Pending há 60s = <code>for</code>. Vira <strong>Firing</strong>. Notification dispara.</li><li>Total tempo até notificação: <strong>90s</strong> (30s detecção + 60s confirmação).</li></ol><p><strong>Se em T=60s a expr volta a false</strong>: estado volta a Normal imediatamente. Pending é resetado. Se voltar a true em T=90s, novo Pending começa do zero.</p><p><strong>Regra prática</strong>: <code>for &gt;= 2 × scrape_interval</code>. Senão, um único scrape ruim (network glitch, GC pause no app) dispara alerta. Com scrape 15s, <code>for: 30s</code> mínimo, <code>for: 2m</code> recomendado.</p><p><strong>Caso degenerado</strong>: <code>for: 30s</code> com <code>scrape_interval: 1m</code>. Apenas 1 scrape cabe na janela. Se aquele scrape falha (target down), alerta não dispara mesmo que próxima eval mostre problema. Sempre dimensione <code>for</code> em múltiplos do scrape.</p><p><strong>group_interval no Alertmanager</strong>: separado, controla quão rápido alertas <em>do mesmo grupo</em> são enviados após o primeiro. Default 5m. Se você precisa que cada update de status do alerta seja notificado, reduza para 1m.</p>",
+        tip: "Detalhar a timeline T=0..T=90s com cálculo passo-a-passo mostra que você operou alertas em produção e debugou casos onde 'alerta demorou demais para disparar'.",
+        level: "senior",
+      },
+      {
+        q: "Service discovery — kubernetes_sd_configs com role: pod vs service, relabel_configs para filtrar e __meta_ labels?",
+        a: `<p><strong>Roles em kubernetes_sd_configs</strong>:</p><ul><li><code>node</code>: 1 target por node (kubelet :10250 ou cAdvisor :4194). Métricas de host.</li><li><code>pod</code>: 1 target por pod × por porta declarada no <code>containerPort</code>. Para scrapear apps diretamente.</li><li><code>service</code>: 1 target por service × por <code>port</code>. ATENÇÃO: scrape vai pelo ClusterIP — load-balanceado entre pods. Você não sabe qual pod respondeu — métricas se misturam. Use só para health checks externos.</li><li><code>endpoints</code>: 1 target por <em>endpoint</em> (cada par pod-port que está atrás de um service ready). Combina serviço + pods reais. Mais comum para apps com Service.</li><li><code>endpointslices</code>: versão moderna de endpoints (K8s 1.21+). Suporta &gt; 1000 endpoints por service.</li><li><code>ingress</code>: scrape de ingresses (probes externos).</li></ul><p><strong>pod vs service na prática</strong>:</p><ul><li><code>role: pod</code> + filtro por annotation = ideal. Cada pod com <code>prometheus.io/scrape: "true"</code> e <code>prometheus.io/port: "8080"</code> é descoberto. Métricas por pod (instance único).</li><li><code>role: service</code> = anti-pattern para apps. Use só para black-box probing (Blackbox Exporter scrapeia o ClusterIP simulando user externo).</li><li><code>role: endpoints</code> + filtro por Service label = pattern oficial do kube-prometheus-stack. ServiceMonitor CRD usa endpoints.</li></ul><p><strong>__meta_ labels</strong>: durante service discovery, K8s anexa labels temporárias ao target (perdidas após relabel a menos que você as preserve). Exemplos:</p><ul><li><code>__meta_kubernetes_namespace</code>, <code>__meta_kubernetes_pod_name</code>, <code>__meta_kubernetes_pod_label_app</code>.</li><li><code>__meta_kubernetes_pod_annotation_prometheus_io_scrape</code>, <code>_port</code>, <code>_path</code>.</li><li><code>__meta_kubernetes_pod_container_port_number</code>, <code>_name</code>.</li><li><code>__meta_kubernetes_endpoint_port_name</code> (para endpoints role).</li></ul><p><strong>relabel_configs típicos</strong>:</p><pre><code>relabel_configs:
+  # 1. So pods com annotation prometheus.io/scrape=true
+  - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+    action: keep
+    regex: true
+
+  # 2. Use port da annotation se presente
+  - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+    action: replace
+    regex: (.+):(?:\\d+);(\\d+)
+    replacement: \\$1:\\$2
+    target_label: __address__
+
+  # 3. Path da annotation (default /metrics)
+  - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+    action: replace
+    target_label: __metrics_path__
+    regex: (.+)
+
+  # 4. Promove labels do K8s para labels da metrica
+  - source_labels: [__meta_kubernetes_namespace]
+    target_label: namespace
+  - source_labels: [__meta_kubernetes_pod_name]
+    target_label: pod
+  - source_labels: [__meta_kubernetes_pod_label_app]
+    target_label: app
+
+  # 5. Drop pods sem app label (limpa noise)
+  - source_labels: [__meta_kubernetes_pod_label_app]
+    action: drop
+    regex: ""</code></pre><p><strong>metric_relabel_configs</strong>: aplicado APÓS o scrape (não antes). Permite drop de séries específicas: <code>action: drop, regex: 'go_gc_.*'</code> remove métricas do runtime Go que ninguém quer ver.</p>`,
+        level: "senior",
+      },
+      {
+        q: "TSDB internals — blocos de 2h, compactação, WAL, e o que acontece em crash sem WAL?",
+        a: `<p><strong>Estrutura on-disk</strong> (<code>data/</code> directory):</p><pre><code>data/
+├── wal/                                  # Write-Ahead Log (atual)
+│   ├── 00001234
+│   ├── 00001235
+│   └── checkpoint.000050/
+├── chunks_head/                          # head chunks (em memória + memory-mapped)
+├── 01HQX9... (block ID = ULID)/          # bloco compactado
+│   ├── chunks/                           # samples comprimidos
+│   ├── index                             # indice invertido (label → series IDs)
+│   ├── meta.json                         # range temporal, stats
+│   └── tombstones                        # marcações de deletes
+└── 01HQXA... (outro bloco)/</code></pre><p><strong>Ciclo de vida dos dados</strong>:</p><ol><li><strong>Sample chega via scrape</strong> → escrito no WAL imediatamente (durabilidade) E no head chunks em memória.</li><li><strong>Head chunks</strong>: ~2h de dados ativos. Cada série tem chunks em memória (escrita) e mmap (acesso a chunks fechados). Quando chunk fecha (após 120 samples ou 2h), vai para <code>chunks_head/</code> em disco.</li><li><strong>Após 2h</strong>: head é flushed em <em>bloco persistente</em> (diretório com ULID). Block tem range fixo (ex: T..T+2h). WAL correspondente é truncado (samples agora estão no bloco).</li><li><strong>Compactação background</strong>: blocos de 2h são compactados em maiores. Default ranges: <code>[2h, 6h, 18h, 54h, 162h]</code> (cada 3× o anterior). Resultado: bloco de 54h é mais eficiente em storage e queries longas.</li><li><strong>Retention</strong>: blocos com <code>maxTime &lt; now - retention</code> (default 15d) são deletados.</li></ol><p><strong>WAL na prática</strong>: log append-only. Cada sample = ~7 bytes no WAL. Para 1M samples/s, WAL escreve ~7MB/s. Após cada checkpoint (~2h), WAL é truncado e checkpoint substitui (snapshot mais compacto).</p><p><strong>Crash com WAL</strong>: Prometheus reinicia → lê WAL → reconstrói head chunks em memória → continua. Tempo de replay: ~1min para cada 1GB de WAL. Durante replay, Prometheus não responde queries — alerta de <code>prometheus_tsdb_head_truncations_total</code> ajuda a detectar replays longos.</p><p><strong>Crash SEM WAL</strong> (configurado com <code>--storage.tsdb.no-lockfile</code> + WAL desabilitado, ou disco corrompido): você perde TODOS os samples ainda não compactados em bloco — até 2h de dados. Para o head atual: dados em RAM se perdem, head em mmap volta mas pode estar inconsistente. <strong>Nunca desabilite WAL em produção</strong>.</p><p><strong>Mau funcionamento de compactação</strong>: <code>prometheus_tsdb_compactions_failed_total &gt; 0</code> indica blocos não compactados. Disco enche, query fica lenta. Causas: bug de cardinalidade alta, disco cheio durante compactação. Mitigação: reduzir retention temporariamente, mover blocos antigos manualmente, restart.</p><p><strong>Mas Prometheus não é seu data warehouse</strong>: para retenção &gt; 30d use Thanos/Mimir. Local TSDB é otimizado para queries quentes (últimas 6-24h).</p>`,
+        level: "senior",
+      },
+    ],
+    codeExamples: [
+      {
+        title: "Instrumentação completa em Node.js com prom-client — Counter, Gauge, Histogram com buckets personalizados",
+        description: "Express app com métricas RED (Rate, Errors, Duration), gauge de fila, default Node.js metrics. Histogram com buckets dimensionados pelo SLA. Endpoint /metrics em formato Prometheus.",
+        language: "typescript",
+        code: `// app.ts
+import express, { Request, Response, NextFunction } from 'express'
+import {
+  Registry,
+  Counter,
+  Gauge,
+  Histogram,
+  collectDefaultMetrics,
+} from 'prom-client'
+
+const app = express()
+const registry = new Registry()
+
+// Default metrics — process_cpu, nodejs_eventloop_lag, gc_duration, heap_size
+collectDefaultMetrics({
+  register: registry,
+  prefix: 'app_',
+  labels: { service: 'checkout-api' },
+})
+
+// 1) Counter — Rate (R) e Errors (E) do RED
+const httpRequestsTotal = new Counter({
+  name: 'http_requests_total',
+  help: 'Total de requisições HTTP',
+  labelNames: ['method', 'route', 'status_code'],
+  registers: [registry],
+})
+
+// 2) Histogram — Duration (D) do RED. Buckets baseados no SLA (500ms)
+const httpRequestDuration = new Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Latência das requisições HTTP',
+  labelNames: ['method', 'route'],
+  // Buckets cobrem o SLA + ordem de magnitude acima
+  // Inclui le="0.5" exato — SLO de 500ms cai num bucket
+  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  registers: [registry],
+})
+
+// 3) Gauge — estado atual (sobe e desce)
+const queueDepth = new Gauge({
+  name: 'order_queue_depth',
+  help: 'Pedidos aguardando processamento na fila',
+  registers: [registry],
+})
+
+const dbConnectionsActive = new Gauge({
+  name: 'db_connections_active',
+  help: 'Conexões ativas no pool do Postgres',
+  registers: [registry],
+})
+
+// Middleware — instrumenta todas as rotas
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // startTimer retorna fn que registra duração ao ser chamada
+  const endTimer = httpRequestDuration.startTimer({
+    method: req.method,
+    route: req.route?.path ?? req.path,
+  })
+
+  res.on('finish', () => {
+    httpRequestsTotal.inc({
+      method: req.method,
+      route: req.route?.path ?? req.path,  // route pattern, NÃO URL com IDs
+      status_code: String(res.statusCode),
+    })
+    endTimer({ method: req.method, route: req.route?.path ?? req.path })
+  })
+
+  next()
+})
+
+// IMPORTANTE: use route pattern (/users/:id), nunca URL bruta (/users/12345)
+// Senão cardinalidade explode com 1 série por user_id
+
+// Endpoint /metrics que Prometheus scrapeia
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', registry.contentType)
+  res.end(await registry.metrics())
+})
+
+// Atualiza gauges periodicamente
+setInterval(async () => {
+  queueDepth.set(await getQueueDepth())
+  dbConnectionsActive.set(pool.totalCount)
+}, 5_000)
+
+// Custom counter no handler
+app.post('/checkout', async (req, res) => {
+  try {
+    const order = await processOrder(req.body)
+    paymentsAttempted.inc({ gateway: order.gateway, status: 'success' })
+    res.json(order)
+  } catch (err) {
+    paymentsAttempted.inc({ gateway: req.body.gateway, status: 'failure' })
+    res.status(500).json({ error: 'failed' })
+  }
+})
+
+const paymentsAttempted = new Counter({
+  name: 'payments_attempted_total',
+  help: 'Tentativas de pagamento por gateway e status',
+  labelNames: ['gateway', 'status'],
+  registers: [registry],
+})
+
+app.listen(8080)`,
+      },
+      {
+        title: "prometheus.yml — Config completa: scrape_configs com Kubernetes SD, relabel, alerting rules, recording rules",
+        description: "Configuração de produção completa: global config, scrape com kubernetes_sd_configs (role pod com annotation-based discovery), Alertmanager, rules carregando recording + alerting.",
+        language: "yaml",
+        code: `# prometheus.yml — produção em Kubernetes
+global:
+  scrape_interval: 15s          # quão frequente scrapeamos
+  evaluation_interval: 15s      # quão frequente avaliamos rules
+  scrape_timeout: 10s
+  external_labels:
+    cluster: prod-us-east-1
+    region: us-east-1
+
+# Carrega arquivos de rules separadamente (versionados em Git)
+rule_files:
+  - /etc/prometheus/rules/recording/*.yml
+  - /etc/prometheus/rules/alerts/*.yml
+
+# Conecta ao Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Long-term storage via remote_write
+remote_write:
+  - url: http://mimir-distributor:9009/api/v1/push
+    headers:
+      X-Scope-OrgID: tenant-prod
+    queue_config:
+      capacity: 10000
+      max_shards: 200
+      max_samples_per_send: 2000
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_gc_.*|prometheus_target_.*'
+        action: drop
+
+scrape_configs:
+  # 1) Self scrape — Prometheus monitora a si mesmo
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2) Kubernetes pods com annotation-based discovery
+  - job_name: 'kubernetes-pods'
+    scrape_protocols: [OpenMetricsText1.0.0, PrometheusText0.0.4]  # OpenMetrics primeiro (suporta exemplars)
+    sample_limit: 50000
+    label_limit: 30
+    label_name_length_limit: 200
+    label_value_length_limit: 500
+
+    kubernetes_sd_configs:
+      - role: pod
+
+    relabel_configs:
+      # Só pods com annotation prometheus.io/scrape=true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+
+      # Override de path (default /metrics)
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+
+      # Override de port
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+):(?:\\d+);(\\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+      # Promove labels K8s para labels da métrica
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
+
+    metric_relabel_configs:
+      # Drop métricas internas do Go runtime — ruidosas, raramente úteis
+      - source_labels: [__name__]
+        regex: 'go_gc_.*'
+        action: drop
+
+  # 3) ServiceMonitor pattern (kube-prometheus-stack) — via endpoints
+  - job_name: 'kubernetes-service-endpoints'
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name]
+        target_label: service
+        separator: '/'`,
+      },
+      {
+        title: "PrometheusRule — Multi-window burn rate alerts para SLO 99.9% (SRE Workbook)",
+        description: "Recording rules calculando SLI em 4 janelas (5m, 1h, 6h, 24h) + 4 alerts implementando o pattern multi-window multi-burn-rate do Google SRE Workbook (capítulo 5).",
+        language: "yaml",
+        code: `apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: api-slo
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    # ========== RECORDING RULES ==========
+    # Pre-compute SLI ratio em múltiplas janelas
+    - name: api-sli-recording
+      interval: 30s
+      rules:
+        - record: job:sli_errors:ratio_rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[5m]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[5m]))
+
+        - record: job:sli_errors:ratio_rate30m
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[30m]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[30m]))
+
+        - record: job:sli_errors:ratio_rate1h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[1h]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[1h]))
+
+        - record: job:sli_errors:ratio_rate2h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[2h]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[2h]))
+
+        - record: job:sli_errors:ratio_rate6h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[6h]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[6h]))
+
+        - record: job:sli_errors:ratio_rate1d
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[1d]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[1d]))
+
+        - record: job:sli_errors:ratio_rate3d
+          expr: |
+            sum by (job) (rate(http_requests_total{job="api",status=~"5.."}[3d]))
+            /
+            sum by (job) (rate(http_requests_total{job="api"}[3d]))
+
+    # ========== ALERTING RULES ==========
+    # Multi-window multi-burn-rate (SRE Workbook ch.5)
+    # SLO 99.9% → error budget 0.1% (= 0.001)
+    # Burn rates: 14.4 · 6 · 3 · 1 → janelas: 5m+1h, 30m+6h, 2h+1d, 6h+3d
+    - name: api-slo-burn-rate
+      rules:
+        # 1) PAGE — fast burn (esgota budget em ~2 dias)
+        - alert: APIErrorBudgetBurn_Fast
+          expr: |
+            (
+              job:sli_errors:ratio_rate5m{job="api"} > (14.4 * 0.001)
+              and
+              job:sli_errors:ratio_rate1h{job="api"} > (14.4 * 0.001)
+            )
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+            slo: api-availability-99.9
+          annotations:
+            summary: '{{ $labels.job }}: error budget queima em ~2 dias (burn rate >14×)'
+            description: 'Error rate em 5m e 1h ambos > 1.44%. Investigar imediatamente.'
+            runbook_url: https://runbooks.example/api-burn-rate-fast
+            dashboard_url: https://grafana.example/d/api-slo
+
+        # 2) PAGE — medium-fast burn (esgota em ~5 dias)
+        - alert: APIErrorBudgetBurn_MediumFast
+          expr: |
+            (
+              job:sli_errors:ratio_rate30m{job="api"} > (6 * 0.001)
+              and
+              job:sli_errors:ratio_rate6h{job="api"} > (6 * 0.001)
+            )
+          for: 15m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: '{{ $labels.job }}: error budget queima em ~5 dias (burn rate >6×)'
+            runbook_url: https://runbooks.example/api-burn-rate-medium
+
+        # 3) TICKET — slow burn (esgota em ~10 dias)
+        - alert: APIErrorBudgetBurn_Slow
+          expr: |
+            (
+              job:sli_errors:ratio_rate2h{job="api"} > (3 * 0.001)
+              and
+              job:sli_errors:ratio_rate1d{job="api"} > (3 * 0.001)
+            )
+          for: 1h
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: '{{ $labels.job }}: budget consumindo a 3× — investigar em horário comercial'
+
+        # 4) TICKET — very slow burn (esgota no fim do mês)
+        - alert: APIErrorBudgetBurn_VerySlow
+          expr: |
+            (
+              job:sli_errors:ratio_rate6h{job="api"} > (1 * 0.001)
+              and
+              job:sli_errors:ratio_rate3d{job="api"} > (1 * 0.001)
+            )
+          for: 3h
+          labels:
+            severity: info
+            team: platform
+          annotations:
+            summary: '{{ $labels.job }}: budget no caminho de esgotar no mês — review na próxima sprint'`,
+      },
+    ],
+    videos: [
+      {
+        title: "Prometheus Tutorial — Get Started Monitoring Your Application",
+        channel: "TechWorld with Nana",
+        url: "https://www.youtube.com/watch?v=h4Sl21AKiDg",
+        topic: "Fundamentos: pull model, scraping, /metrics, PromQL básico, Alertmanager",
+        note: "Walkthrough completo do zero — boa base antes de mergulhar em SLO-based alerting e cardinality.",
+      },
+      {
+        title: "PromQL Tutorial — Mastering Prometheus Query Language",
+        channel: "Robust Perception (Brian Brazil)",
+        url: "https://www.youtube.com/watch?v=hTjHuoWxsks",
+        topic: "PromQL avançado: rate vs irate, histogram_quantile, agregação, predict_linear",
+        note: "Brian Brazil é um dos criadores do Prometheus. Conteúdo definitivo — assista 2× se necessário.",
+      },
+      {
+        title: "Multi-Window, Multi-Burn-Rate Alerts — SRE Workbook in Practice",
+        channel: "Google Cloud Tech",
+        url: "https://www.youtube.com/watch?v=7VuVl2j_3Uw",
+        topic: "Implementação concreta de alerting baseado em SLO com burn rate 14·6·3·1",
+        note: "Material oficial do Google SRE — referência exata para a Q&A sobre multi-window. Indispensável.",
+      },
+      {
+        title: "Cardinality Explosion — Diagnosing and Fixing in Prometheus",
+        channel: "PromCon (Grafana)",
+        url: "https://www.youtube.com/watch?v=5bKohAdhHnY",
+        topic: "Como diagnosticar cardinality explosion na prática, /tsdb-status, relabel_configs para mitigar",
+        note: "Caso real de produção — vai além da teoria e mostra os comandos exatos.",
+      },
+      {
+        title: "Prometheus at Scale — Thanos vs Cortex vs Mimir",
+        channel: "PromCon",
+        url: "https://www.youtube.com/watch?v=GcTzd2CLH7I",
+        topic: "Comparação técnica de soluções de long-term storage para Prometheus",
+        note: "Trade-offs detalhados entre as 3 abordagens — material para defender escolha de arquitetura em entrevista.",
+      },
+    ],
+    mindmap: {
+      title: "Prometheus — ecossistema completo (TSDB · PromQL · Alerting · Storage)",
+      html: `<style>
+.pmm-wrap{font-family:'Space Grotesk',sans-serif;background:#0a0a0a;border-radius:12px;padding:22px;color:#e2e8f0}
+.pmm-center{background:linear-gradient(135deg,#E6522C,#dc2626);color:#fff;padding:.85rem 1.6rem;border-radius:.6rem;font-weight:700;font-size:1.05rem;text-align:center;margin:0 auto 1.4rem;display:inline-block}
+.pmm-row{display:flex;flex-wrap:wrap;gap:.85rem;justify-content:center;margin-bottom:.85rem}
+.pmm-branch{background:#111827;border-radius:.7rem;padding:.85rem 1rem;min-width:200px;max-width:240px;border-left:3px solid #334155}
+.pmm-node{font-weight:700;margin-bottom:.45rem;font-size:.85rem;letter-spacing:.02em}
+.pmm-items{display:flex;flex-direction:column;gap:.18rem}
+.pmm-item{color:#94a3b8;font-size:.74rem;padding:.1rem .25rem;border-left:1.5px solid #1f2937;line-height:1.45}
+.pmm-pill{display:inline-block;font-size:.65rem;font-family:'JetBrains Mono',monospace;background:rgba(230,82,44,.1);color:#E6522C;padding:.05rem .35rem;border-radius:3px;margin-left:.2rem}
+</style>
+<div class="pmm-wrap" style="text-align:center">
+  <div class="pmm-center">Prometheus — monitoramento cloud-native</div>
+  <div style="text-align:left">
+    <div class="pmm-row">
+      <div class="pmm-branch" style="border-left-color:#E6522C">
+        <div class="pmm-node" style="color:#E6522C">Metric Types</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Counter — só cresce <span class="pmm-pill">rate()</span></span>
+          <span class="pmm-item">Gauge — sobe e desce</span>
+          <span class="pmm-item">Histogram — buckets <span class="pmm-pill">histogram_quantile()</span></span>
+          <span class="pmm-item">Summary — quantile pré-calc (evitar)</span>
+          <span class="pmm-item">Native Histograms (2.40+, exp.)</span>
+          <span class="pmm-item">Exemplars — link métrica → trace</span>
+          <span class="pmm-item">Mnemônico: CHiGS</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#fbbf24">
+        <div class="pmm-node" style="color:#fbbf24">PromQL</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Selectors {label=\"v\", label=~\"re\"}</span>
+          <span class="pmm-item">rate · irate · increase · resets</span>
+          <span class="pmm-item">histogram_quantile · quantile_over_time</span>
+          <span class="pmm-item">sum/avg/max/min by(label) / without</span>
+          <span class="pmm-item">topk / bottomk / count_values</span>
+          <span class="pmm-item">absent · changes · predict_linear</span>
+          <span class="pmm-item">label_replace · label_join</span>
+          <span class="pmm-item">Operators: + - * / and or unless</span>
+          <span class="pmm-item">Subqueries [5m:1m]</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#22d3ee">
+        <div class="pmm-node" style="color:#22d3ee">Storage (TSDB)</div>
+        <div class="pmm-items">
+          <span class="pmm-item">WAL (Write-Ahead Log)</span>
+          <span class="pmm-item">Head chunks (~2h em RAM)</span>
+          <span class="pmm-item">Blocks (ULID, 2h → compactados)</span>
+          <span class="pmm-item">Compactação 2h→6h→18h→54h</span>
+          <span class="pmm-item">Index (label → series IDs)</span>
+          <span class="pmm-item">Retention (default 15d)</span>
+          <span class="pmm-item">remote_write (streaming)</span>
+          <span class="pmm-item">Tombstones (deletes)</span>
+        </div>
+      </div>
+    </div>
+    <div class="pmm-row">
+      <div class="pmm-branch" style="border-left-color:#a855f7">
+        <div class="pmm-node" style="color:#a855f7">Scraping</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Pull model (default 15s)</span>
+          <span class="pmm-item">/metrics endpoint (OpenMetrics)</span>
+          <span class="pmm-item">Service Discovery (k8s, ec2, dns, consul)</span>
+          <span class="pmm-item">kubernetes_sd: pod, endpoints, service</span>
+          <span class="pmm-item">relabel_configs (pre-scrape)</span>
+          <span class="pmm-item">metric_relabel_configs (post-scrape)</span>
+          <span class="pmm-item">__meta_ labels (k8s metadata)</span>
+          <span class="pmm-item">sample_limit · label_limit</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#ef4444">
+        <div class="pmm-node" style="color:#ef4444">Alerting</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Alerting rules (expr + for)</span>
+          <span class="pmm-item">Recording rules (pré-compute)</span>
+          <span class="pmm-item">PrometheusRule CRD (operator)</span>
+          <span class="pmm-item">Alertmanager (routing/grouping)</span>
+          <span class="pmm-item">Inhibition rules · Silences</span>
+          <span class="pmm-item">Multi-window burn rate (14·6·3·1)</span>
+          <span class="pmm-item">Four Golden Signals (lat/traf/err/sat)</span>
+          <span class="pmm-item">Receivers: Slack/PD/email/webhook</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#4ade80">
+        <div class="pmm-node" style="color:#4ade80">Federation &amp; Scaling</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Thanos (sidecar + S3 + Querier)</span>
+          <span class="pmm-item">Grafana Mimir (multi-tenant)</span>
+          <span class="pmm-item">Cortex (descontinuado → Mimir)</span>
+          <span class="pmm-item">VictoriaMetrics (alternativa rápida)</span>
+          <span class="pmm-item">Federation (/federate)</span>
+          <span class="pmm-item">Agent mode (forwarder leve)</span>
+          <span class="pmm-item">Pushgateway (batch jobs)</span>
+        </div>
+      </div>
+    </div>
+    <div class="pmm-row">
+      <div class="pmm-branch" style="border-left-color:#fb7185">
+        <div class="pmm-node" style="color:#fb7185">Client Libraries</div>
+        <div class="pmm-items">
+          <span class="pmm-item">Go — client_golang (oficial)</span>
+          <span class="pmm-item">Python — prometheus_client</span>
+          <span class="pmm-item">Java — simpleclient / micrometer</span>
+          <span class="pmm-item">Node.js — prom-client</span>
+          <span class="pmm-item">Rust — prometheus crate</span>
+          <span class="pmm-item">.NET — prometheus-net</span>
+          <span class="pmm-item">OpenTelemetry (vendor-neutral)</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#60a5fa">
+        <div class="pmm-node" style="color:#60a5fa">Exporters</div>
+        <div class="pmm-items">
+          <span class="pmm-item">node_exporter (host metrics)</span>
+          <span class="pmm-item">cAdvisor (container metrics)</span>
+          <span class="pmm-item">kube-state-metrics</span>
+          <span class="pmm-item">postgres_exporter / mysqld_exporter</span>
+          <span class="pmm-item">redis_exporter / nginx_exporter</span>
+          <span class="pmm-item">blackbox_exporter (probe)</span>
+          <span class="pmm-item">snmp_exporter (network gear)</span>
+        </div>
+      </div>
+      <div class="pmm-branch" style="border-left-color:#94a3b8">
+        <div class="pmm-node" style="color:#94a3b8">Operations</div>
+        <div class="pmm-items">
+          <span class="pmm-item">kube-prometheus-stack (Helm)</span>
+          <span class="pmm-item">prometheus-operator + CRDs</span>
+          <span class="pmm-item">ServiceMonitor / PodMonitor</span>
+          <span class="pmm-item">Cardinality budget (&lt;1M series)</span>
+          <span class="pmm-item">/tsdb-status para diagnóstico</span>
+          <span class="pmm-item">prometheus_tsdb_head_series</span>
+          <span class="pmm-item">Backup via snapshots ou Thanos</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Prometheus = TSDB + PromQL + Pull model + Alerting. CHiGS guia escolha de tipo, multi-window burn rate guia alerting, kubernetes_sd_configs guia descoberta. Cardinality budget é o problema operacional #1 — sempre mensure.",
+    },
+    exercises: [
+      {
+        level: 'iniciante',
+        title: "Suba Prometheus + Grafana local e instrumente um app Node.js",
+        description: "Use docker-compose com Prometheus + Grafana. Instrumente um Express app com prom-client (Counter http_requests_total, Histogram http_request_duration_seconds com buckets [0.05, 0.1, 0.5, 1, 5], Gauge active_connections). Exponha /metrics. Configure prometheus.yml com scrape_config para o app. No Grafana, conecte datasource Prometheus e crie dashboard com 3 painéis: rate de requests, p99 latency com histogram_quantile, gauge de connections. Use o codeExample 1 como base.",
+        concepts: ["docker-compose", "prom-client", "Histogram buckets", "PromQL básico", "rate()", "histogram_quantile"],
+        hint: "Buckets devem cobrir o SLA — para 500ms, inclua le=\"0.5\" exato. Se p99 fica em '+Inf', você não tem buckets cobrindo o range. Em PromQL, sempre 'sum by (le)' antes de histogram_quantile, senão erro.",
+        relatedKeypoints: [0, 1, 2],
+      },
+      {
+        level: 'intermediario',
+        title: "Configure service discovery em Kubernetes via annotations",
+        description: "Suba Prometheus em K8s (minikube/kind) com kubernetes_sd_configs role: pod. Configure relabel_configs para descobrir pods com annotation prometheus.io/scrape=true e usar prometheus.io/port. Promova __meta_kubernetes_namespace, _pod_name, _pod_label_app para labels da métrica. Deploy 2 apps com annotations corretas e 1 sem — confirme que só os 2 com annotation aparecem em /targets do Prometheus.",
+        concepts: ["kubernetes_sd_configs", "relabel_configs", "__meta_ labels", "annotation-based discovery", "ServiceMonitor"],
+        hint: "Use 'action: keep, regex: true' como primeiro relabel para filtrar. Override de port precisa de regex com 2 grupos: '(.+):(?:\\d+);(\\d+)' captura host e novo port. Em /targets, status 'down' significa scrape falhou (porta errada ou app não responde /metrics).",
+        relatedKeypoints: [3, 7],
+      },
+      {
+        level: 'intermediario',
+        title: "Implemente recording rules + alerting rules para SLI de latência",
+        description: "Defina SLO: 99% das requests devem ser < 500ms. Crie PrometheusRule com 4 recording rules: job:latency_sli:ratio_rate5m (ratio de requests <500ms), :ratio_rate1h, :ratio_rate6h, :ratio_rate30d. Crie 2 alert rules: critical (burn rate 14× em 5m e 1h) e warning (burn rate 3× em 2h e 1d). Use Alertmanager com routing por severity para 2 receivers (Slack #critical e Slack #warnings). Confirme que reload da config aceita as rules e que /alerts mostra os 2 alerts em estado Normal.",
+        concepts: ["recording rules", "naming convention", "multi-window burn rate", "Alertmanager routing", "PrometheusRule CRD"],
+        hint: "Naming: 'job:metric:operation'. histogram_quantile precisa de bucket le=0.5 nos seus buckets — confirme que existe. Burn rate threshold com SLO 99%: 14 × 0.01 = 0.14, então 'sli_errors > 0.14' (não > 14). Use 'amtool config show' para validar Alertmanager.",
+        relatedKeypoints: [5, 6, 4],
+      },
+      {
+        level: 'senior',
+        title: "Diagnostique cardinality explosion em produção simulada",
+        description: "Cenário: você tem um app que adicionou label 'request_id' (UUID único por request) numa métrica. Simule isso: app emitindo http_requests_total{method, status, request_id=<uuid>} a 100 req/s por 30 minutos. Acompanhe: prometheus_tsdb_head_series cresce linearmente, query /api/v1/status/tsdb mostra explosão. Memory do Prometheus dispara. Solução: implemente metric_relabel_configs com action: labeldrop para remover request_id. Confirme que séries antigas continuam (não somem) mas crescimento para. Bonus: configure sample_limit: 50000 no scrape_config para proteger.",
+        concepts: ["cardinality explosion", "TSDB internals", "labeldrop", "metric_relabel_configs", "sample_limit", "self-monitoring"],
+        hint: "Para reproduzir, use prom-client gerando UUIDs como label. Monitore prometheus_tsdb_head_series via Prometheus mesmo (consulta a si próprio). labeldrop só afeta scrapes futuros — séries antigas sobrevivem até retention. Para limpar imediatamente, use admin API /api/v1/admin/tsdb/delete_series.",
+        relatedKeypoints: [3, 11],
+      },
+      {
+        level: 'senior',
+        title: "Setup Thanos para long-term storage com 2 clusters Prometheus",
+        description: "Suba 2 clusters Prometheus (em namespaces ou docker-compose separados) com label external_labels: { cluster: A } e { cluster: B }. Adicione Thanos sidecar a cada um, fazendo upload para MinIO (S3-compatible local) a cada 2h. Suba Thanos Querier centralizado configurado para consultar ambos os sidecars + Store Gateway lendo do MinIO. No Grafana, configure datasource Thanos (URL do Querier) — confirme que queries funcionam transparentemente sobre os 2 clusters. Teste deduplicação: se você roda 2 réplicas do mesmo Prometheus, Querier deve deduplicar via label 'replica'.",
+        concepts: ["Thanos architecture", "object storage", "external_labels", "Querier federation", "deduplication", "Store Gateway"],
+        hint: "external_labels é o que diferencia clusters no Querier. MinIO requer endpoint, access_key, secret_key no thanos.yml. Se queries dão 'no servers' no Querier, confira que sidecars expõem gRPC (porta 10901) e Querier conecta nelas. Deduplicação requer flag --query.replica-label=replica.",
+        relatedKeypoints: [8],
+      },
     ],
     resources: [
       { title: "Prometheus docs", url: "https://prometheus.io/docs/", kind: "docs" },

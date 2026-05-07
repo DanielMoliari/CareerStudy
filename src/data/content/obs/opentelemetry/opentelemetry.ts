@@ -857,6 +857,607 @@ service:
         a: "OTLP (OpenTelemetry Protocol): protocolo binário (protobuf) para transmissão de telemetria. Substituiu formatos proprietários (Jaeger Thrift, Zipkin JSON). gRPC (porta 4317): streaming bidirecional, compressão nativa, multiplexação de conexões — melhor para alta frequência de spans. HTTP/1.1 (porta 4318): mais compatível com proxies, firewalls e service meshes que não entendem gRPC. Mais fácil de debugar com curl. Ambos suportam compressão gzip. Escolha: gRPC em ambientes internos, HTTP quando há proxy/API gateway na frente.",
         level: "pleno",
       },
+      {
+        q: "Diferença entre auto-instrumentation e manual instrumentation — quando cada uma é suficiente, e quando precisam coexistir?",
+        a: "<p><strong>Auto-instrumentation</strong>: o SDK monkey-patches bibliotecas conhecidas (HTTP client/server, drivers de DB, brokers de fila) em runtime. Em Node.js: <code>@opentelemetry/auto-instrumentations-node</code> via <code>--require ./instrument.js</code>. Em Java/Python: agente Java/byte-code injection. Captura: requests HTTP de entrada/saída, queries SQL, chamadas Redis, mensagens Kafka — sem mudar uma linha de código de aplicação.</p><p><strong>Manual instrumentation</strong>: você cria spans com <code>tracer.startActiveSpan('nome.operacao', span =&gt; { ... })</code> e adiciona atributos relevantes. Necessário para operações de <em>negócio</em> que a auto-instr não conhece: 'autorizar pagamento', 'calcular frete', 'validar regra fiscal'.</p><p><strong>Quando auto basta</strong>: serviço CRUD simples — request entra, faz query, responde. Auto captura toda a latência relevante.</p><p><strong>Quando precisa manual</strong>: 1) operações de negócio dentro de um único request HTTP que você quer separar (auth → validate → calculate → persist) — auto vê 1 span de 200ms, manual decompõe em 4 spans nomeados. 2) processamento assíncrono em filas — auto-instr de Kafka/BullMQ existe mas atributos de negócio (<code>order.id</code>, <code>customer.tier</code>) precisam ser adicionados manualmente. 3) batch jobs e cron — sem request HTTP de origem, auto não cria span raiz.</p><p><strong>Coexistência (caso real)</strong>: auto-instr cobre HTTP/DB/Redis/Kafka. Manual adiciona spans para operações de domínio + atributos de negócio em spans existentes (<code>const span = trace.getActiveSpan(); span?.setAttribute('order.value', 1234)</code>). 90% dos times produtivos usam <em>ambos</em> — auto para infra, manual para domínio.</p>",
+        tip: "A frase 'auto para infra, manual para domínio' captura a divisão prática — entrevistador sênior reconhece quem operou em produção.",
+        level: "senior",
+      },
+      {
+        q: "Context propagation em profundidade — W3C TraceContext vs B3, como o baggage funciona, o que acontece quando um serviço não propaga?",
+        a: "<p><strong>W3C TraceContext</strong>: padrão moderno (2020). Dois headers:</p><ul><li><code>traceparent: 00-{trace_id 128b}-{parent_id 64b}-{flags 8b}</code> — versão, trace_id, span_id do parent, flags (01 = sampled).</li><li><code>tracestate: vendor=opaque-data,other-vendor=...</code> — campo opaco para metadata específica de vendor (ex: AWS X-Ray adiciona seu request_id aqui).</li></ul><p><strong>B3 (Zipkin)</strong>: padrão legado. Múltiplos headers separados: <code>X-B3-TraceId</code>, <code>X-B3-SpanId</code>, <code>X-B3-ParentSpanId</code>, <code>X-B3-Sampled</code>. Variante <em>B3 single header</em>: <code>b3: {trace_id}-{span_id}-{sampled}-{parent_id}</code>. Ainda comum em ambientes Istio/Envoy.</p><p><strong>Baggage</strong> (header separado: <code>baggage: user.tier=premium,region=us-east</code>): metadata <em>de aplicação</em> que viaja entre serviços <em>independente</em> de spans. Use para: enriquecer todos os spans downstream com info do usuário sem precisar passar parâmetro em toda chamada. Cuidado: baggage vai em TODO request — não coloque PII (LGPD/GDPR) e mantenha pequeno (limite recomendado 8KB).</p><p><strong>Compatibilidade</strong>: SDK OTel suporta múltiplos propagators simultaneamente. <code>OTEL_PROPAGATORS=tracecontext,baggage,b3</code> faz o SDK ler/escrever ambos — útil em migração quando alguns serviços ainda emitem B3.</p><p><strong>Quando um serviço não propaga</strong> (ex: middleware antigo em Java sem instrumentação): <em>o trace quebra naquele ponto</em>. Spans antes e depois aparecem como <strong>traces separados</strong> no Jaeger/Tempo — você vê <code>gateway → middleware</code> como trace A, <code>middleware → backend</code> como trace B, sem link entre eles. Diagnóstico: <code>curl -v http://middleware/req</code> e procure traceparent na request <em>e</em> response. Se entra mas não sai, o middleware não propaga. Mitigação: instrumentar o middleware ou colocar um proxy (Envoy) que injeta o header.</p>",
+        tip: "Mencionar baggage E o ponto sobre PII (LGPD) mostra rigor de produção — quem só leu doc fala 'baggage propaga metadata' sem trade-offs.",
+        level: "senior",
+      },
+      {
+        q: "OTel Collector — receiver → processor → exporter pipeline em detalhe (batch processor, memory_limiter, sampling, dimensionamento)?",
+        a: "<p><strong>Pipeline sequencial</strong>: dado chega no receiver → passa por cada processor na ordem → vai para todos os exporters. <em>Ordem importa</em>.</p><p><strong>memory_limiter (sempre primeiro)</strong>: monitora RSS do processo. Quando atinge <code>limit_mib</code>, ativa <em>backpressure</em> (responde gRPC com <code>RESOURCE_EXHAUSTED</code> — SDKs com retry vão fazer backoff). Sem ele: pico de tráfego → OOM kill → você fica cego. Configuração: <code>limit_mib: 2000</code>, <code>spike_limit_mib: 400</code>, <code>check_interval: 1s</code>.</p><p><strong>tail_sampling (no meio)</strong>: bufferiza spans por <code>decision_wait</code> (default 30s) agrupados por trace_id. Após decision_wait sem novos spans, avalia policies em ordem. <em>Multiple policies em OR</em>: any-policy match → trace é mantido. Custos: <code>num_traces × avg_spans × avg_span_size</code> em memória. Para 100k traces × 10 spans × 1KB = 1GB. Se Collector tem múltiplas réplicas, use <code>loadbalancingexporter</code> com consistent hash por trace_id antes do tail sampling — senão cada réplica vê só parte da trace e descarta tudo.</p><p><strong>batch (próximo do fim)</strong>: agrupa spans antes de exportar. Reduz overhead de TLS/gRPC ~10×. <code>send_batch_size: 8192</code>, <code>timeout: 5s</code>, <code>send_batch_max_size: 10000</code> (limite hard pra evitar batch gigante em pico).</p><p><strong>attributes/transform (qualquer lugar)</strong>: para PII redaction, faça <em>antes</em> de exportar. <code>delete</code> de <code>http.request.header.authorization</code>, <code>db.statement</code> sanitization.</p><p><strong>Dimensionamento</strong>: regra prática — 1 vCPU + 1GB RAM por 10k spans/s. Para 100k spans/s: 10 vCPU, 10GB RAM, 3+ réplicas. Métricas internas do Collector (<code>otelcol_exporter_send_failed_spans</code>, <code>otelcol_processor_dropped_spans</code>) são essenciais — exporte para Prometheus e alerte.</p><p><strong>Pipelines paralelos</strong>: pipelines traces, metrics, logs são independentes. Cada um roda em goroutines separadas. Você pode ter <code>traces/jaeger</code> e <code>traces/tempo</code> em paralelo (mesmo dado, dois destinos) durante migração.</p>",
+        level: "senior",
+      },
+      {
+        q: "Sampling strategies — head-based (TraceIdRatioBased, ParentBased) vs tail-based (no Collector). O que cada um sacrifica?",
+        a: "<p><strong>Head-based</strong> — decisão tomada no SDK no início do trace, antes de saber o resultado. Estado: zero (estateless). Custo: zero overhead.</p><ul><li><code>AlwaysOn</code> / <code>AlwaysOff</code>: 100% ou 0%. Use AlwaysOn em dev, AlwaysOff só para emergência (Collector caído).</li><li><code>TraceIdRatioBased(0.1)</code>: 10% baseado em hash do trace_id. Determinístico — mesmo trace_id sempre dá mesma decisão (consistente entre serviços).</li><li><code>ParentBased</code>: respeita decisão do parent (flag <code>sampled</code> no traceparent). Default recomendado: <code>ParentBased(root: TraceIdRatioBased(0.1))</code> — root decide, downstream segue.</li></ul><p><strong>Sacrifício do head-based</strong>: erros raros são descartados. Se você sampleia 1% e tem 0.1% de erros, captura ~0.001% das traces de erro — pode passar dias sem ver nenhum erro. Não há informação de resultado para pesar a decisão.</p><p><strong>Tail-based (no Collector)</strong> — decisão tomada após a trace completar, com policies que veem o resultado.</p><ul><li><code>status_code: ERROR</code>: 100% das traces com pelo menos um span com erro.</li><li><code>latency: threshold_ms: 1000</code>: 100% das traces lentas.</li><li><code>probabilistic: 0.1</code>: 10% do restante (traces normais).</li><li><code>string_attribute: key=tier, values=[premium]</code>: 100% das traces de usuários premium.</li><li><code>composite</code>: combinações com OR/AND.</li></ul><p><strong>Sacrifício do tail-based</strong>: 1) <em>Custo de memória</em>: bufferiza todos os spans até decisão (1-30s × volume). 2) <em>Coordenação</em>: múltiplos Collectors precisam ver os mesmos trace_ids — exige <code>loadbalancingexporter</code> com consistent hash, mais 1 hop de latência. 3) <em>Latência de visibilidade</em>: trace só aparece no backend após <code>decision_wait</code> (~10-30s). 4) <em>Operação mais complexa</em>: dimensionar memory_limiter + num_traces corretamente.</p><p><strong>Decisão</strong>: produção com SLO real e erros raros = tail-based. Dev/staging = AlwaysOn. Volume baixo (< 1k spans/s) = head-based 10-50% basta — barato e simples.</p>",
+        level: "senior",
+      },
+      {
+        q: "Semantic Conventions — por que padronizar http.method vs http.request.method, o que muda entre versões e como evitar breaking changes?",
+        a: "<p><strong>Semantic Conventions</strong>: spec da OTel que define nomes <em>canônicos</em> de atributos por domínio (HTTP, DB, RPC, messaging, FaaS). <em>Por que importa</em>: backends (Tempo, Jaeger, Datadog) constroem dashboards, correlação automática e service maps a partir desses nomes. Se você usa <code>http.verb</code> em vez de <code>http.request.method</code>, perde Service Graph automático e queries 'show all DB queries' não acham seus spans.</p><p><strong>Versionamento</strong>:</p><ul><li><strong>1.20 → 1.21</strong>: <code>http.method → http.request.method</code>, <code>http.status_code → http.response.status_code</code>, <code>net.peer.name → server.address</code>. Mudança grande.</li><li><strong>1.21 → 1.23</strong>: estabilizou HTTP. Estabilizou DB conventions com <code>db.system.name</code>.</li><li><strong>Em estabilidade contínua</strong>: messaging, FaaS, GenAI (LLM observability é nova).</li></ul><p><strong>Como o SDK lida</strong>: cada versão de auto-instrumentation está vinculada a uma versão de spec. <code>@opentelemetry/instrumentation-http@0.50.0</code> emite no formato 1.23. Update da lib = mudança de atributos no backend = quebra de queries no Grafana se você buscava por <code>http.method</code>.</p><p><strong>Estratégias para evitar quebras</strong>:</p><ol><li><strong>Pin de versão</strong>: <code>@opentelemetry/instrumentation-http: 0.45.0</code> em <code>package.json</code> + <code>resolutions</code> no monorepo. Update consciente.</li><li><strong>Dual emission</strong>: SDKs OTel modernos suportam <code>OTEL_SEMCONV_STABILITY_OPT_IN=http/dup</code> que emite <em>ambos</em> os formatos por um período de transição. Backends recebem old e new — você atualiza queries com calma.</li><li><strong>Transform processor no Collector</strong>: rename atributos antigos para novos (ou vice-versa) centralizadamente. Suas apps emitem qualquer coisa, Collector normaliza.</li><li><strong>Validação em CI</strong>: lint que checa custom spans usam SemConv (lib <code>@opentelemetry/semantic-conventions</code> exporta constantes — use <code>SemanticAttributes.HTTP_REQUEST_METHOD</code> em vez de string).</li></ol><p><strong>Custom attributes</strong>: para domínio próprio, use namespace (<code>order.id</code>, <code>order.value</code>, <code>order.customer.tier</code>) — nunca confunda com namespaces oficiais (<code>http.*</code>, <code>db.*</code>).</p>",
+        tip: "Mencionar OTEL_SEMCONV_STABILITY_OPT_IN=http/dup mostra que você lidou com migração de versão em produção — gotcha que cai em 80% dos updates.",
+        level: "senior",
+      },
+      {
+        q: "Resource attributes vs span attributes — o que vai em Resource (service.name, host.name) vs o que vai no span?",
+        a: "<p><strong>Resource attributes</strong>: <em>identidade</em> do produtor de telemetria. Imutáveis durante a vida do processo. Aplicados a TODOS os spans/metrics/logs daquele processo. Configurados na inicialização do SDK e <em>não</em> mudam por request.</p><ul><li><code>service.name</code>: nome do serviço (obrigatório). Define o nó no Service Graph.</li><li><code>service.version</code>: versão do build (correlaciona com deploys).</li><li><code>service.instance.id</code>: pod ID, hostname, UUID.</li><li><code>deployment.environment</code>: prod, staging, dev.</li><li><code>host.name</code>, <code>host.arch</code>, <code>os.type</code>: ambiente.</li><li><code>k8s.namespace.name</code>, <code>k8s.pod.name</code>, <code>k8s.deployment.name</code>: detectados via <code>k8sattributesprocessor</code> no Collector.</li><li><code>cloud.provider</code>, <code>cloud.region</code>, <code>cloud.availability_zone</code>: AWS/GCP/Azure.</li></ul><p><strong>Span attributes</strong>: <em>contexto da operação específica</em>. Variam por request.</p><ul><li><code>http.request.method=POST</code>, <code>http.response.status_code=200</code>, <code>url.path=/api/orders</code>.</li><li><code>db.system=postgresql</code>, <code>db.statement</code> (sanitized).</li><li><code>order.id=12345</code>, <code>order.value=199.90</code>, <code>customer.tier=premium</code> — atributos de domínio.</li></ul><p><strong>Por que separar</strong>: 1) <em>Eficiência de storage</em>: backends armazenam Resource UMA vez por processo. Se você colocar <code>service.name</code> em todo span, infla o storage 10×. 2) <em>Indexação</em>: backends indexam Resource para queries rápidas (<code>resource.service.name=checkout</code> é o filtro mais comum). Span attributes são indexados parcialmente.</p><p><strong>Anti-pattern</strong>: setar <code>service.name</code> via span attribute (<code>span.setAttribute('service.name', '...')</code>) — não vira Resource, fica como atributo do span e backends não correlacionam corretamente. Sempre via SDK init: <code>new Resource({[ATTR_SERVICE_NAME]: 'checkout'})</code>.</p><p><strong>Detection automática</strong>: <code>opentelemetry-resource-detector-aws</code>, <code>-gcp</code>, <code>-container</code> populam Resource com metadados do ambiente sem você configurar. Em K8s, <code>k8sattributesprocessor</code> no Collector enriquece Resource com pod/namespace/deployment a partir do K8s API.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como correlacionar traces, metrics e logs — trace_id em logs, exemplars em metrics, e como o Grafana une tudo?",
+        a: "<p>O <strong>trace_id</strong> é a <em>chave universal</em> que conecta os 3 sinais.</p><p><strong>Logs ↔ Traces</strong>:</p><ol><li>Logger (Pino, Winston, Logback, structlog) é configurado com OTel log bridge. Quando há span ativo, o bridge injeta <code>trace_id</code> e <code>span_id</code> no JSON do log.</li><li>Em Loki, configure <code>derivedFields</code> no datasource: regex <code>trace_id=(\\w+)</code> captura o valor → cria link clicável que abre o trace no Tempo.</li><li>Em Tempo, configure <code>tracesToLogsV2</code> no datasource: pega <code>service.name</code> + intervalo do span → query LogQL <code>{service=\"X\"} | trace_id=\"Y\"</code>.</li><li>Resultado: do log você abre o trace; do span você abre os logs daquele span.</li></ol><p><strong>Metrics ↔ Traces (exemplars)</strong>:</p><ol><li>SDK OTel injeta automaticamente <code>trace_id</code> no histogram bucket onde a observação caiu (formato OpenMetrics).</li><li>Prometheus armazena com <code>--enable-feature=exemplar-storage</code>.</li><li>Datasource Prometheus tem <code>exemplarTraceIdDestinations: [{name: trace_id, datasourceUid: tempo}]</code>.</li><li>No painel: ative Exemplars. Diamantes amarelos = traces específicos. Clique → trace abre.</li></ol><p><strong>Logs ↔ Metrics</strong>: indireto via trace_id ou via service.name + timestamp. Loki também consegue gerar métricas de logs (<code>rate({service=\"x\"} |= \"error\" [5m])</code>) — mas isso é métrica derivada de log, não correlação.</p><p><strong>Pipeline completo</strong>:</p><ol><li>App instrumentada com OTel SDK: traces + metrics + logs com <em>mesmo</em> trace_id quando houver span ativo.</li><li>Collector exporta: traces → Tempo, metrics → Prometheus/Mimir, logs → Loki.</li><li>Grafana datasources configurados com correlações cruzadas (4 links: Tempo↔Loki, Tempo↔Prom, Loki↔Tempo, Prom→Tempo).</li><li>Workflow real: alerta dispara em métrica → exemplar leva ao trace específico → tracesToLogs abre logs daquele span → diagnóstico em 4 cliques, ~3 minutos.</li></ol><p><strong>Sem essa correlação</strong>: você abre 3 sistemas separados, copia timestamps manualmente, faz grep em logs por chute. 30+ minutos para identificar a causa de um spike.</p>",
+        tip: "A frase '4 cliques, 3 minutos' contra '30+ minutos' quantifica o ROI da correlação — argumento de arquitetura em entrevista de senior.",
+        level: "senior",
+      },
+    ],
+    codeExamples: [
+      {
+        title: "instrument.ts — Setup completo de SDK Node.js (TracerProvider + MeterProvider + LoggerProvider + OTLP + auto-instrumentation)",
+        description: "Bootstrap único que configura os 3 sinais (traces, metrics, logs) com OTLP gRPC para Collector e auto-instrumentation completa. Importe ANTES de qualquer outro módulo — em ESM use --import, em CJS use --require.",
+        language: "typescript",
+        code: `// instrument.ts — bootstrap único de OTel
+import { NodeSDK } from '@opentelemetry/sdk-node'
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc'
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc'
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-grpc'
+import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
+import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs'
+import { resourceFromAttributes } from '@opentelemetry/resources'
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+  ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
+} from '@opentelemetry/semantic-conventions/incubating'
+
+const collectorUrl = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://otel-collector:4317'
+
+const resource = resourceFromAttributes({
+  [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'checkout-api',
+  [ATTR_SERVICE_VERSION]: process.env.SERVICE_VERSION ?? '0.0.0',
+  [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: process.env.NODE_ENV ?? 'development',
+  'service.instance.id': process.env.HOSTNAME ?? 'local',
+})
+
+const sdk = new NodeSDK({
+  resource,
+  traceExporter: new OTLPTraceExporter({ url: collectorUrl }),
+  metricReader: new PeriodicExportingMetricReader({
+    exporter: new OTLPMetricExporter({ url: collectorUrl }),
+    exportIntervalMillis: 30_000,
+  }),
+  logRecordProcessors: [
+    new BatchLogRecordProcessor(new OTLPLogExporter({ url: collectorUrl })),
+  ],
+  instrumentations: [
+    getNodeAutoInstrumentations({
+      // desligue instrumentações ruidosas — fs gera 1000s de spans
+      '@opentelemetry/instrumentation-fs': { enabled: false },
+      '@opentelemetry/instrumentation-http': {
+        // ignora health checks e probes
+        ignoreIncomingRequestHook: req => /^\\/(health|ready|metrics)/.test(req.url ?? ''),
+      },
+    }),
+  ],
+})
+
+// Inicia ANTES de tudo — auto-instr precisa interceptar require()
+sdk.start()
+
+// Shutdown gracioso — não perca spans no SIGTERM
+process.on('SIGTERM', () => {
+  sdk.shutdown()
+    .then(() => console.log('OTel SDK shutdown OK'))
+    .catch((err) => console.error('OTel SDK shutdown error', err))
+    .finally(() => process.exit(0))
+})
+
+// Uso (em outro arquivo): node --require ./instrument.js src/server.js
+// ou ESM: node --import ./instrument.js src/server.js`,
+      },
+      {
+        title: "Manual span — atributos de negócio, eventos, status e propagação HTTP via headers",
+        description: "Span manual cobrindo as 3 dimensões: atributos (estado), eventos (timeline), status (resultado). Inclui propagação manual via headers para chamadas downstream — útil quando auto-instr não cobre o cliente HTTP usado.",
+        language: "typescript",
+        code: `import { trace, context, propagation, SpanStatusCode, SpanKind } from '@opentelemetry/api'
+
+const tracer = trace.getTracer('checkout', '1.4.2')
+
+// 1) Span manual com atributos de domínio + eventos + status
+export async function autorizarPagamento(pedido: Pedido) {
+  return tracer.startActiveSpan(
+    'pagamento.autorizar',
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        // Custom domain attributes — namespace 'order'/'payment'
+        'order.id': pedido.id,
+        'order.value': pedido.total,
+        'order.currency': pedido.moeda,
+        'customer.tier': pedido.cliente.tier,
+        'payment.gateway': 'stripe',
+      },
+    },
+    async (span) => {
+      try {
+        // 2) Eventos = pontos no tempo dentro do span
+        span.addEvent('validation.start')
+        await validar(pedido)
+        span.addEvent('validation.success')
+
+        span.addEvent('gateway.call.start')
+        const result = await chamarGatewayComContexto(pedido)
+        span.addEvent('gateway.call.success', { 'gateway.response_id': result.id })
+
+        // 3) Atributos podem ser adicionados depois
+        span.setAttribute('payment.authorization_id', result.authId)
+        span.setStatus({ code: SpanStatusCode.OK })
+
+        return result
+      } catch (err) {
+        // recordException + ERROR status — Tempo/Jaeger destacam visualmente
+        span.recordException(err as Error)
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (err as Error).message,
+        })
+        throw err
+      } finally {
+        span.end()  // SEMPRE no finally — sem isso, span fica aberto pra sempre
+      }
+    }
+  )
+}
+
+// 4) Propagação manual via HTTP headers (quando auto-instr não cobre o cliente)
+async function chamarGatewayComContexto(pedido: Pedido) {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-idempotency-key': pedido.id,
+  }
+
+  // Injeta traceparent + tracestate + baggage no headers
+  propagation.inject(context.active(), headers)
+
+  return fetch('https://gateway.example/charge', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(pedido),
+  }).then(r => r.json())
+}
+
+// 5) Acessar span ativo de qualquer lugar (ex: middleware adicionar atributos)
+export function tagUserOnActiveSpan(user: User) {
+  const span = trace.getActiveSpan()
+  // Sempre valide — pode estar fora de span (cron, startup)
+  span?.setAttributes({
+    'user.id': user.id,
+    'user.tier': user.tier,
+    // NUNCA: 'user.email' (PII), 'user.password' (jamais)
+  })
+}`,
+      },
+      {
+        title: "otel-collector.yaml — Pipeline produção: receivers, memory_limiter, tail_sampling, batch, attributes (PII redaction), múltiplos exporters",
+        description: "Configuração completa de produção: 3 pipelines (traces, metrics, logs), tail sampling com 4 policies, redaction de PII, exemplars, exportação para Tempo + Mimir + Loki + Jaeger (durante migração).",
+        language: "yaml",
+        code: `# otel-collector.yaml — production-grade
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 16
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins: ["https://app.example.com"]
+
+  # Migração: receba também Jaeger Thrift de clientes legados
+  jaeger:
+    protocols:
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+
+processors:
+  # SEMPRE primeiro — sem ele, OOM mata o Collector em pico
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 2000
+    spike_limit_mib: 400
+
+  # Enriquece com K8s metadata (pod, namespace, deployment)
+  k8sattributes:
+    auth_type: serviceAccount
+    extract:
+      metadata: [k8s.namespace.name, k8s.pod.name, k8s.deployment.name]
+
+  # Tail sampling — 4 policies em OR (any match = keep)
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 1000
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: keep-slow
+        type: latency
+        latency: { threshold_ms: 1000 }
+      - name: keep-premium-users
+        type: string_attribute
+        string_attribute:
+          key: customer.tier
+          values: [premium, enterprise]
+      - name: probabilistic-rest
+        type: probabilistic
+        probabilistic: { sampling_percentage: 5 }
+
+  # PII redaction — antes de exportar
+  attributes/redact:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: user.email
+        action: delete
+      - key: db.statement
+        action: hash  # mantém valor mas hashea — útil para correlação sem vazar SQL
+
+  # Sempre próximo do fim — agrupa para reduzir overhead de gRPC/TLS
+  batch:
+    send_batch_size: 8192
+    send_batch_max_size: 10000
+    timeout: 5s
+
+exporters:
+  # Traces para Tempo
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    tls: { insecure: true }
+
+  # Migração: também envie para Jaeger durante transição (apaga depois)
+  otlp/jaeger:
+    endpoint: jaeger-collector:4317
+    tls: { insecure: true }
+
+  # Metrics → Mimir (compatible com Prometheus remote_write)
+  prometheusremotewrite:
+    endpoint: http://mimir-distributor:9009/api/v1/push
+    headers:
+      X-Scope-OrgID: tenant-prod
+    resource_to_telemetry_conversion: { enabled: true }
+    # Habilita exemplars no remote_write — link p99 ↔ trace
+    send_exemplars: true
+
+  # Logs → Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+
+  # Debug em dev — descomente quando precisar
+  # debug:
+  #   verbosity: detailed
+  #   sampling_initial: 5
+  #   sampling_thereafter: 1000
+
+extensions:
+  health_check: { endpoint: 0.0.0.0:13133 }
+  pprof: { endpoint: 0.0.0.0:1777 }
+  zpages: { endpoint: 0.0.0.0:55679 }
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger]
+      processors: [memory_limiter, k8sattributes, tail_sampling, attributes/redact, batch]
+      exporters: [otlphttp/tempo, otlp/jaeger]
+
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, batch]
+      exporters: [prometheusremotewrite]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, k8sattributes, attributes/redact, batch]
+      exporters: [loki]
+
+  telemetry:
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888  # /metrics do próprio Collector — monitore!
+    logs:
+      level: info`,
+      },
+      {
+        title: "BullMQ — propagação de contexto manual em filas (producer + consumer)",
+        description: "Filas não propagam traceparent automaticamente. Producer injeta o contexto nos dados do job; consumer extrai e cria span filho. Sem isso, o trace quebra na fronteira da fila.",
+        language: "typescript",
+        code: `import { trace, context, propagation, SpanKind } from '@opentelemetry/api'
+import { Queue, Worker } from 'bullmq'
+
+const tracer = trace.getTracer('order-worker', '1.0')
+const queue = new Queue('pedidos', { connection: { host: 'redis' } })
+
+// PRODUCER — injeta contexto OTel nos dados do job
+export async function publicarPedido(pedido: Pedido) {
+  return tracer.startActiveSpan(
+    'pedido.publicar',
+    { kind: SpanKind.PRODUCER, attributes: { 'messaging.system': 'redis', 'messaging.destination.name': 'pedidos' } },
+    async (span) => {
+      const carrier: Record<string, string> = {}
+      // Injeta traceparent + tracestate + baggage no carrier
+      propagation.inject(context.active(), carrier)
+
+      await queue.add('processar-pedido', {
+        ...pedido,
+        _otelContext: carrier,  // viaja junto com os dados do job
+      })
+
+      span.setAttribute('messaging.message.id', pedido.id)
+      span.end()
+    }
+  )
+}
+
+// CONSUMER — extrai contexto e cria span filho
+new Worker(
+  'pedidos',
+  async (job) => {
+    // Extrai o contexto do produtor
+    const parentCtx = propagation.extract(
+      context.active(),
+      job.data._otelContext ?? {}
+    )
+
+    // Roda o handler dentro do contexto extraído
+    return context.with(parentCtx, () =>
+      tracer.startActiveSpan(
+        'pedido.consumir',
+        { kind: SpanKind.CONSUMER, attributes: { 'messaging.system': 'redis', 'job.id': job.id ?? '' } },
+        async (span) => {
+          try {
+            // Este span tem o MESMO trace_id do produtor — waterfall ininterrupto
+            await processarPedido(job.data)
+            span.end()
+          } catch (err) {
+            span.recordException(err as Error)
+            span.setStatus({ code: 2, message: (err as Error).message })
+            span.end()
+            throw err
+          }
+        }
+      )
+    )
+  },
+  { connection: { host: 'redis' }, concurrency: 5 }
+)
+
+async function processarPedido(p: Pedido) {
+  // ...
+}`,
+      },
+    ],
+    videos: [
+      {
+        title: "OpenTelemetry Tutorial — Distributed Tracing",
+        channel: "Honeycomb",
+        url: "https://www.youtube.com/watch?v=r8UvWSX3KA8",
+        topic: "Fundamentos de tracing distribuído com OTel — spans, context propagation, atributos",
+        note: "Liz Fong-Jones (ex-Google SRE, Honeycomb) explica os conceitos do zero. Bom ponto de partida antes de mergulhar no Collector.",
+      },
+      {
+        title: "OpenTelemetry Collector Deep Dive — receivers, processors, exporters",
+        channel: "CNCF",
+        url: "https://www.youtube.com/watch?v=PiIWGT7XU8s",
+        topic: "Arquitetura do Collector: pipelines, tail sampling, memory_limiter, dimensionamento",
+        note: "Material denso da KubeCon — cobre os trade-offs de produção que caem em entrevista de SRE/Platform.",
+      },
+      {
+        title: "Auto-Instrumentation in Node.js with OpenTelemetry",
+        channel: "OpenTelemetry",
+        url: "https://www.youtube.com/watch?v=ZspRq4nq0xI",
+        topic: "Bootstrap de SDK, auto-instrumentations-node, debugging de spans não chegando ao backend",
+        note: "Walkthrough oficial — útil para entender o que a auto-instr cobre e onde manual é necessária.",
+      },
+      {
+        title: "Tail Sampling at Scale — Lessons from Production",
+        channel: "OpenTelemetry",
+        url: "https://www.youtube.com/watch?v=DT7vqkSlj0g",
+        topic: "Implementação real de tail sampling com loadbalancingexporter, consistent hashing por trace_id",
+        note: "Caso real de produção com múltiplos Collectors — exatamente o cenário da Q&A de tail sampling.",
+      },
+      {
+        title: "OpenTelemetry Logs — The Third Signal",
+        channel: "OpenTelemetry",
+        url: "https://www.youtube.com/watch?v=k9LB1Ol0lHs",
+        topic: "Log signal no OTel, log bridge para Pino/Winston/Logback, correlação trace_id em logs",
+        note: "Explica como o LogRecord se diferencia de Span e como o bridge injeta trace_id automaticamente.",
+      },
+    ],
+    mindmap: {
+      title: "OpenTelemetry — ecossistema completo (signals · API · Collector · backends)",
+      html: `<style>
+.otmm-wrap{font-family:'Space Grotesk',sans-serif;background:#0a0a0a;border-radius:12px;padding:22px;color:#e2e8f0}
+.otmm-center{background:linear-gradient(135deg,#f5a800,#dc2626);color:#fff;padding:.85rem 1.6rem;border-radius:.6rem;font-weight:700;font-size:1.05rem;text-align:center;margin:0 auto 1.4rem;display:inline-block}
+.otmm-row{display:flex;flex-wrap:wrap;gap:.85rem;justify-content:center;margin-bottom:.85rem}
+.otmm-branch{background:#111827;border-radius:.7rem;padding:.85rem 1rem;min-width:200px;max-width:240px;border-left:3px solid #334155}
+.otmm-node{font-weight:700;margin-bottom:.45rem;font-size:.85rem;letter-spacing:.02em}
+.otmm-items{display:flex;flex-direction:column;gap:.18rem}
+.otmm-item{color:#94a3b8;font-size:.74rem;padding:.1rem .25rem;border-left:1.5px solid #1f2937;line-height:1.45}
+.otmm-pill{display:inline-block;font-size:.65rem;font-family:'JetBrains Mono',monospace;background:rgba(245,168,0,.1);color:#f5a800;padding:.05rem .35rem;border-radius:3px;margin-left:.2rem}
+</style>
+<div class="otmm-wrap" style="text-align:center">
+  <div class="otmm-center">OpenTelemetry — observabilidade vendor-neutral</div>
+  <div style="text-align:left">
+    <div class="otmm-row">
+      <div class="otmm-branch" style="border-left-color:#f5a800">
+        <div class="otmm-node" style="color:#f5a800">Signals</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Traces — spans &amp; waterfall</span>
+          <span class="otmm-item">Metrics — counter/gauge/histogram</span>
+          <span class="otmm-item">Logs — eventos discretos</span>
+          <span class="otmm-item">Profiles (continuous, GA 2025)</span>
+          <span class="otmm-item">Baggage — metadata cross-service</span>
+          <span class="otmm-item">Resource — identidade do processo</span>
+          <span class="otmm-item">Events — pontos dentro do span</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#fbbf24">
+        <div class="otmm-node" style="color:#fbbf24">API &amp; SDK</div>
+        <div class="otmm-items">
+          <span class="otmm-item">TracerProvider · Tracer · Span</span>
+          <span class="otmm-item">MeterProvider · Meter · Instrument</span>
+          <span class="otmm-item">LoggerProvider · Logger · LogRecord</span>
+          <span class="otmm-item">Context · ContextManager</span>
+          <span class="otmm-item">Propagator · TextMapPropagator</span>
+          <span class="otmm-item">SpanProcessor (Batch/Simple)</span>
+          <span class="otmm-item">Exporter (OTLP/Console/Custom)</span>
+          <span class="otmm-item">10+ linguagens (TS/Go/Python/Java/...)</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#22d3ee">
+        <div class="otmm-node" style="color:#22d3ee">Instrumentation</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Auto — runtime monkey-patch</span>
+          <span class="otmm-item">Library — packages oficiais (HTTP/DB/...)</span>
+          <span class="otmm-item">Manual — startActiveSpan + atributos</span>
+          <span class="otmm-item">Zero-code (Java agent, Python distro)</span>
+          <span class="otmm-item">eBPF (Beyla, Pixie) — sem SDK</span>
+          <span class="otmm-item">Web (browser SDK, navegador)</span>
+        </div>
+      </div>
+    </div>
+    <div class="otmm-row">
+      <div class="otmm-branch" style="border-left-color:#a855f7">
+        <div class="otmm-node" style="color:#a855f7">Collector</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Receivers (OTLP/Prom/Jaeger/Zipkin)</span>
+          <span class="otmm-item">Processors (memory_limiter ① / batch)</span>
+          <span class="otmm-item">tail_sampling · k8sattributes · transform</span>
+          <span class="otmm-item">Exporters (OTLP/Tempo/Prom/Loki)</span>
+          <span class="otmm-item">Pipelines (traces · metrics · logs)</span>
+          <span class="otmm-item">Modos: Agent (sidecar) · Gateway</span>
+          <span class="otmm-item">loadbalancingexporter (consistent hash)</span>
+          <span class="otmm-item">Distros: contrib · core · custom</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#ef4444">
+        <div class="otmm-node" style="color:#ef4444">Propagation</div>
+        <div class="otmm-items">
+          <span class="otmm-item">W3C TraceContext (traceparent)</span>
+          <span class="otmm-item">tracestate (vendor opaque)</span>
+          <span class="otmm-item">B3 (Zipkin legado, single/multi)</span>
+          <span class="otmm-item">Baggage (key=value cross-service)</span>
+          <span class="otmm-item">AWS X-Amzn-Trace-Id</span>
+          <span class="otmm-item">Jaeger uber-trace-id</span>
+          <span class="otmm-item">OTEL_PROPAGATORS (composite)</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#4ade80">
+        <div class="otmm-node" style="color:#4ade80">Sampling</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Head: AlwaysOn / AlwaysOff</span>
+          <span class="otmm-item">Head: TraceIdRatioBased(p)</span>
+          <span class="otmm-item">Head: ParentBased (default rec.)</span>
+          <span class="otmm-item">Tail (no Collector) — status/latency</span>
+          <span class="otmm-item">Tail: probabilistic / composite</span>
+          <span class="otmm-item">Tail: string_attribute (premium users)</span>
+          <span class="otmm-item">Decision: head + tail combinados</span>
+        </div>
+      </div>
+    </div>
+    <div class="otmm-row">
+      <div class="otmm-branch" style="border-left-color:#fb7185">
+        <div class="otmm-node" style="color:#fb7185">Semantic Conventions</div>
+        <div class="otmm-items">
+          <span class="otmm-item">HTTP — http.request.method · url.path</span>
+          <span class="otmm-item">DB — db.system · db.statement</span>
+          <span class="otmm-item">RPC — rpc.service · rpc.method</span>
+          <span class="otmm-item">Messaging — messaging.system/destination</span>
+          <span class="otmm-item">FaaS — faas.invocation_id</span>
+          <span class="otmm-item">K8s — k8s.namespace/pod/deployment</span>
+          <span class="otmm-item">Cloud — cloud.provider/region</span>
+          <span class="otmm-item">GenAI — gen_ai.* (LLM observability)</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#60a5fa">
+        <div class="otmm-node" style="color:#60a5fa">OTLP Protocol</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Protobuf binário (canonical)</span>
+          <span class="otmm-item">gRPC — porta 4317 (streaming)</span>
+          <span class="otmm-item">HTTP — porta 4318 (compat)</span>
+          <span class="otmm-item">Compressão gzip nativa</span>
+          <span class="otmm-item">TLS · mTLS · Bearer auth</span>
+          <span class="otmm-item">Retry com exponential backoff</span>
+        </div>
+      </div>
+      <div class="otmm-branch" style="border-left-color:#94a3b8">
+        <div class="otmm-node" style="color:#94a3b8">Backends</div>
+        <div class="otmm-items">
+          <span class="otmm-item">Traces — Jaeger · Tempo · Zipkin</span>
+          <span class="otmm-item">Metrics — Prometheus · Mimir · Cortex</span>
+          <span class="otmm-item">Logs — Loki · Elasticsearch · Splunk</span>
+          <span class="otmm-item">SaaS — Datadog · Honeycomb · NR</span>
+          <span class="otmm-item">SaaS — Grafana Cloud · Lightstep</span>
+          <span class="otmm-item">All-in-one — SigNoz · Uptrace</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "OTel é API + SDK + Collector + protocolo. O ponto chave: vendor-neutral. Você instrumenta uma vez, troca de backend mudando só o YAML do Collector. Semantic Conventions são o que torna correlação possível entre ferramentas.",
+    },
+    exercises: [
+      {
+        level: 'iniciante',
+        title: "Suba uma stack OTel local e instrumente um app Node.js Express",
+        description: "Use docker-compose com Jaeger (all-in-one) ou Tempo + Grafana. Crie um Express com 2 endpoints (/health, /pedido) que faz uma query no Postgres. Instrumente com auto-instrumentation usando o instrument.ts do codeExample 1. Confirme que os spans aparecem no Jaeger UI com service.name, http.request.method, db.system corretos. Adicione resource attributes service.version e deployment.environment.",
+        concepts: ["docker-compose", "auto-instrumentation", "OTLP exporter", "resource attributes", "Jaeger/Tempo UI"],
+        hint: "Em ESM use 'node --import ./instrument.js src/server.js' (não --require). Se spans não aparecem: confirme que OTEL_EXPORTER_OTLP_ENDPOINT está configurado e que o Collector/Jaeger está rodando antes do app subir.",
+        relatedKeypoints: [0, 1],
+      },
+      {
+        level: 'intermediario',
+        title: "Adicione spans manuais com atributos de negócio + propagação em fila BullMQ",
+        description: "Estenda o exercício anterior: crie endpoint /checkout que enfileira um job BullMQ. Producer cria span 'checkout.criar' com atributos order.id, order.value, customer.tier, e injeta contexto OTel no job. Worker consumer extrai contexto, cria span filho 'pedido.processar' com kind=CONSUMER, e simula processamento (DB + chamada externa fake). Confirme no Jaeger que producer e consumer aparecem como UM trace (não dois separados). Use o codeExample 4 como referência.",
+        concepts: ["manual spans", "domain attributes", "BullMQ", "context propagation manual", "SpanKind producer/consumer"],
+        hint: "Sem propagation.inject/extract o trace quebra. Confirme que job.data tem campo _otelContext após enfileirar (console.log do job). No worker, antes de criar span, faça propagation.extract e context.with — fora do context.with, novos spans são root, não filhos.",
+        relatedKeypoints: [1, 2],
+      },
+      {
+        level: 'intermediario',
+        title: "Configure Collector com tail sampling preservando 100% dos erros",
+        description: "Substitua o exporter direto Jaeger por OTel Collector. Configure receiver OTLP, processors memory_limiter + tail_sampling + batch, exporter otlphttp para Tempo. Tail sampling com 3 policies: keep-errors (status_code ERROR), keep-slow (latency > 500ms), probabilistic 5%. Use o codeExample 3 como base. Gere tráfego: 100 requests OK, 5 lentos (sleep 1s), 5 com erro (throw). Confirme no Tempo que TODOS os 10 (lentos+erros) aparecem mas só ~5 dos 100 OK.",
+        concepts: ["OTel Collector", "memory_limiter", "tail_sampling policies", "decision_wait", "OTLP HTTP"],
+        hint: "decision_wait padrão é 30s — se você gera tráfego rápido, espere antes de checar. Se TODOS aparecem (não só os filtrados), sua policy está errada — confira se status_code policy usa { status_codes: [ERROR] } com array, e probabilistic é a última (avaliada por último).",
+        relatedKeypoints: [3, 4],
+      },
+      {
+        level: 'senior',
+        title: "Implemente correlação completa traces ↔ logs ↔ metrics no LGTM",
+        description: "Stack completo: app + OTel Collector + Tempo + Loki + Prometheus + Grafana. App emite traces (auto-instr), métricas (histogram com buckets, exemplars automáticos via OTel SDK) e logs estruturados (Pino + opentelemetry-instrumentation-pino que injeta trace_id). Configure: Prometheus com --enable-feature=exemplar-storage e scrape_protocols OpenMetrics. Datasource Tempo com tracesToLogsV2 → Loki. Datasource Loki com derivedFields para trace_id. Datasource Prometheus com exemplarTraceIdDestinations. Validação: gere request lento, abra painel p99, clique no exemplar, abre trace, clique 'View logs', vê logs filtrados pelo trace_id. Os 3 sinais conectados.",
+        concepts: ["exemplars", "tracesToLogsV2", "derivedFields", "OpenMetrics", "Pino bridge", "correlação 3 sinais"],
+        hint: "Se exemplars não aparecem: confira /metrics do app (linhas com '# {trace_id=\"...\"}'), depois Prometheus /api/v1/query_exemplars, depois datasource. Cada ponto que falhar bloqueia silenciosamente. Logs sem trace_id: confirme que pino-instrumentation está ativada e que log é emitido dentro de span ativo (try/finally com span.end no final).",
+        relatedKeypoints: [0, 1, 5],
+      },
+      {
+        level: 'senior',
+        title: "Migre uma app de OTLP HTTP simples para Collector com loadbalancing + múltiplos Collectors stateful",
+        description: "Cenário: você tem 1 Collector com tail sampling. Quer escalar para 3 réplicas. Sem coordenação, cada Collector vê só ~1/3 dos spans de cada trace e descarta tudo (decisão errada). Solução: 2 camadas — frontend Collectors (sem tail sampling, usam loadbalancingexporter com consistent hash por trace_id) e backend Collectors (com tail sampling). Configure no docker-compose ou k8s: 2 frontend + 3 backend. Valide com app que cria traces de 5+ services — confirme que cada trace_id é roteado SEMPRE para o mesmo backend Collector e que tail sampling decide corretamente (todos os spans do trace chegam no mesmo Collector). Adicione metrics do próprio Collector (otelcol_processor_dropped_spans, otelcol_loadbalancer_backend_*) e crie alerta.",
+        concepts: ["loadbalancingexporter", "consistent hashing por trace_id", "Collector multi-tier", "Collector self-monitoring"],
+        hint: "loadbalancingexporter precisa do route_key: traceID. Backends devem expor OTLP gRPC. Use DNS service discovery do k8s (resolver: dns) para o load balancer descobrir os backends. Métrica otelcol_processor_dropped_spans > 0 indica memory_limiter ativo — aumente recursos.",
+        relatedKeypoints: [3],
+      },
     ],
     resources: [
       { title: "OpenTelemetry docs", url: "https://opentelemetry.io/docs/", kind: "docs" },

@@ -712,6 +712,7 @@ monitoring:
     {
       title: "Stack full-stack dev — frontend + api + postgres + redis com hot reload",
       description: "Pilha de desenvolvimento completa: frontend Next.js, API Node, Postgres com healthcheck, Redis. Hot reload via bind mount, .env para credenciais, profiles para serviços opcionais.",
+      language: 'yaml',
       code: `# compose.yaml
 services:
 frontend:
@@ -792,6 +793,7 @@ redis_data:`,
     {
       title: "Override files — separação dev / prod",
       description: "Estratégia recomendada: base + override automático para dev + arquivo prod explícito. Build local em dev, image SHA pin em prod, replicas e resource limits só em prod.",
+      language: 'yaml',
       code: `# compose.yaml — base (igual em todo ambiente)
 services:
 api:
@@ -843,6 +845,7 @@ api:
     {
       title: "Profiles — ambientes opcionais (debug, monitoring)",
       description: "Profiles permitem ligar partes opcionais sem editar o yaml. Útil pra adminer, mailhog, jaeger, prometheus que você só quer às vezes — mantém docker compose up rápido por padrão.",
+      language: 'yaml',
       code: `services:
 # core — sempre sobe
 api:
@@ -887,6 +890,7 @@ grafana:
     {
       title: "CI — Compose para testes integrados",
       description: "Em GitHub Actions, suba banco real via Compose para teste integrado. Mais fiel que mock e mais fácil que matrix de serviços. Cleanup garantido com down -v.",
+      language: 'yaml',
       code: `# compose.test.yaml
 services:
 test:
@@ -922,6 +926,92 @@ redis:
 # - run: docker compose -f compose.test.yaml up --abort-on-container-exit --exit-code-from test
 # - run: docker compose -f compose.test.yaml down -v   # cleanup
 `,
+    },
+    {
+      title: "Multi-container com secrets — Node + Postgres + Redis sem vazar credenciais",
+      description: "Pilha pronta pra produção single-host: backend Node, Postgres com healthcheck, Redis com password, secrets em arquivo montado em /run/secrets (não em environment), networks isoladas e restart unless-stopped.",
+      language: 'yaml',
+      code: `# compose.yaml — pilha com secrets corretos
+services:
+backend:
+  image: myorg/backend:1.4.2
+  ports:
+    - "4000:4000"
+  environment:
+    NODE_ENV: production
+    DATABASE_URL_FILE: /run/secrets/db_url        # app lê arquivo, não env
+    REDIS_PASSWORD_FILE: /run/secrets/redis_pwd
+    JWT_SECRET_FILE: /run/secrets/jwt_secret
+  secrets:
+    - db_url
+    - redis_pwd
+    - jwt_secret
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_started
+  networks:
+    - public-net
+    - backend-net
+  restart: unless-stopped
+
+db:
+  image: postgres:16-alpine
+  environment:
+    POSTGRES_USER: app
+    POSTGRES_PASSWORD_FILE: /run/secrets/db_password   # postgres aceita _FILE nativo
+    POSTGRES_DB: app
+  secrets:
+    - db_password
+  volumes:
+    - db_data:/var/lib/postgresql/data
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U app -d app"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+    start_period: 30s
+  networks:
+    - backend-net
+  restart: unless-stopped
+
+redis:
+  image: redis:7-alpine
+  command: >
+    sh -c 'redis-server --requirepass "$$(cat /run/secrets/redis_pwd)" --appendonly yes'
+  secrets:
+    - redis_pwd
+  volumes:
+    - redis_data:/data
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -a $$(cat /run/secrets/redis_pwd) ping | grep PONG"]
+    interval: 5s
+    timeout: 3s
+    retries: 10
+  networks:
+    - backend-net
+  restart: unless-stopped
+
+networks:
+public-net:
+backend-net:
+  internal: true              # sem saída pra internet — defesa em profundidade
+
+volumes:
+db_data:
+redis_data:
+
+secrets:
+db_url:
+  file: ./secrets/db_url.txt
+db_password:
+  file: ./secrets/db_password.txt
+redis_pwd:
+  file: ./secrets/redis_pwd.txt
+jwt_secret:
+  file: ./secrets/jwt_secret.txt
+# em prod sério: external: true (vindo do Swarm/Vault/Cloud Secrets Manager)`,
     },
   ],
   gotchas: [
@@ -1001,6 +1091,43 @@ redis:
       q: "Compose suporta GPU? Como rodar workload de ML?",
       level: 'senior',
       a: "<p>Sim, desde Compose v2 com Docker Engine 19.03+. A chave é <code>deploy.resources.reservations.devices</code> — funciona em Compose também (apesar de estar dentro de deploy:).</p><pre><code>services:\n  ml:\n    image: nvidia/cuda:12.0-base\n    deploy:\n      resources:\n        reservations:\n          devices:\n            - driver: nvidia\n              count: 1                  # ou 'all'\n              capabilities: [gpu]\n    environment:\n      NVIDIA_VISIBLE_DEVICES: all\n      NVIDIA_DRIVER_CAPABILITIES: compute,utility</code></pre><p><strong>Pré-requisitos no host:</strong> NVIDIA driver instalado + nvidia-container-toolkit (apt install nvidia-container-toolkit + restart docker daemon). Em GPUs específicas use <code>device_ids: ['0', '1']</code> em vez de count.</p><p>Pra prod ML em escala, K8s com nvidia-device-plugin ou plataforma gerenciada (Kubeflow, SageMaker) é mais comum. Compose com GPU é pro dev local de modelo ou single-host de inference.</p>",
+    },
+    {
+      q: "Como o DNS interno do Docker Compose funciona? Por que localhost não funciona entre containers?",
+      level: 'senior',
+      a: "<p>Cada container roda num <strong>network namespace isolado</strong> do kernel — tem sua própria interface lo (loopback). <code>localhost</code> dentro do container da api só alcança a própria api, nunca o db. Por isso <code>DATABASE_URL=postgres://localhost:5432</code> falha — está apontando pro localhost do próprio container.</p><p><strong>Como o Compose resolve service-name → IP</strong>:</p><ol><li>Compose cria uma bridge Linux por rede declarada (default = <code>nomeprojeto_default</code>).</li><li>Cada container conectado à rede recebe um IP da subnet (ex: 172.18.0.3) e uma entrada num <strong>DNS embutido</strong> que o Docker roda em <code>127.0.0.11</code> dentro de cada container.</li><li>O resolv.conf do container aponta pra esse DNS interno: <code>nameserver 127.0.0.11</code>.</li><li>Quando a api faz <code>fetch('http://db:5432')</code>, glibc consulta 127.0.0.11, que retorna o IP do container do serviço <code>db</code>.</li><li>Pacote sai pela bridge e chega no container do db — que aceita conexão na sua porta interna 5432 (sem precisar de <code>ports</code> mapeado pro host).</li></ol><p><strong>Implicações práticas</strong>: você não usa <code>ports:</code> pra comunicação interna — só pra expor pro host. Hostname é exatamente o nome do serviço (case sensitive em alguns casos). Aliases extras via <code>networks.&lt;net&gt;.aliases: [primary, master]</code>. Em K8s o equivalente é CoreDNS resolvendo <code>service.namespace.svc.cluster.local</code>.</p>",
+      tip: "Mencione o IP 127.0.0.11 do DNS interno — diferencia candidato que decorou de quem realmente entende o mecanismo. Quem explica que cada container tem seu próprio loopback ganha pontos.",
+    },
+    {
+      q: "Qual a diferença real entre depends_on com service_healthy e service_started?",
+      level: 'senior',
+      a: "<p>O <code>depends_on</code> simples (sem condition) e <code>service_started</code> são equivalentes — esperam só o <strong>container iniciar</strong> (PID 1 começou a rodar). Não esperam o processo dentro estar pronto. Postgres pode levar 5-15s entre o container subir e aceitar conexão. App que assume DB pronto crasha no primeiro insert.</p><p><strong><code>service_healthy</code></strong> espera o <strong>healthcheck retornar exit 0</strong>. Sem <code>healthcheck</code> declarado no serviço dependido, <code>service_healthy</code> bloqueia indefinidamente — Compose não inventa healthcheck. Então a regra é: healthcheck no dependido + condition no dependente, sempre em par.</p><p><strong>Exit codes do healthcheck</strong>: 0 = healthy, 1 = unhealthy, 2 = reservado (não use). Estados: <code>starting</code> (durante <code>start_period</code>), <code>healthy</code>, <code>unhealthy</code>.</p><p><strong>Por que healthcheck é obrigatório em produção</strong>:</p><ul><li>Auto-restart funciona com healthcheck — sem ele, container 'rodando' mas com app travada nunca reinicia.</li><li>Load balancer / proxy (traefik, nginx) descobre estado via healthcheck pra não rotear pra app morta.</li><li>Em rolling deploy (Swarm/K8s), readiness probe usa healthcheck pra decidir quando promover novo container.</li></ul><p><strong>Pegadinha</strong>: <code>service_healthy</code> só vale na inicialização. Se o DB ficar unhealthy depois que a api subiu, a api não morre junto — você precisa de retry com backoff no driver da app. Healthcheck do Compose é gate de start, não watchdog runtime.</p>",
+    },
+    {
+      q: "Quando usar build vs image no Compose? E o que muda com build avançado (context, dockerfile, target)?",
+      level: 'senior',
+      a: "<p><strong>image apenas</strong>: pull do registry. Use em prod (imagem versionada por SHA), em dev quando a imagem é estável e você não toca no Dockerfile.</p><p><strong>build apenas</strong>: cria imagem local a cada <code>up --build</code>. Use em dev quando você muda o Dockerfile com frequência.</p><p><strong>build + image</strong>: build local mas salva com o nome declarado em <code>image</code>. Útil pra: (a) reusar a tag no <code>docker compose push</code>, (b) ter um nome estável pra outras stacks referenciarem.</p><p><strong>build avançado</strong> (objeto):</p><pre><code>build:\n  context: ./api              # raiz dos paths COPY/ADD\n  dockerfile: Dockerfile.dev  # arquivo customizado (default: Dockerfile)\n  target: development         # stage do multi-stage Dockerfile\n  args:\n    NODE_VERSION: '20'        # vira ARG dentro do Dockerfile\n  cache_from:\n    - myorg/api:cache         # acelera CI puxando layer cache\n  platforms:\n    - linux/amd64\n    - linux/arm64             # multi-arch (precisa de buildx)</code></pre><p><strong>Multi-stage no Compose</strong>: o mesmo Dockerfile pode ter <code>FROM node AS development</code> e <code>FROM node AS production</code>. No compose.override (dev) você usa <code>target: development</code> (com nodemon, sourcemaps); no compose.prod.yaml, <code>target: production</code> (build minificado, sem dev deps).</p><p><strong>Quando NÃO usar build em prod</strong>: nunca buildar no host de produção. Build em CI, push pra registry com SHA, prod só dá pull. Evita 'works on my machine' e permite rollback instantâneo (<code>image: myorg/api:abc1233</code> → SHA anterior).</p>",
+    },
+    {
+      q: "Como funciona o merge de override files? Quando o merge não é o que você espera?",
+      level: 'senior',
+      a: "<p>Compose carrega arquivos na ordem dos <code>-f</code> e merge cada um sobre o anterior. <code>compose.yaml</code> + <code>compose.override.yaml</code> (auto) ou múltiplos <code>-f</code> explícitos.</p><p><strong>Regras de merge</strong>:</p><ul><li><strong>Mapas (environment, labels, build.args)</strong>: fundidos por chave. Override soma chaves novas, sobrescreve existentes.</li><li><strong>Listas (ports, volumes, networks, command como lista)</strong>: concatenadas. <strong>Não substituem</strong>.</li><li><strong>Strings/scalars (image, restart, user)</strong>: substituem completamente.</li></ul><p><strong>Pegadinha clássica</strong>: você quer trocar volumes em prod, mas o override <em>concatena</em> — fica com bind do dev + volume nomeado do prod, gerando conflito.</p><pre><code># base\nvolumes:\n  - ./src:/app   # dev hot reload\n\n# prod override\nvolumes:\n  - app_data:/app   # volume nomeado\n\n# resultado mergido (errado!):\nvolumes:\n  - ./src:/app\n  - app_data:/app   # conflito de mount</code></pre><p><strong>Soluções</strong>:</p><ol><li><strong><code>!reset</code></strong> (Compose v2.24+): <code>volumes: !reset []</code> limpa a chave herdada antes de adicionar.</li><li><strong>Inverter a estratégia</strong>: base mínima sem o volume; cada ambiente declara o seu.</li><li><strong>Sempre rodar <code>docker compose -f a.yaml -f b.yaml config</code></strong> antes de subir — mostra o YAML final mergido.</li></ol><p><strong>Variáveis</strong>: o merge acontece <strong>depois</strong> da expansão de <code>${VAR}</code>. Cada arquivo é expandido com o env atual, depois mergido. Use <code>--no-interpolate</code> em config pra ver os literais antes da expansão.</p>",
+    },
+    {
+      q: "O que o Compose usa pra decidir se precisa recriar um container?",
+      level: 'senior',
+      a: "<p>Compose mantém um <strong>hash de configuração</strong> em label do container (<code>com.docker.compose.config-hash</code>). Em cada <code>docker compose up</code>, ele:</p><ol><li>Recalcula o hash da config atual (depois de merge de overrides + expansão de variáveis).</li><li>Compara com o hash salvo no container existente.</li><li>Se diferente: <strong>recria</strong> (down + up do serviço). Se igual: <strong>preserva</strong> (não toca).</li></ol><p><strong>O que entra no hash</strong>: image (incluindo digest após pull), command, environment, volumes, ports, networks, healthcheck, todas as chaves do serviço. Mudou .env? Hash muda → recria. Mesma config exata? Não recria.</p><p><strong>Flags úteis</strong>:</p><ul><li><code>--force-recreate</code>: recria mesmo sem mudança (útil quando você quer 'reset' do estado, sem mudar yaml).</li><li><code>--no-recreate</code>: nunca recria — preserva containers existentes mesmo com config mudada (raramente útil).</li><li><code>--renew-anon-volumes</code>: recria volumes anônimos (útil pra resetar node_modules em mount anônimo).</li><li><code>--remove-orphans</code>: remove containers de serviços que sumiram do yaml.</li></ul><p><strong>Pegadinha</strong>: pull de uma tag latest atualiza o digest, mas Compose só percebe se você roda <code>docker compose pull</code> antes do <code>up</code>. Sem pull, ele usa a image local (mesma tag, digest antigo). Em CI use <code>--pull always</code> pra forçar pull antes do up.</p>",
+    },
+    {
+      q: "Como você modela retries e graceful shutdown em Compose?",
+      level: 'senior',
+      a: "<p><strong>Restart policies</strong> (chave <code>restart:</code>):</p><ul><li><strong><code>no</code></strong> (default): nunca reinicia. Use em jobs one-shot (migration).</li><li><strong><code>on-failure[:N]</code></strong>: reinicia só em exit code !=0, opcionalmente com max N tentativas. Sem N = infinito.</li><li><strong><code>always</code></strong>: reinicia sempre, mesmo em <code>docker compose stop</code>. Em reboot do host, sobe junto.</li><li><strong><code>unless-stopped</code></strong>: como always, MAS se você parou manualmente (<code>stop</code>), não reinicia em reboot. Geralmente o saudável pra prod single-host.</li></ul><p><strong>O que acontece em <code>docker compose down</code></strong>: para todos os containers (SIGTERM, espera <code>stop_grace_period</code> = 10s default, depois SIGKILL), remove containers e a rede default. <strong>Volumes nomeados são preservados</strong> a menos que use <code>-v</code>.</p><p><strong>Graceful shutdown</strong>:</p><pre><code>services:\n  api:\n    stop_signal: SIGTERM           # sinal pra avisar shutdown\n    stop_grace_period: 30s         # espera 30s antes de SIGKILL\n    init: true                     # tini como PID 1 (responde sinais)</code></pre><p><strong>Por que <code>init: true</code> importa</strong>: Node, Python, etc rodando como PID 1 não respondem SIGTERM padrão (Linux ignora sinais default em PID 1). Sem init, <code>compose stop</code> espera 10s e mata com SIGKILL — sem chance de fechar conexão DB, drenar fila, persistir cache. Com tini (init), os sinais são roteados corretamente e você consegue handler graceful no app.</p><p><strong>Em CI</strong>: <code>--abort-on-container-exit --exit-code-from test</code> derruba toda a stack assim que o container de teste sai, propagando seu exit code.</p>",
+    },
+    {
+      q: "Profiles na prática — como você desenha quais serviços são opcionais?",
+      level: 'senior',
+      a: "<p><strong>Profiles</strong> marca um serviço como opcional. <code>docker compose up</code> sem <code>--profile</code> sobe só serviços <strong>sem profile</strong>. <code>--profile X</code> liga serviços marcados com X (além dos sem profile). Múltiplos profiles aceitos: <code>--profile debug --profile tracing</code>.</p><p><strong>Padrões que uso</strong>:</p><ul><li><strong>Sem profile (core)</strong>: api, db, redis, queue. O que TODO dev precisa pra rodar a app.</li><li><strong><code>profiles: [debug]</code></strong>: adminer, mailhog, redis-commander, swagger-ui. UIs de inspeção que comem RAM e dev nem sempre quer.</li><li><strong><code>profiles: [tracing]</code></strong>: jaeger, zipkin, otel-collector. Pra investigar perf ou rastrear flow distribuído.</li><li><strong><code>profiles: [monitoring]</code></strong>: prometheus, grafana, loki. Pra simular observabilidade local.</li><li><strong><code>profiles: [load-test]</code></strong>: k6, artillery. Pra testes de carga pontuais.</li></ul><p><strong>Casos avançados</strong>:</p><ul><li>Um serviço pode ter <strong>múltiplos profiles</strong>: <code>profiles: [debug, dev-tools]</code> — sobe se qualquer um estiver ativo.</li><li><strong>Profile via variável de ambiente</strong>: <code>COMPOSE_PROFILES=debug docker compose up</code> equivale a <code>--profile debug</code>. Útil em scripts.</li><li><strong>Dependências entre profiles</strong>: serviço com <code>depends_on: [jaeger]</code> pode falhar se jaeger não foi ativado. Faça depends_on só pra core; opcional via env var lida em runtime pelo app.</li></ul><p><strong>Por que importa</strong>: <code>docker compose up</code> de um repo grande sem profiles sobe 15 serviços e leva 3 minutos pra dev rodar 1 endpoint. Com profiles bem desenhados, dev novo digita <code>up</code>, sobe em 30 segundos, e adiciona <code>--profile debug</code> só quando precisar inspecionar DB.</p>",
+      tip: "Cite o caso de COMPOSE_PROFILES como env var — diferencia quem leu doc completo. Fale do trade-off: profiles facilitam DX, mas torna setup menos óbvio pra novato — documente no README.",
     },
   ],
   videos: [

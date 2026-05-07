@@ -821,7 +821,231 @@ groups:
         a: "Use kube-prometheus-stack (operator-style). Datasources: values.yaml → grafana.additionalDataSources (lista YAML). Dashboards: 1) ConfigMap com label grafana_dashboard=1 — operator monta automático. 2) ou grafana.dashboards inline no values. 3) ou grafana.dashboardsConfigMaps referenciando. Sidecar (grafana-sc-dashboard) monitora ConfigMaps com a label e cria dashboards no Grafana via API. Vantagens: GitOps natural (ArgoCD/Flux sincroniza), namespacing por team via label, rollback via Helm. Workflow: dev edita dashboard, exporta JSON, commit no chart Helm do squad, ArgoCD detecta, sidecar pega novo ConfigMap, dashboard atualiza. allowUiUpdates: false impede divergência.",
         level: "senior",
       },
+      {
+        q: "Como o Grafana Alerting v2 (unified) funciona internamente — Alert Rules vs Contact Points vs Notification Policies vs Silences vs Inhibitions?",
+        a: "<p>Hierarquia completa, na ordem de avaliação:</p><ol><li><strong>Alert Rule</strong>: query periódica (data → expression → condition → state). State machine: <code>Normal → Pending → Firing</code> (com <code>for: 2m</code>) e estados degenerados <code>NoData</code>, <code>Error</code>. Cada rule produz uma ou mais <em>alert instances</em> (uma por série retornada).</li><li><strong>Notification Policy</strong> (árvore de roteamento): cada alerta percorre a árvore por <em>matchers</em> (labels). Primeiro match vence (a menos que <code>continue: true</code>). Define <code>group_by</code>, <code>group_wait</code> (tempo de espera antes da primeira notificação), <code>group_interval</code> (entre notificações do mesmo grupo) e <code>repeat_interval</code>.</li><li><strong>Contact Point</strong>: destino concreto (Slack webhook, PagerDuty integration key, email SMTP, OpsGenie). Política aponta para um contact point por nome.</li><li><strong>Mute Timing</strong>: janela de tempo recorrente (cron-like) onde notificações são suprimidas (manutenção das 02h-04h dom). Aplicado na policy.</li><li><strong>Silence</strong>: matcher temporário (criado via UI/API com TTL) que bloqueia notificações de alertas que casam — usado em incident response.</li><li><strong>Inhibition Rule</strong>: alerta A firing suprime alerta B se ambos têm labels <code>equal</code>. Ex: <code>ServiceDown</code> firing inibe <code>ErrorRateAlto</code> do mesmo service — você já sabe que está down.</li></ol><p>Internamente, o Grafana Alerting embute o código do Alertmanager (mesmo motor de routing) — só a UI muda. Em HA, multiple replicas usam <code>ha_peers</code> (gossip) para coordenar deduplicação.</p>",
+        tip: "Saber que internamente é Alertmanager embutido é o que diferencia — quem operou o legacy reconhece imediatamente o YAML similar.",
+        level: "senior",
+      },
+      {
+        q: "Variables no Grafana — quais são os tipos, como uma variável alimenta outra (chaining) e como se usa em PromQL com $var?",
+        a: "<p>Tipos:</p><ul><li><strong>Query</strong>: popula via query no datasource. PromQL: <code>label_values(up, service)</code> retorna todos os values da label service. LogQL, SQL, etc também funcionam.</li><li><strong>Custom</strong>: lista fixa <code>prod, staging, dev</code>.</li><li><strong>Constant</strong>: valor invisível para o usuário, útil em provisioning (define datacenter por dashboard).</li><li><strong>Datasource</strong>: dropdown que troca a fonte do dashboard inteiro — útil para o mesmo dashboard servir prod e staging com Prometheus diferentes.</li><li><strong>Interval</strong>: <code>1m, 5m, 1h</code> — usado como <code>rate(metric[$__interval])</code> ou <code>rate(metric[$interval])</code>.</li><li><strong>Text box</strong>: input livre (filtro ad-hoc).</li><li><strong>Ad hoc filters</strong>: filtros <code>key=value</code> aplicados a TODAS as queries automaticamente.</li></ul><p><strong>Chaining</strong>: variável B usa <code>$A</code> na sua query. Quando A muda, B é recalculada. Ex: <code>$namespace</code> (Query: <code>label_values(kube_pod_info, namespace)</code>) → <code>$service</code> depende de <code>$namespace</code>: <code>label_values(up{namespace=~\"$namespace\"}, service)</code>. Selecionar namespace=production faz $service repopular só com services daquele namespace.</p><p><strong>Uso em PromQL</strong>: sempre prefira regex match para suportar multi-value. <code>{service=~\"$service\"}</code> funciona tanto com 1 valor (<code>checkout</code>) quanto múltiplos (<code>checkout|api|auth</code> — Grafana junta com pipe). <code>{service=\"$service\"}</code> (exact match) quebra com multi-value. Variáveis especiais: <code>$__interval</code> (auto-calculado por Grafana baseado no time range), <code>$__rate_interval</code> (mínimo de 4× scrape interval — recomendado para rate()).</p>",
+        tip: "A diferença entre =~ e = com multi-value é gotcha clássico — quem só copiou query do StackOverflow descobre na prática quando dashboard quebra ao selecionar 2 services.",
+        level: "senior",
+      },
+      {
+        q: "Grafana Tempo vs Jaeger vs Zipkin — por que Tempo com TraceQL é diferente, e como integra com Loki/Prometheus via exemplars?",
+        a: "<p><strong>Jaeger</strong>: backend tradicional (Cassandra/Elasticsearch) com índice rico de atributos. Busca por <em>service+operation+duration+tags</em> é rápida. UI madura para discovery exploratório (encontrar trace lento sem ter trace_id). Custo: storage caro (Elasticsearch escala mal e cobra caro).</p><p><strong>Zipkin</strong>: histórico, cliente Twitter. Modelo de dados mais simples. Hoje legado — quase todo mundo migrou para OTLP+Tempo/Jaeger.</p><p><strong>Tempo</strong>: filosofia oposta — <em>nenhum índice de atributos</em>. Apenas trace_id é indexado. Spans armazenados em object storage (S3/GCS) em formato Parquet. Resultado: 10-20× mais barato que Jaeger+ES. Trade-off: busca por atributo (TraceQL) escaneia blocos — mais lenta mas funciona.</p><p><strong>TraceQL</strong>: linguagem própria do Tempo, similar a PromQL para traces. <code>{ resource.service.name = \"checkout\" && status = error && duration > 1s }</code>. Suporta agregações (Tempo 2.x): <code>{ ... } | rate() by (span.http.route)</code>, <code>quantile_over_time(duration, .99)</code>. Permite gerar métricas a partir de traces.</p><p><strong>Integração com Prometheus via exemplars</strong>: app emite histogram com trace_id anexado (OTel SDK faz isso automaticamente quando há span ativo). Prometheus armazena exemplar junto da série (precisa de <code>--enable-feature=exemplar-storage</code> e <code>scrape_protocols: [OpenMetricsText1.0.0]</code>). Datasource Prometheus tem <code>exemplarTraceIdDestinations</code> apontando para Tempo. No painel, diamantes amarelos aparecem nos pontos do gráfico — clique abre o trace.</p><p><strong>Integração com Loki</strong>: <code>tracesToLogsV2</code> no datasource Tempo usa <code>service.name</code> do span para filtrar Loki <code>{service=\"checkout\"} | trace_id=\"...\"</code>. Logs do span aparecem instantaneamente.</p><p><strong>Decisão</strong>: workflow tem trace_id (vem de logs com trace_id incluso ou de exemplars) → Tempo cobre 95% por fração do custo. Discovery exploratório puro (encontrar spans lentos sem nenhuma pista) → Jaeger ainda vence em UX.</p>",
+        tip: "A frase 'workflow com trace_id pré-conhecido vs discovery sem pistas' é a diferenciação cirúrgica que mostra que você operou ambos em produção.",
+        level: "senior",
+      },
+      {
+        q: "Provisioning as code — dashboard JSON model, datasource YAML, como evitar config drift em ambientes múltiplos?",
+        a: "<p><strong>Camadas de provisioning</strong>:</p><ol><li><strong>Datasources YAML</strong> em <code>/etc/grafana/provisioning/datasources/</code>: cada arquivo declara datasources com <code>name</code>, <code>type</code>, <code>url</code>, <code>jsonData</code>. <code>editable: false</code> impede edição via UI.</li><li><strong>Dashboard providers YAML</strong> em <code>/etc/grafana/provisioning/dashboards/</code>: aponta para diretórios de JSON. <code>allowUiUpdates: false</code> e <code>disableDeletion: true</code> blindam contra mudanças via UI.</li><li><strong>Dashboard JSON</strong>: o modelo completo (panels, queries, variables, annotations) versionado em Git.</li><li><strong>Alerting YAML</strong>: rules, contact points, notification policies, mute timings, templates — tudo declarativo.</li><li><strong>Plugins, orgs, users, teams, RBAC</strong> — também via provisioning files.</li></ol><p><strong>Ferramentas</strong>: Terraform com <code>grafana/grafana</code> provider (resources <code>grafana_dashboard</code>, <code>grafana_data_source</code>, <code>grafana_folder</code>, <code>grafana_team</code>, <code>grafana_alert_rule</code>). Helm <code>kube-prometheus-stack</code> que provisiona via ConfigMaps e sidecar. Grafonnet (Jsonnet) para gerar JSON com loops e DRY.</p><p><strong>Anti-drift</strong>: 1) <code>allowUiUpdates: false</code> em prod — qualquer mudança volta na próxima sincronização. 2) Dashboard JSON tem <code>uid</code> determinístico — mesmo dashboard em prod e staging. 3) Variables como <code>$env, $datasource</code> — um único JSON serve múltiplos ambientes. 4) GitOps (ArgoCD/Flux) — divergências detectadas automaticamente. 5) <code>terraform plan</code> em CI mostra qualquer drift. 6) Folder <code>Editing/</code> separado para sandbox — engineers editam ali, exportam JSON, abrem PR.</p><p><strong>Anti-pattern</strong>: dashboard editado via UI em prod sem PR — some quando alguém deleta acidentalmente, e ninguém sabe quem mudou o quê.</p>",
+        level: "senior",
+      },
+      {
+        q: "Unified alerting vs legacy alerting — quais as diferenças arquiteturais, como migrar e o que são multi-dimensional alerts?",
+        a: "<p><strong>Legacy alerting</strong> (Grafana ≤8): cada alert era um painel especial num dashboard. Avaliação acontecia no Grafana, mas estado ficava acoplado ao dashboard. Limitações: 1) só funcionava com Prometheus/Graphite/InfluxDB (não Loki, Elasticsearch, SQL). 2) Um alert por painel — escala terrível. 3) Sem multi-dimensional (1 alert = 1 série). 4) Notification channels separados de routing (sem grouping/inhibition).</p><p><strong>Unified alerting</strong> (Grafana 9+): mesmo motor que Alertmanager (embutido no Grafana). 1) Funciona com qualquer datasource — alert sobre logs Loki, query SQL, CloudWatch. 2) <em>Multi-dimensional</em>: uma rule com <code>sum by (service) (rate(errors[5m])) > 0.01</code> gera 1 alert instance por valor de service — você obtém um <em>folder</em> de alerts com mesma rule, um por série. 3) Routing via notification policies (árvore com matchers, group_by, mute timings). 4) Silences, inhibitions, grouping nativos.</p><p><strong>Migração</strong>: <code>grafana-cli admin reset-admin-password</code>... brincadeira. Grafana 9+ tem migrador automático: legacy alerts ficam num folder <code>Migrated</code>, contact points e notification policies são gerados a partir dos legacy notification channels. Mas o resultado raramente é ideal — a maioria dos times <em>refaz</em> os alerts em unified com SLO-based design (multi-window burn rate em vez de threshold simples).</p><p><strong>Multi-dimensional na prática</strong>: rule única <code>error_rate by (service, env) > 0.01 for: 5m</code> gera N alerts (um por par service-env). Notification policy roteia: <code>severity=critical AND env=prod</code> → PagerDuty; <code>env=staging</code> → Slack-warnings. Sem multi-dimensional, você criaria 1 rule por service.</p>",
+        tip: "A frase 'um folder de alerts a partir de uma única rule' é como Grafana descreve oficialmente — saber isso mostra leitura da spec.",
+        level: "senior",
+      },
+      {
+        q: "Grafana Mimir vs Thanos — quando usar cada para long-term Prometheus storage?",
+        a: "<p><strong>Thanos</strong>: arquitetura de sidecar. Cada Prometheus tem um <em>Thanos sidecar</em> que sobe os blocos TSDB (a cada 2h) para object storage (S3/GCS). Componentes: Sidecar (upload + StoreAPI), Store Gateway (lê blocos do S3), Compactor (compacta blocos antigos), Querier (federação), Ruler (recording/alerting rules globais). Vantagens: incremental — você adiciona Thanos a Prometheus existentes sem mudar nada na ingestion. Multi-cluster federation com deduplicação de réplicas via labels (<code>replica</code>). Maturidade alta, comunidade grande.</p><p><strong>Mimir</strong> (Grafana Labs, fork do Cortex): arquitetura de serviços separados que substitui o Prometheus inteiro. Componentes: Distributor (recebe via remote_write), Ingester (TSDB em memória + WAL), Store Gateway, Querier, Compactor, Ruler. Multi-tenant nativo via header <code>X-Scope-OrgID</code>. Horizontalmente escalável (cada componente escala independente). Performance superior do Cortex (otimizações da Grafana Labs). API 100% compatível com Prometheus.</p><p><strong>Decisão</strong>:</p><ul><li><strong>Já tem Prometheus em vários clusters e quer adicionar long-term storage incrementalmente</strong> → Thanos (mínimo esforço).</li><li><strong>Greenfield, multi-tenant SaaS, ou substituir Prometheus completo por backend escalável</strong> → Mimir (arquitetura mais limpa, ops mais previsível em escala).</li><li><strong>Volume muito alto (10M+ active series, milhões de samples/s)</strong> → Mimir vence em performance e custo de operação.</li><li><strong>Times pequenos sem ops dedicado</strong> → Grafana Cloud (Mimir managed) ou Prometheus puro com retention de 30-90 dias basta.</li></ul><p>Cortex foi descontinuado pela CNCF em favor de Mimir — quem ainda usa Cortex deve migrar.</p>",
+        level: "senior",
+      },
+      {
+        q: "Como exemplars funcionam — link Prometheus metric → Tempo trace, e como configurar no scrape config?",
+        a: `<p><strong>O que é</strong>: exemplar é um <em>data point específico</em> de um histogram que carrega o trace_id da request que produziu aquele valor. Quando o app registra <code>histogram.observe(0.345)</code> dentro de um span ativo, OTel/prom-client anexa <code>trace_id</code> ao bucket onde 0.345 caiu.</p><p><strong>Pipeline completo (4 etapas — todas obrigatórias)</strong>:</p><ol><li><strong>App emite</strong>: SDK OTel ou prom-client moderno injeta automaticamente o trace_id ativo no exemplar. No formato OpenMetrics, aparece como:<br><code># histogram_bucket{le="0.5"} 1234 # {trace_id="4bf9..."} 0.345 1730390400</code><br>(o <code># {...}</code> após o valor é o exemplar).</li><li><strong>Prometheus armazena</strong>: precisa do flag <code>--enable-feature=exemplar-storage</code>. Sem ele, exemplars são parseados mas descartados.</li><li><strong>Scrape config</strong>: <code>scrape_protocols: [OpenMetricsText1.0.0, PrometheusText0.0.4]</code> — OpenMetrics primeiro porque só ele tem exemplar syntax. Sem isso, app pode emitir mas Prometheus pede formato antigo e perde exemplars.</li><li><strong>Datasource Grafana</strong>: <code>exemplarTraceIdDestinations</code> mapeia o label do exemplar (ex: <code>trace_id</code>) para o datasource Tempo. URL template gera link clicável.</li></ol><pre><code>scrape_configs:
+  - job_name: 'app'
+    scrape_protocols: [OpenMetricsText1.0.0]
+    static_configs:
+      - targets: ['app:8080']
+
+# datasource Prometheus (provisioning)
+jsonData:
+  exemplarTraceIdDestinations:
+    - name: trace_id
+      datasourceUid: tempo</code></pre><p><strong>UI</strong>: no painel de p99 com histogram, ative <em>Exemplars: enabled</em>. Diamantes amarelos aparecem nos pontos. Clique → trace abre no Tempo.</p><p><strong>Debug se 'não aparece'</strong>: 1) cURL do <code>/metrics</code> do app — tem <code># {trace_id=...}</code> nas linhas? 2) Prometheus <code>/api/v1/query_exemplars?query=...</code> retorna dados? 3) Datasource tem <code>exemplarTraceIdDestinations</code>? 4) Painel tem Exemplars ativado? Cada ponto que falhar bloqueia silenciosamente.</p>`,
+        tip: "Os 4 pontos de configuração separam quem implementou de quem só leu a feature page — esquecimento de qualquer um faz parecer 'bug do Grafana'.",
+        level: "senior",
+      },
+      {
+        q: "Como você debugaria um dashboard Grafana lento (refresh demora 30s+)?",
+        a: "<p>Diagnóstico em camadas:</p><ol><li><strong>Network tab do browser</strong>: identifique qual <code>POST /api/ds/query</code> demora. O tempo gasto está no Prometheus/Loki, não no Grafana.</li><li><strong>Query Inspector</strong> (cada painel → Inspect → Stats): mostra <em>Query time</em>, <em>Series count</em>, <em>Data points</em>. Series > 10k = problema de cardinalidade. Query time > 5s = query precisa de recording rule.</li><li><strong>Prometheus <code>/api/v1/query_range</code></strong> com timestamp explícito + <code>--data-urlencode</code> permite reproduzir fora do Grafana.</li><li><strong>Causas comuns</strong>: histogram_quantile sobre 30 dias (precisa recording rule pré-computado), <code>rate()</code> sem <code>$__rate_interval</code>, queries sem <code>by()</code> retornando milhares de séries, painel mostrando <code>Top 100</code> mas a query traz tudo.</li></ol><p><strong>Soluções</strong>:</p><ul><li><strong>Recording rules</strong>: <code>job:sli_errors:ratio_rate5m</code> pré-computado a cada 1m. Painel consulta a rule (instantâneo).</li><li><strong>Reduzir cardinalidade</strong>: <code>topk(10, ...)</code> ou <code>sum by (service)</code> em vez de manter <code>pod, container, instance</code>.</li><li><strong>Time range razoável</strong>: dashboard padrão em 6h, não 30d. Se precisa de 30d, é dashboard de SLO com recording rules.</li><li><strong>Cache no Grafana</strong>: query cache (Enterprise/Cloud) deduplica queries idênticas em painéis múltiplos.</li><li><strong>Datasource</strong> com <code>queryTimeout: 60s</code> e <code>httpMethod: POST</code> (POST permite body maior — queries longas funcionam).</li></ul><p><strong>Mimir/Thanos</strong>: query splitting + sharding paralelizam queries grandes. <code>split_queries_by_interval: 24h</code> divide query de 7d em 7 sub-queries paralelas.</p>",
+        tip: "Mencionar Query Inspector + recording rule como solução padrão mostra que você debugou esse problema em produção.",
+        level: "senior",
+      },
     ],
+    videos: [
+      {
+        title: "Intro to Grafana — Get Started in 30 Minutes",
+        channel: "Grafana",
+        url: "https://www.youtube.com/watch?v=Ufem35X2j1Y",
+        topic: "Onboarding oficial: dashboards, datasources, variables e alerting",
+        note: "Workshop curto da Grafana Labs com instrutor — bom para fundamentos antes de mergulhar no LGTM stack.",
+      },
+      {
+        title: "GrafanaCONline: The LGTM Stack — Logs, Metrics, Traces and More",
+        channel: "Grafana",
+        url: "https://www.youtube.com/watch?v=AkPfn8WdLxg",
+        topic: "Visão completa do LGTM (Loki, Grafana, Tempo, Mimir) com correlação trace ↔ log ↔ métrica",
+        note: "Demonstra ao vivo exemplars, tracesToLogs e derivedFields — o exato workflow de investigação que cai em entrevista.",
+      },
+      {
+        title: "Grafana Alerting Deep Dive — Unified Alerting in Grafana 9+",
+        channel: "Grafana",
+        url: "https://www.youtube.com/watch?v=fM63lqUFZuY",
+        topic: "Alert rules, contact points, notification policies, silences, inhibitions, mute timings",
+        note: "Cobre toda a hierarquia em ordem — base obrigatória para qualquer Q&A sobre Grafana Alerting v2.",
+      },
+      {
+        title: "Dashboards as Code with Grafana, Terraform and Grafonnet",
+        channel: "Grafana",
+        url: "https://www.youtube.com/watch?v=dPxnFHmd0Lg",
+        topic: "JSON model, Terraform provider, Grafonnet (Jsonnet) e GitOps",
+        note: "Mostra workflow real de provisioning em produção — referência para a Q&A de dashboard-as-code.",
+      },
+      {
+        title: "SLO-based Alerting with Grafana and Prometheus — Multi-Window Burn Rate",
+        channel: "Grafana",
+        url: "https://www.youtube.com/watch?v=tk-q9C7gz0s",
+        topic: "Implementação prática do SRE Workbook: burn rate 14·6·3·1, recording rules, error budget",
+        note: "Conecta SLO methodology à implementação concreta no Grafana — material denso e alto valor.",
+      },
+    ],
+    mindmap: {
+      title: "Grafana — ecossistema completo (LGTM stack)",
+      html: `<style>
+.gmm-wrap{font-family:'Space Grotesk',sans-serif;background:#0a0a0a;border-radius:12px;padding:22px;color:#e2e8f0}
+.gmm-center{background:linear-gradient(135deg,#F46800,#dc2626);color:#fff;padding:.85rem 1.6rem;border-radius:.6rem;font-weight:700;font-size:1.05rem;text-align:center;margin:0 auto 1.4rem;display:inline-block}
+.gmm-row{display:flex;flex-wrap:wrap;gap:.85rem;justify-content:center;margin-bottom:.85rem}
+.gmm-branch{background:#111827;border-radius:.7rem;padding:.85rem 1rem;min-width:200px;max-width:240px;border-left:3px solid #334155}
+.gmm-node{font-weight:700;margin-bottom:.45rem;font-size:.85rem;letter-spacing:.02em}
+.gmm-items{display:flex;flex-direction:column;gap:.18rem}
+.gmm-item{color:#94a3b8;font-size:.74rem;padding:.1rem .25rem;border-left:1.5px solid #1f2937;line-height:1.45}
+.gmm-pill{display:inline-block;font-size:.65rem;font-family:'JetBrains Mono',monospace;background:rgba(244,104,0,.1);color:#F46800;padding:.05rem .35rem;border-radius:3px;margin-left:.2rem}
+</style>
+<div class="gmm-wrap" style="text-align:center">
+  <div class="gmm-center">Grafana — UI de observabilidade</div>
+  <div style="text-align:left">
+    <div class="gmm-row">
+      <div class="gmm-branch" style="border-left-color:#F46800">
+        <div class="gmm-node" style="color:#F46800">Data Sources</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Prometheus / Mimir <span class="gmm-pill">PromQL</span></span>
+          <span class="gmm-item">Loki <span class="gmm-pill">LogQL</span></span>
+          <span class="gmm-item">Tempo / Jaeger <span class="gmm-pill">TraceQL</span></span>
+          <span class="gmm-item">InfluxDB / Graphite</span>
+          <span class="gmm-item">Elasticsearch / OpenSearch</span>
+          <span class="gmm-item">PostgreSQL / MySQL / MSSQL</span>
+          <span class="gmm-item">CloudWatch / Azure / GCP</span>
+          <span class="gmm-item">Mixed (multi-source num painel)</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#fbbf24">
+        <div class="gmm-node" style="color:#fbbf24">Visualization</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Time series · Stat · Gauge</span>
+          <span class="gmm-item">Heatmap · Histogram</span>
+          <span class="gmm-item">Table · Logs · Traces</span>
+          <span class="gmm-item">Node Graph · Geomap</span>
+          <span class="gmm-item">State timeline · Status history</span>
+          <span class="gmm-item">Transformations · Overrides</span>
+          <span class="gmm-item">Thresholds · Field options</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#22d3ee">
+        <div class="gmm-node" style="color:#22d3ee">Dashboards</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Variables (query, custom, interval, ds)</span>
+          <span class="gmm-item">Annotations (deploys, eventos)</span>
+          <span class="gmm-item">Links (drill-down entre dashboards)</span>
+          <span class="gmm-item">Repeating panels (por variable)</span>
+          <span class="gmm-item">Library panels (componentes reusáveis)</span>
+          <span class="gmm-item">Sharing · Snapshots · Embed</span>
+          <span class="gmm-item">JSON model versionável</span>
+        </div>
+      </div>
+    </div>
+    <div class="gmm-row">
+      <div class="gmm-branch" style="border-left-color:#ef4444">
+        <div class="gmm-node" style="color:#ef4444">Alerting (unified)</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Alert rules (multi-dimensional)</span>
+          <span class="gmm-item">Contact points (Slack/PD/email)</span>
+          <span class="gmm-item">Notification policies (routing)</span>
+          <span class="gmm-item">Silences (matchers temporários)</span>
+          <span class="gmm-item">Inhibitions (suprimir secundários)</span>
+          <span class="gmm-item">Mute timings (manutenção)</span>
+          <span class="gmm-item">State machine: Normal/Pending/Firing</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#a855f7">
+        <div class="gmm-node" style="color:#a855f7">Grafana Stack (LGTM)</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Loki — logs (indexa só labels)</span>
+          <span class="gmm-item">Grafana — UI (não armazena nada)</span>
+          <span class="gmm-item">Tempo — traces (object storage)</span>
+          <span class="gmm-item">Mimir — métricas escaláveis</span>
+          <span class="gmm-item">Pyroscope — profiles contínuos</span>
+          <span class="gmm-item">Beyla — eBPF auto-instrumentation</span>
+          <span class="gmm-item">Faro — RUM (browser telemetry)</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#4ade80">
+        <div class="gmm-node" style="color:#4ade80">Provisioning / IaC</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Datasources YAML</span>
+          <span class="gmm-item">Dashboards JSON em Git</span>
+          <span class="gmm-item">Terraform (grafana provider)</span>
+          <span class="gmm-item">Helm (kube-prometheus-stack)</span>
+          <span class="gmm-item">Grafonnet (Jsonnet — DRY)</span>
+          <span class="gmm-item">allowUiUpdates: false em prod</span>
+          <span class="gmm-item">GitOps (ArgoCD/Flux)</span>
+        </div>
+      </div>
+    </div>
+    <div class="gmm-row">
+      <div class="gmm-branch" style="border-left-color:#fb7185">
+        <div class="gmm-node" style="color:#fb7185">Correlação (LGTM)</div>
+        <div class="gmm-items">
+          <span class="gmm-item">Exemplars — métrica → trace</span>
+          <span class="gmm-item">tracesToLogsV2 — trace → logs</span>
+          <span class="gmm-item">derivedFields — log → trace</span>
+          <span class="gmm-item">tracesToMetrics — trace → métrica</span>
+          <span class="gmm-item">Service Graph (node graph auto)</span>
+          <span class="gmm-item">trace_id em todos os sinais</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#60a5fa">
+        <div class="gmm-node" style="color:#60a5fa">Enterprise / Cloud</div>
+        <div class="gmm-items">
+          <span class="gmm-item">RBAC granular (folders/teams)</span>
+          <span class="gmm-item">SSO (SAML, LDAP, OAuth, Okta)</span>
+          <span class="gmm-item">Reporting (PDF agendado)</span>
+          <span class="gmm-item">OnCall (incident management)</span>
+          <span class="gmm-item">IRM · SLO · k6 (load testing)</span>
+          <span class="gmm-item">Multi-tenancy (X-Scope-OrgID)</span>
+          <span class="gmm-item">Query caching · Recorded queries</span>
+        </div>
+      </div>
+      <div class="gmm-branch" style="border-left-color:#94a3b8">
+        <div class="gmm-node" style="color:#94a3b8">Plugins · Extensões</div>
+        <div class="gmm-items">
+          <span class="gmm-item">App plugins (Synthetic, k6)</span>
+          <span class="gmm-item">Panel plugins (custom viz)</span>
+          <span class="gmm-item">Datasource plugins (custom)</span>
+          <span class="gmm-item">Catalog público (300+)</span>
+          <span class="gmm-item">Dev kit para criar plugins</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`,
+      caption: "Grafana é UI + ecossistema. O LGTM stack cobre logs/métricas/traces/profiles, Provisioning blinda contra config drift, Alerting unified centraliza routing, e Correlação (exemplars + tracesToLogs) é o que diferencia observabilidade moderna de dashboards isolados.",
+    },
     exercises: [
       {
         level: 'iniciante',
