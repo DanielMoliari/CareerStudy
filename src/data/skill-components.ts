@@ -74,6 +74,10 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosVisuais'), { ssr: false }),
   'threat-modeling': dynamic(() => import('@/data/content/sec/threat-modeling/ThreatModelingVisuais'), { ssr: false }),
   'tradeoff-analysis': dynamic(() => import('@/data/content/arch/tradeoff-analysis/TradeoffAnalysisVisuais'), { ssr: false }),
+  'web-vitals': dynamic(() => import('@/data/content/frontend/web-vitals/WebVitalsVisuais'), { ssr: false }),
+  'server-components-rsc': dynamic(() => import('@/data/content/frontend/server-components-rsc/ServerComponentsRscVisuais'), { ssr: false }),
+  'chaos-engineering': dynamic(() => import('@/data/content/arch/chaos-engineering/ChaosEngineeringVisuais'), { ssr: false }),
+  'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -150,5 +154,9 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosPdfs'), { ssr: false }),
   'threat-modeling': dynamic(() => import('@/data/content/sec/threat-modeling/ThreatModelingPdfs'), { ssr: false }),
   'tradeoff-analysis': dynamic(() => import('@/data/content/arch/tradeoff-analysis/TradeoffAnalysisPdfs'), { ssr: false }),
+  'web-vitals': dynamic(() => import('@/data/content/frontend/web-vitals/WebVitalsPdfs'), { ssr: false }),
+  'server-components-rsc': dynamic(() => import('@/data/content/frontend/server-components-rsc/ServerComponentsRscPdfs'), { ssr: false }),
+  'chaos-engineering': dynamic(() => import('@/data/content/arch/chaos-engineering/ChaosEngineeringPdfs'), { ssr: false }),
+  'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

@@ -11,7 +11,7 @@ import capTheorem from "./cap-theorem/cap-theorem"
 import http2Http3 from "./http-2-http-3/http-2-http-3"
 import processosThreads from "./processos-threads/processos-threads"
 import raftPaxos from "./raft-paxos/raft-paxos"
-import crdts from "./crdts"
+import crdts from "./crdts/crdts"
 import consistentHashing from "./consistent-hashing/consistent-hashing"
 
 const cs: SkillContentMap = {
