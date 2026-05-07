@@ -181,69 +181,77 @@ const MNEMONICS: MnemonicItem[] = [
     label: 'SHIBE — Pré-requisitos de Chaos',
     trick: 'SHIBE: Steady state, Hipótese, Integrado (obs.), Blast radius, Escape hatch',
     expansion: [
-      { letter: 'S', meaning: 'Steady State', detail: 'Métrica mensurável de sistema saudável — sem isso você não sabe se degradou' },
-      { letter: 'H', meaning: 'Hipótese', detail: 'Afirmação explícita antes de injetar — transforma chaos em ciência' },
-      { letter: 'I', meaning: 'Integrado (observability)', detail: 'Prometheus + Grafana + traces — sem ver, você é cego' },
-      { letter: 'B', meaning: 'Blast radius', detail: 'Escopo mínimo possível — 1 instância, 1%, 1 AZ' },
-      { letter: 'E', meaning: 'Escape hatch', detail: 'Kill switch automático + rollback rápido — coragem vem de saber que pode parar' },
+      ['S — Steady State', 'Métrica mensurável de sistema saudável — sem isso você não sabe se degradou'],
+      ['H — Hipótese', 'Afirmação explícita antes de injetar — transforma chaos em ciência'],
+      ['I — Integrado (observability)', 'Prometheus + Grafana + traces — sem ver, você é cego'],
+      ['B — Blast radius', 'Escopo mínimo possível — 1 instância, 1%, 1 AZ'],
+      ['E — Escape hatch', 'Kill switch automático + rollback rápido — coragem vem de saber que pode parar'],
     ],
-    anchor: 'SHIBE = o cão que guarda a porta antes de entrar em produção',
+    explanation: 'Pré-requisitos obrigatórios antes de qualquer experimento de chaos em produção.',
+    example: 'Checklist pré-experimento: steady state definido? hipótese escrita? obs. ativa? blast radius mínimo? kill switch pronto?',
+    why: 'Sem esses 5 elementos, chaos engineering é sabotagem — não ciência.',
   },
   {
     label: 'GGS — Ordem de Maturidade',
     trick: 'GGS: Game day → Gradual (1%) → Sistemático (automático)',
     expansion: [
-      { letter: 'G', meaning: 'Game Day', detail: 'Staging, time presente, sem risco. Aprende gaps de observability e runbook' },
-      { letter: 'G', meaning: 'Gradual', detail: '1% em produção, manual, hipótese, kill switch. Primeiros meses' },
-      { letter: 'S', meaning: 'Sistemático', detail: 'Chaos automático no CI/CD. Anos de maturidade. Nunca pule etapas.' },
+      ['G — Game Day', 'Staging, time presente, sem risco. Aprende gaps de observability e runbook'],
+      ['G — Gradual', '1% em produção, manual, hipótese, kill switch. Primeiros meses'],
+      ['S — Sistemático', 'Chaos automático no CI/CD. Anos de maturidade. Nunca pule etapas.'],
     ],
-    anchor: 'GGS = vai devagarinho — nunca pule etapas no chaos',
+    explanation: 'Maturidade de chaos engineering cresce em estágios — nunca pule etapas.',
+    example: 'Time novo: game day em staging. Time com 6 meses de observability: gradual 1%. Time com 2 anos: chaos no CI.',
+    why: 'Pular etapas gera incidentes reais e destrói a cultura de chaos antes de criar valor.',
   },
   {
-    label: '"Não é sabotagem, é ciência"',
+    label: 'H-E-O-C — Método Científico',
     trick: 'Chaos = H→E→O→C: Hipótese → Experimento → Observação → Conclusão',
     expansion: [
-      { letter: 'H', meaning: 'Hipótese', detail: '"Sistema mantém P99 < 300ms quando instância X é terminada"' },
-      { letter: 'E', meaning: 'Experimento', detail: 'Injetar falha com blast radius mínimo e abort condition' },
-      { letter: 'O', meaning: 'Observação', detail: 'Medir steady state antes/durante/depois com dados reais' },
-      { letter: 'C', meaning: 'Conclusão', detail: 'Confirmou? Resiliência validada. Refutou? Fraqueza encontrada — corrigir e re-testar' },
+      ['H — Hipótese', '"Sistema mantém P99 < 300ms quando instância X é terminada"'],
+      ['E — Experimento', 'Injetar falha com blast radius mínimo e abort condition'],
+      ['O — Observação', 'Medir steady state antes/durante/depois com dados reais'],
+      ['C — Conclusão', 'Confirmou? Resiliência validada. Refutou? Fraqueza encontrada — corrigir e re-testar'],
     ],
-    anchor: 'Sem hipótese → sabotagem. Com hipótese → ciência',
+    explanation: 'Sem hipótese, não há ciência — apenas sabotagem disfarçada de engenharia.',
+    example: 'Antes: "P99 < 200ms com 3 instâncias saudáveis". Injetar: matar 1 instância. Observar: P99 subiu para 450ms. Conclusão: resiliência insuficiente — adicionar circuit breaker.',
+    why: 'O método científico transforma medo de falha em aprendizado estruturado e defensável.',
   },
   {
     label: 'BRAIN — Anti-padrões Críticos',
     trick: 'BRAIN: Blast radius grande, Runbook ausente, Abort sem condição, Ignorar obs., Noite',
     expansion: [
-      { letter: 'B', meaning: 'Blast radius 100%', detail: 'Primeiro experimento com 100% de tráfego — arrogância que gera incidente' },
-      { letter: 'R', meaning: 'Runbook inexistente', detail: 'Sem runbook, equipe improvisa sob pressão do incidente gerado pelo chaos' },
-      { letter: 'A', meaning: 'Abort sem condição', detail: 'Experimento sem critério de parada automática — continua mesmo degradando' },
-      { letter: 'I', meaning: 'Ignorar observability', detail: 'Injetar falha sem dashboard = você é cego ao impacto' },
-      { letter: 'N', meaning: 'Noite / fora do horário', detail: 'Chaos às 2h = ninguém disponível para responder. Valor zero, risco máximo' },
+      ['B — Blast radius 100%', 'Primeiro experimento com 100% de tráfego — arrogância que gera incidente'],
+      ['R — Runbook inexistente', 'Sem runbook, equipe improvisa sob pressão do incidente gerado pelo chaos'],
+      ['A — Abort sem condição', 'Experimento sem critério de parada automática — continua mesmo degradando'],
+      ['I — Ignorar observability', 'Injetar falha sem dashboard = você é cego ao impacto'],
+      ['N — Noite / fora do horário', 'Chaos às 2h = ninguém disponível para responder. Valor zero, risco máximo'],
     ],
-    anchor: 'BRAIN = não use o cérebro errado em chaos engineering',
+    explanation: 'Os 5 anti-padrões mais comuns que transformam chaos engineering em incidente real.',
+    example: 'Time que ignora BRAIN: primeiro experimento em prod às 23h, sem abort condition, sem runbook. Resultado: incidente P1 de 4 horas.',
+    why: 'Chaos engineering exige mais disciplina que operações normais — não menos.',
   },
 ]
 
 // ── Dados: Cheatsheet ─────────────────────────────────────────────────────────
 
 const CS_HOOKS: HookItem[] = [
-  { name: 'Steady State', signature: 'Métrica mensurável de saúde', when: 'Antes de qualquer experimento', note: 'P99, error rate, throughput' },
-  { name: 'Hipótese', signature: '"Sistema mantém steady state quando X"', when: 'Formulada antes da injeção', note: 'Transforma chaos em ciência' },
-  { name: 'Blast Radius', signature: '1% → 5% → 25% → 100%', when: 'Sempre mínimo possível', note: 'Com abort condition automática' },
-  { name: 'Abort Condition', signature: 'if (metric > threshold) → abort + rollback', when: 'Sempre configurada', note: 'Não confie só em humano' },
-  { name: 'Game Day', signature: 'Exercício coordenado em staging', when: 'Primeiro passo de qualquer programa', note: 'Time presente, sem risco real' },
-  { name: 'Kill Switch', signature: 'feature flag / TTL máximo', when: 'Antes de qualquer injeção em prod', note: 'Rollback em < 5 min' },
-  { name: 'MTTR', signature: 'Mean Time To Recovery', when: 'Métrica de sucesso do programa', note: 'Deve cair ao longo do tempo' },
+  { name: 'Steady State', sig: 'Métrica mensurável de saúde', desc: 'Antes de qualquer experimento' },
+  { name: 'Hipótese', sig: '"Sistema mantém steady state quando X"', desc: 'Formulada antes da injeção' },
+  { name: 'Blast Radius', sig: '1% → 5% → 25% → 100%', desc: 'Sempre mínimo possível' },
+  { name: 'Abort Condition', sig: 'if (metric > threshold) → abort + rollback', desc: 'Sempre configurada' },
+  { name: 'Game Day', sig: 'Exercício coordenado em staging', desc: 'Primeiro passo de qualquer programa' },
+  { name: 'Kill Switch', sig: 'feature flag / TTL máximo', desc: 'Antes de qualquer injeção em prod' },
+  { name: 'MTTR', sig: 'Mean Time To Recovery', desc: 'Métrica de sucesso do programa' },
 ]
 
 const CS_RULES: RuleItem[] = [
-  { rule: 'Sem observability → não comece', reason: 'Você não vê o impacto, não aprende nada, e pode quebrar usuário sem saber' },
-  { rule: 'Sem hipótese → é sabotagem', reason: 'Chaos sem hipótese é "quebrar coisa pra ver" — aprendizado zero, risco máximo' },
-  { rule: 'Começar em staging', reason: 'Primeiro game day em ambiente isolado — descubra gaps sem risco de produção' },
-  { rule: 'Blast radius cresce devagar', reason: 'Valide cada nível antes de expandir. Nunca pule de 1% para 100%' },
-  { rule: 'Abort automático obrigatório', reason: 'Kill switch manual é insuficiente — operador pode estar distraído' },
-  { rule: 'Horário comercial primeiro', reason: 'Equipe disponível para responder se algo sair errado' },
-  { rule: 'Documentar resultado sempre', reason: 'Sem registro, a organização não aprende — próxima equipe repete o mesmo erro' },
+  { ok: true, t: 'Sem observability → não comece — Você não vê o impacto, não aprende nada, e pode quebrar usuário sem saber' },
+  { ok: true, t: 'Sem hipótese → é sabotagem — Chaos sem hipótese é "quebrar coisa pra ver" — aprendizado zero, risco máximo' },
+  { ok: true, t: 'Começar em staging — Primeiro game day em ambiente isolado — descubra gaps sem risco de produção' },
+  { ok: true, t: 'Blast radius cresce devagar — Valide cada nível antes de expandir. Nunca pule de 1% para 100%' },
+  { ok: true, t: 'Abort automático obrigatório — Kill switch manual é insuficiente — operador pode estar distraído' },
+  { ok: true, t: 'Horário comercial primeiro — Equipe disponível para responder se algo sair errado' },
+  { ok: true, t: 'Documentar resultado sempre — Sem registro, a organização não aprende — próxima equipe repete o mesmo erro' },
 ]
 
 // ── Builders de PDF ──────────────────────────────────────────────────────────
@@ -256,11 +264,17 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     stackLabel: 'Arquitetura / SRE',
   }),
   cheatsheet: () => buildCheatsheetPdf({
-    hooks: CS_HOOKS,
-    rules: CS_RULES,
-    accentColor: C,
     skillName: 'Chaos Engineering',
+    accentColor: C,
     stackLabel: 'Arquitetura / SRE',
+    sections: {
+      hooks: CS_HOOKS,
+      depRows: [],
+      rules: CS_RULES,
+      performanceTips: [],
+      patterns: [],
+      mentalModels: [],
+    },
   }),
   mnemonics: () => buildMnemonicsPdf({
     mnemonics: MNEMONICS,
@@ -278,10 +292,10 @@ export default function ChaosEngineeringPdfs() {
   const rest = PDF_CARDS.slice(1)
   return (
     <>
-      <HeroCard card={hero} accent={C} onClick={() => setOpen(hero)} />
+      <HeroCard card={hero} accent={C} onOpen={() => setOpen(hero)} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
         {rest.map(c => (
-          <CollectionCard key={c.id} card={c} accent={C} onClick={() => setOpen(c)} />
+          <CollectionCard key={c.id} card={c} accent={C} onOpen={() => setOpen(c)} />
         ))}
       </div>
       {open && <PdfModal card={open} onClose={() => setOpen(null)} builders={PDF_BUILDERS} />}

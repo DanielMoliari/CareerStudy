@@ -187,65 +187,73 @@ const MNEMONICS: MnemonicItem[] = [
     label: 'ACI — As Três Propriedades que Garantem Convergência',
     trick: 'ACI: Associativo, Comutativo, Idempotente',
     expansion: [
-      { letter: 'A', meaning: 'Associativo', detail: 'merge(A, merge(B,C)) = merge(merge(A,B),C) — agrupamento não importa' },
-      { letter: 'C', meaning: 'Comutativo', detail: 'merge(A,B) = merge(B,A) — ordem de chegada não importa' },
-      { letter: 'I', meaning: 'Idempotente', detail: 'merge(A,A) = A — receber duas vezes não muda nada' },
+      ['A — Associativo', 'merge(A, merge(B,C)) = merge(merge(A,B),C) — agrupamento não importa'],
+      ['C — Comutativo', 'merge(A,B) = merge(B,A) — ordem de chegada não importa'],
+      ['I — Idempotente', 'merge(A,A) = A — receber duas vezes não muda nada'],
     ],
-    anchor: 'ACI = as três propriedades que transformam estrutura em CRDT',
+    explanation: 'As três propriedades matemáticas que transformam qualquer estrutura em CRDT.',
+    example: 'G-Counter: merge = max(A[i], B[i]) por slot. É ACI: max(max(a,b),c)=max(a,max(b,c)), max(a,b)=max(b,a), max(a,a)=a.',
+    why: 'Se a estrutura tem ACI, ela converge sem coordenação — é a definição formal de CRDT.',
   },
   {
     label: 'GSO — Hierarquia dos Sets CRDT',
     trick: 'GSO: G-Set → 2P-Set → OR-Set (do simples ao poderoso)',
     expansion: [
-      { letter: 'G', meaning: 'G-Set', detail: 'Só add, merge = union. Mais simples e sem tombstones' },
-      { letter: 'S', meaning: '2P-Set (Simple)', detail: 'Add e remove permanente. Tombstones crescem. Sem re-add' },
-      { letter: 'O', meaning: 'OR-Set (Observed-Remove)', detail: 'Add, remove e re-add. UUID tags. Add concurrent wins. Mais expressivo' },
+      ['G — G-Set', 'Só add, merge = union. Mais simples e sem tombstones'],
+      ['S — 2P-Set (Simple)', 'Add e remove permanente. Tombstones crescem. Sem re-add'],
+      ['O — OR-Set (Observed-Remove)', 'Add, remove e re-add. UUID tags. Add concurrent wins. Mais expressivo'],
     ],
-    anchor: 'GSO = vai crescendo em poder mas também em metadata',
+    explanation: 'Hierarquia de expressividade dos tipos de set CRDT — cada nível adiciona capacidades com custos.',
+    example: 'Lista de tarefas: G-Set (só adicionar), 2P-Set (deletar permanente), OR-Set (deletar e re-adicionar com diferentes UUIDs).',
+    why: 'Escolher o tipo certo de set evita bugs sutis de concorrência — OR-Set é o mais seguro para casos gerais.',
   },
   {
-    label: '"P2P sem conflito, mas sem invariante"',
+    label: 'P2P sem coordenação — mas sem invariante',
     trick: 'CRDT = convergência P2P sem coordenação, MAS sem invariantes globais',
     expansion: [
-      { letter: 'P', meaning: 'Peer-to-peer', detail: 'Réplicas convergem sem servidor central — por propriedade matemática (ACI)' },
-      { letter: 'S', meaning: 'Sem coordenação', detail: 'Sem lock, sem consenso, sem servidor central para merge' },
-      { letter: 'I', meaning: 'Invariante impossível', detail: '"Saldo ≥ 0" exige coordenação — é o limite fundamental do CRDT' },
+      ['P — Peer-to-peer', 'Réplicas convergem sem servidor central — por propriedade matemática (ACI)'],
+      ['S — Sem coordenação', 'Sem lock, sem consenso, sem servidor central para merge'],
+      ['I — Invariante impossível', '"Saldo ≥ 0" exige coordenação — é o limite fundamental do CRDT'],
     ],
-    anchor: 'CRDT resolve a convergência mas não resolve a coordenação — limites diferentes',
+    explanation: 'CRDT resolve convergência mas não garante invariantes globais — são problemas diferentes.',
+    example: 'Saldo bancário: PN-Counter pode ir negativo. Para garantir saldo ≥ 0, precisa de coordenação — não é CRDT puro.',
+    why: 'Entender os limites do CRDT é tão importante quanto saber usá-lo — evita aplicação incorreta.',
   },
   {
-    label: 'LWW — Last-Write-Wins Perde Dados',
-    trick: 'LWW = Loses Work Willingly (perde trabalho voluntariamente)',
+    label: 'LWW = Loses Work Willingly',
+    trick: 'LWW (Last-Write-Wins) é CRDT mas perde dados silenciosamente em concorrência',
     expansion: [
-      { letter: 'L', meaning: 'Last', detail: 'Maior timestamp vence — decisão arbitrária em concorrência' },
-      { letter: 'W', meaning: 'Write', detail: 'Escrita silenciosa — o update perdido não gera erro, só desaparece' },
-      { letter: 'W', meaning: 'Wins', detail: 'Ganha o que tem maior timestamp — mas clock skew pode inverter a ordem real' },
+      ['L — Last', 'Maior timestamp vence — decisão arbitrária em concorrência'],
+      ['W — Write', 'Escrita silenciosa — o update perdido não gera erro, só desaparece'],
+      ['W — Wins', 'Ganha o que tem maior timestamp — mas clock skew pode inverter a ordem real'],
     ],
-    anchor: 'LWW = tecnicamente CRDT, mas semanticamente perigoso. Use Yjs ou Automerge.',
+    explanation: 'LWW é matematicamente válido como CRDT, mas semanticamente perigoso para colaboração real.',
+    example: 'Alice e Bob editam nome simultaneamente. LWW escolhe um arbitrariamente — o outro desaparece sem aviso. Yjs evita isso com YATA algorithm.',
+    why: 'Demonstrar essa nuance em entrevista mostra profundidade: saber quando NÃO usar é tão importante quanto saber usar.',
   },
 ]
 
 // ── Dados: Cheatsheet ─────────────────────────────────────────────────────────
 
 const CS_HOOKS: HookItem[] = [
-  { name: 'G-Counter', signature: 'merge = max(v[i]); read = sum', when: 'Likes, views, métricas', note: 'Só incrementa' },
-  { name: 'PN-Counter', signature: 'P[] + N[]; read = sum(P) - sum(N)', when: 'Score, rating', note: 'Sem garantia ≥ 0' },
-  { name: 'G-Set', signature: 'merge = union; add apenas', when: 'Tags imutáveis, whitelist', note: 'Sem remove' },
-  { name: '2P-Set', signature: 'union(adds) \\ union(removes)', when: 'Delete permanente', note: 'Sem re-add' },
-  { name: 'OR-Set', signature: 'add → UUID tag; remove → tags observadas', when: 'Listas colaborativas', note: 'Re-add ok; add wins' },
-  { name: 'LWW-Register', signature: 'merge = max(timestamp)', when: 'Status, config simples', note: 'Perde dados em concorrência' },
-  { name: 'Yjs', signature: 'YATA algorithm; YText, YArray, YMap', when: 'Editor colaborativo', note: 'TipTap, ProseMirror, Monaco' },
-  { name: 'Automerge', signature: 'JSON CRDT; Rust+WASM; event log', when: 'JSON genérico, histórico', note: 'Multi-linguagem via WASM' },
+  { name: 'G-Counter', sig: 'merge = max(v[i]); read = sum', desc: 'Likes, views, métricas' },
+  { name: 'PN-Counter', sig: 'P[] + N[]; read = sum(P) - sum(N)', desc: 'Score, rating' },
+  { name: 'G-Set', sig: 'merge = union; add apenas', desc: 'Tags imutáveis, whitelist' },
+  { name: '2P-Set', sig: 'union(adds) \\ union(removes)', desc: 'Delete permanente' },
+  { name: 'OR-Set', sig: 'add → UUID tag; remove → tags observadas', desc: 'Listas colaborativas' },
+  { name: 'LWW-Register', sig: 'merge = max(timestamp)', desc: 'Status, config simples' },
+  { name: 'Yjs', sig: 'YATA algorithm; YText, YArray, YMap', desc: 'Editor colaborativo' },
+  { name: 'Automerge', sig: 'JSON CRDT; Rust+WASM; event log', desc: 'JSON genérico, histórico' },
 ]
 
 const CS_RULES: RuleItem[] = [
-  { rule: 'ACI = convergência sem coordenação', reason: 'Associativo + Comutativo + Idempotente = qualquer ordem de operações produz o mesmo estado' },
-  { rule: 'CRDT não garante invariantes globais', reason: 'Saldo ≥ 0, estoque exato — exigem coordenação. Limite fundamental, não limitação da implementação' },
-  { rule: 'Não implemente CRDT do zero', reason: 'Use Yjs, Automerge, Loro. Bugs em CRDT são sutis e difíceis de testar sem property-based testing' },
-  { rule: 'LWW perde dados em concorrência', reason: 'Tecnicamente é CRDT mas semanticamente perigoso. Clock skew pode descartar updates recentes' },
-  { rule: 'CRDT vs OT: P2P vs servidor central', reason: 'CRDT é offline-first nativo; OT exige servidor para transformar operações. Figma migrou de OT para CRDT' },
-  { rule: 'Tombstones crescem sem GC', reason: 'OR-Set e 2P-Set acumulam tombstones. Snapshot periódico (com agreement) é necessário para GC seguro' },
-  { rule: 'OR-Set: add concurrent wins', reason: 'Quando add e remove acontecem ao mesmo tempo offline, o add sobrevive. Decisão de design, não bug' },
+  { ok: true, t: 'ACI = convergência sem coordenação — Associativo + Comutativo + Idempotente = qualquer ordem de operações produz o mesmo estado' },
+  { ok: true, t: 'CRDT não garante invariantes globais — Saldo ≥ 0, estoque exato — exigem coordenação. Limite fundamental, não limitação da implementação' },
+  { ok: true, t: 'Não implemente CRDT do zero — Use Yjs, Automerge, Loro. Bugs em CRDT são sutis e difíceis de testar sem property-based testing' },
+  { ok: true, t: 'LWW perde dados em concorrência — Tecnicamente é CRDT mas semanticamente perigoso. Clock skew pode descartar updates recentes' },
+  { ok: true, t: 'CRDT vs OT: P2P vs servidor central — CRDT é offline-first nativo; OT exige servidor para transformar operações. Figma migrou de OT para CRDT' },
+  { ok: true, t: 'Tombstones crescem sem GC — OR-Set e 2P-Set acumulam tombstones. Snapshot periódico (com agreement) é necessário para GC seguro' },
+  { ok: true, t: 'OR-Set: add concurrent wins — Quando add e remove acontecem ao mesmo tempo offline, o add sobrevive. Decisão de design, não bug' },
 ]
 
 // ── Builders de PDF ──────────────────────────────────────────────────────────
@@ -258,11 +266,17 @@ const PDF_BUILDERS: Partial<Record<PdfType, PdfBuilderFn>> = {
     stackLabel: 'CS / Sistemas Distribuídos',
   }),
   cheatsheet: () => buildCheatsheetPdf({
-    hooks: CS_HOOKS,
-    rules: CS_RULES,
-    accentColor: C,
     skillName: 'CRDTs',
+    accentColor: C,
     stackLabel: 'CS / Sistemas Distribuídos',
+    sections: {
+      hooks: CS_HOOKS,
+      depRows: [],
+      rules: CS_RULES,
+      performanceTips: [],
+      patterns: [],
+      mentalModels: [],
+    },
   }),
   mnemonics: () => buildMnemonicsPdf({
     mnemonics: MNEMONICS,
@@ -280,10 +294,10 @@ export default function CrdtsPdfs() {
   const rest = PDF_CARDS.slice(1)
   return (
     <>
-      <HeroCard card={hero} accent={C} onClick={() => setOpen(hero)} />
+      <HeroCard card={hero} accent={C} onOpen={() => setOpen(hero)} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 16 }}>
         {rest.map(c => (
-          <CollectionCard key={c.id} card={c} accent={C} onClick={() => setOpen(c)} />
+          <CollectionCard key={c.id} card={c} accent={C} onOpen={() => setOpen(c)} />
         ))}
       </div>
       {open && <PdfModal card={open} onClose={() => setOpen(null)} builders={PDF_BUILDERS} />}

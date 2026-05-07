@@ -78,6 +78,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'server-components-rsc': dynamic(() => import('@/data/content/frontend/server-components-rsc/ServerComponentsRscVisuais'), { ssr: false }),
   'chaos-engineering': dynamic(() => import('@/data/content/arch/chaos-engineering/ChaosEngineeringVisuais'), { ssr: false }),
   'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsVisuais'), { ssr: false }),
+  'llmops': dynamic(() => import('@/data/content/ai/llmops/LlmopsVisuais'), { ssr: false }),
+  'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -158,5 +160,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'server-components-rsc': dynamic(() => import('@/data/content/frontend/server-components-rsc/ServerComponentsRscPdfs'), { ssr: false }),
   'chaos-engineering': dynamic(() => import('@/data/content/arch/chaos-engineering/ChaosEngineeringPdfs'), { ssr: false }),
   'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsPdfs'), { ssr: false }),
+  'llmops': dynamic(() => import('@/data/content/ai/llmops/LlmopsPdfs'), { ssr: false }),
+  'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
