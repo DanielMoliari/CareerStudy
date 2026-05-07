@@ -28,6 +28,10 @@ O erro mais comum ao criar visuais e PDFs é **deixar o número anterior ou o n�
 
 **Como evitar a âncora:** enumere os conceitos da skill que visuais ajudariam, crie um visual para cada um que mereça — e pare. Não olhe para o total até terminar.
 
+**Atenção especial ao receber sugestões:** se o prompt que você recebeu listou visuais específicos ou sugeriu uma quantidade, trate isso como *ponto de partida para análise*, não como meta. Pergunte de cada sugestão: "isso realmente ensina algo que texto não ensina?" Se não, corte. Adicione outros que a análise da skill revelar e que não estavam na lista.
+
+O sinal de qualidade NÃO é ter muitos visuais — é ter todos os visuais certos e nenhum desnecessário. Skills diferentes terão contagens radicalmente diferentes. Padronizar em torno de "7 visuais e 5 PDFs" é um anti-padrão: é âncora disfarçada de qualidade.
+
 ### Decisão editorial por visual
 
 Para cada visual potencial, pergunte: **"isso ensina algo que texto não ensina?"**
