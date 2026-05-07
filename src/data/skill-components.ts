@@ -56,6 +56,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenVisuais'), { ssr: false }),
   'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtVisuais'), { ssr: false }),
   'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingVisuais'), { ssr: false }),
+  'processos-threads': dynamic(() => import('@/data/content/cs/processos-threads/ProcessosThreadsVisuais'), { ssr: false }),
+  'memory-management': dynamic(() => import('@/data/content/cs/memory-management/MemoryManagementVisuais'), { ssr: false }),
   'design-patterns': dynamic(() => import('@/data/content/arch/design-patterns/DesignPatternsVisuais'), { ssr: false }),
   'dependency-injection': dynamic(() => import('@/data/content/arch/dependency-injection/DependencyInjectionVisuais'), { ssr: false }),
   'prompt-engineering': dynamic(() => import('@/data/content/ai/prompt-engineering/PromptEngineeringVisuais'), { ssr: false }),
@@ -70,6 +72,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingVisuais'), { ssr: false }),
   'sharding': dynamic(() => import('@/data/content/arch/sharding/ShardingVisuais'), { ssr: false }),
   'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosVisuais'), { ssr: false }),
+  'threat-modeling': dynamic(() => import('@/data/content/sec/threat-modeling/ThreatModelingVisuais'), { ssr: false }),
+  'tradeoff-analysis': dynamic(() => import('@/data/content/arch/tradeoff-analysis/TradeoffAnalysisVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -128,6 +132,8 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenPdfs'), { ssr: false }),
   'jwt': dynamic(() => import('@/data/content/backend/jwt/JwtPdfs'), { ssr: false }),
   'consistent-hashing': dynamic(() => import('@/data/content/cs/consistent-hashing/ConsistentHashingPdfs'), { ssr: false }),
+  'processos-threads': dynamic(() => import('@/data/content/cs/processos-threads/ProcessosThreadsPdfs'), { ssr: false }),
+  'memory-management': dynamic(() => import('@/data/content/cs/memory-management/MemoryManagementPdfs'), { ssr: false }),
   'design-patterns': dynamic(() => import('@/data/content/arch/design-patterns/DesignPatternsPdfs'), { ssr: false }),
   'dependency-injection': dynamic(() => import('@/data/content/arch/dependency-injection/DependencyInjectionPdfs'), { ssr: false }),
   'prompt-engineering': dynamic(() => import('@/data/content/ai/prompt-engineering/PromptEngineeringPdfs'), { ssr: false }),
@@ -142,5 +148,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'rate-limiting': dynamic(() => import('@/data/content/arch/rate-limiting/RateLimitingPdfs'), { ssr: false }),
   'sharding': dynamic(() => import('@/data/content/arch/sharding/ShardingPdfs'), { ssr: false }),
   'raft-paxos': dynamic(() => import('@/data/content/cs/raft-paxos/RaftPaxosPdfs'), { ssr: false }),
+  'threat-modeling': dynamic(() => import('@/data/content/sec/threat-modeling/ThreatModelingPdfs'), { ssr: false }),
+  'tradeoff-analysis': dynamic(() => import('@/data/content/arch/tradeoff-analysis/TradeoffAnalysisPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
