@@ -124,7 +124,6 @@ export default function GraphPage() {
   const [showAll, setShowAll] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [hoverSlug, setHoverSlug] = useState<string | null>(null)
-  const [hoverCard, setHoverCard] = useState<{ slug: string; x: number; y: number } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const svgRef = useRef<SVGSVGElement>(null)
@@ -412,20 +411,8 @@ export default function GraphPage() {
                     data-node="1"
                     transform={`translate(${pos.x},${pos.y})`}
                     style={{ cursor: 'pointer', opacity: isDim ? 0.18 : 1, transition: 'opacity .2s' }}
-                    onMouseEnter={(e) => {
-                      setHoverSlug(slug)
-                      const container = svgContainerRef.current
-                      if (!container) return
-                      const cr = container.getBoundingClientRect()
-                      const gr = (e.currentTarget as SVGGElement).getBoundingClientRect()
-                      let lx = gr.right - cr.left + 10
-                      let ty = gr.top - cr.top
-                      if (lx + 240 > cr.width) lx = gr.left - cr.left - 250
-                      if (ty + 120 > cr.height) ty = cr.height - 130
-                      if (ty < 4) ty = 4
-                      setHoverCard({ slug, x: lx, y: ty })
-                    }}
-                    onMouseLeave={() => { setHoverSlug(null); setHoverCard(null) }}
+                    onMouseEnter={() => setHoverSlug(slug)}
+                    onMouseLeave={() => setHoverSlug(null)}
                     onClick={() => router.push('/skill/' + slug)}
                   >
                     <rect
@@ -460,40 +447,6 @@ export default function GraphPage() {
             </g>
           </svg>
 
-          {/* Hover card */}
-          {hoverCard && (() => {
-            const slug = hoverCard.slug
-            const sk = SKILL_BY_SLUG[slug]
-            if (!sk) return null
-            const state = getState(slug)
-            const anc = collectAncestors(slug)
-            const dec = collectDescendants(slug)
-            return (
-              <div style={{
-                position: 'absolute',
-                left: hoverCard.x,
-                top: hoverCard.y,
-                pointerEvents: 'none',
-                background: 'var(--bg-elev)',
-                border: '1px solid var(--scarlet)',
-                borderRadius: 9,
-                padding: '10px 12px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11,
-                color: 'var(--fg)',
-                boxShadow: '0 12px 32px rgba(0,0,0,.55)',
-                zIndex: 10,
-                maxWidth: 240,
-              }}>
-                <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{sk.name}</div>
-                <div style={{ fontSize: 10, color: 'var(--fg-dim)', marginBottom: 6 }}>{sk.catLabel} · P{sk.p} · {state}</div>
-                <div style={{ color: 'var(--fg-mute)', marginTop: 4 }}><span style={{ color: 'var(--scarlet)', fontWeight: 700 }}>{(bwd[slug] || []).length}</span> pré-requisitos diretos</div>
-                <div style={{ color: 'var(--fg-mute)', marginTop: 4 }}><span style={{ color: 'var(--scarlet)', fontWeight: 700 }}>{(fwd[slug] || []).length}</span> dependentes diretos</div>
-                <div style={{ marginTop: 6, fontSize: 10, opacity: .75, color: 'var(--fg-mute)' }}>cadeia: {anc.size} ancestrais · {dec.size} descendentes</div>
-                <div style={{ marginTop: 6, fontSize: 10, color: 'var(--scarlet)' }}>clique para abrir →</div>
-              </div>
-            )
-          })()}
         </div>
 
         {/* Sidebar */}

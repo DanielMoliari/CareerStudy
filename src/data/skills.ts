@@ -135,7 +135,7 @@ export const CATEGORIES: Category[] = [
   {
     label: 'Backend', key: 'backend',
     skills: [
-      ['Node.js',1],['TypeORM',1],['NestJS',1],['PostgreSQL',1],
+      ['Node.js',1],['TypeORM',1],['NestJS',1],
       ['GraphQL',1],['Prisma',1],
       ['Concurrency',1],['Caching Strategies',1],['API Versioning',1],
       ['Laravel',2],['Express',2],['Python',2],['Fastify',2],
