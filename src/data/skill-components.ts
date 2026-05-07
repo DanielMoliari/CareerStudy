@@ -50,6 +50,10 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'cap-theorem': dynamic(() => import('@/data/content/cs/cap-theorem/CapTheoremVisuais'), { ssr: false }),
   'big-o': dynamic(() => import('@/data/content/cs/big-o/BigOVisuais'), { ssr: false }),
   'owasp-top-10': dynamic(() => import('@/data/content/sec/owasp-top-10/OwaspTop10Visuais'), { ssr: false }),
+  'redis': dynamic(() => import('@/data/content/database/redis/RedisVisuais'), { ssr: false }),
+  'elasticsearch': dynamic(() => import('@/data/content/database/elasticsearch/ElasticsearchVisuais'), { ssr: false }),
+  'circuit-breakers': dynamic(() => import('@/data/content/arch/circuit-breakers/CircuitBreakersVisuais'), { ssr: false }),
+  'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -102,5 +106,9 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'cap-theorem': dynamic(() => import('@/data/content/cs/cap-theorem/CapTheoremPdfs'), { ssr: false }),
   'big-o': dynamic(() => import('@/data/content/cs/big-o/BigOPdfs'), { ssr: false }),
   'owasp-top-10': dynamic(() => import('@/data/content/sec/owasp-top-10/OwaspTop10Pdfs'), { ssr: false }),
+  'redis': dynamic(() => import('@/data/content/database/redis/RedisPdfs'), { ssr: false }),
+  'elasticsearch': dynamic(() => import('@/data/content/database/elasticsearch/ElasticsearchPdfs'), { ssr: false }),
+  'circuit-breakers': dynamic(() => import('@/data/content/arch/circuit-breakers/CircuitBreakersPdfs'), { ssr: false }),
+  'event-driven': dynamic(() => import('@/data/content/arch/event-driven/EventDrivenPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
