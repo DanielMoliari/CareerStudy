@@ -80,6 +80,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsVisuais'), { ssr: false }),
   'llmops': dynamic(() => import('@/data/content/ai/llmops/LlmopsVisuais'), { ssr: false }),
   'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfVisuais'), { ssr: false }),
+  'trpc': dynamic(() => import('@/data/content/frontend/trpc/TrpcVisuais'), { ssr: false }),
+  'accessibility-a11y': dynamic(() => import('@/data/content/frontend/accessibility-a11y/AccessibilityA11yVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -162,5 +164,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'crdts': dynamic(() => import('@/data/content/cs/crdts/CrdtsPdfs'), { ssr: false }),
   'llmops': dynamic(() => import('@/data/content/ai/llmops/LlmopsPdfs'), { ssr: false }),
   'hnsw-ivf': dynamic(() => import('@/data/content/ai/hnsw-ivf/HnswIvfPdfs'), { ssr: false }),
+  'trpc': dynamic(() => import('@/data/content/frontend/trpc/TrpcPdfs'), { ssr: false }),
+  'accessibility-a11y': dynamic(() => import('@/data/content/frontend/accessibility-a11y/AccessibilityA11yPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
