@@ -158,11 +158,13 @@ const QAS: QAItem[] = [
     level: 'Senior',
     q: 'O que é continual pre-training e quando precede o SFT?',
     a: 'Continual pre-training: treino no modelo base com textos brutos de um domínio (artigos médicos, código raro, jurídico) para injetar conhecimento de domínio.\n\nQuando usar: domínio muito específico onde o base model tem cobertura mínima de tokens do domínio.\n\nOrdem correta:\nContinual pre-training → SFT → DPO → deploy\n\nSe pular o pre-training em domínios especializados, o SFT tem base fraca e o modelo não generaliza.',
+    tip: 'A ordem continual pre-training → SFT → DPO é o pipeline completo que diferencia respostas amadoras das de sênior.',
   },
   {
     level: 'Pleno',
     q: 'Como publicar um adapter LoRA no Hugging Face Hub?',
     a: 'from peft import PeftModel\nmodel.push_to_hub("seu-user/adapter-nome")\ntokenizer.push_to_hub("seu-user/adapter-nome")\n\nO adapter (50–200 MB) é publicado com adapter_config.json que referencia o modelo base.\n\nCarregar em outro ambiente:\nbase = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3.1-8B")\nmodel = PeftModel.from_pretrained(base, "seu-user/adapter-nome")\n\nVantagem: qualquer pessoa roda sem precisar do treino — só 200 MB de download.',
+    tip: 'O adapter_config.json referencia o modelo base — quem fizer PeftModel.from_pretrained precisa ter acesso ao base também.',
   },
   {
     level: 'Pleno',
@@ -174,6 +176,7 @@ const QAS: QAItem[] = [
     level: 'Senior',
     q: 'Quais são as alternativas ao LoRA (DoRA, IA3, Prefix Tuning)?',
     a: 'IA3 (Infused Adapter by Inhibiting and Amplifying Inner Activations): ainda menos parâmetros que LoRA (~0,01%). Multiplica ativações internas por vetores aprendidos. Bom para few-shot.\n\nDoRA (Weight-Decomposed LoRA): separa W em magnitude e direção; LoRA apenas atualiza direção. Mais estável que LoRA em alguns domínios.\n\nPrefix Tuning: adiciona tokens "virtuais" treináveis no contexto. Não modifica pesos — bom para multi-task sem merge.\n\nEscolha: LoRA é o padrão para instruction tuning. IA3 para recursos extremamente limitados. DoRA quando LoRA overfita.',
+    tip: 'Saber nomear DoRA, IA3 e Prefix Tuning como alternativas com tradeoffs demonstra profundidade além do uso básico do PEFT.',
   },
   {
     level: 'Senior',

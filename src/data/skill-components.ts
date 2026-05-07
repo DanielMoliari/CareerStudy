@@ -88,6 +88,10 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'linux': dynamic(() => import('@/data/content/devops/linux/LinuxVisuais'), { ssr: false }),
   'fine-tuning-lora': dynamic(() => import('@/data/content/ai/fine-tuning-lora/FineTuningLoraVisuais'), { ssr: false }),
   'hugging-face': dynamic(() => import('@/data/content/ai/hugging-face/HuggingFaceVisuais'), { ssr: false }),
+  'ai-guardrails': dynamic(() => import('@/data/content/ai/ai-guardrails/AiGuardrailsVisuais'), { ssr: false }),
+  'anthropic-sdk': dynamic(() => import('@/data/content/ai/anthropic-sdk/AnthropicSdkVisuais'), { ssr: false }),
+  'ragas': dynamic(() => import('@/data/content/ai/ragas/RagasVisuais'), { ssr: false }),
+  'ingles': dynamic(() => import('@/data/content/soft/ingles/InglesVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -178,5 +182,9 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'linux': dynamic(() => import('@/data/content/devops/linux/LinuxPdfs'), { ssr: false }),
   'fine-tuning-lora': dynamic(() => import('@/data/content/ai/fine-tuning-lora/FineTuningLoraPdfs'), { ssr: false }),
   'hugging-face': dynamic(() => import('@/data/content/ai/hugging-face/HuggingFacePdfs'), { ssr: false }),
+  'ai-guardrails': dynamic(() => import('@/data/content/ai/ai-guardrails/AiGuardrailsPdfs'), { ssr: false }),
+  'anthropic-sdk': dynamic(() => import('@/data/content/ai/anthropic-sdk/AnthropicSdkPdfs'), { ssr: false }),
+  'ragas': dynamic(() => import('@/data/content/ai/ragas/RagasPdfs'), { ssr: false }),
+  'ingles': dynamic(() => import('@/data/content/soft/ingles/InglesPdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }

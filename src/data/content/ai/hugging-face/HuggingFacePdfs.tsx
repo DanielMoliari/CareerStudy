@@ -98,6 +98,7 @@ const QAS: QAItem[] = [
     level: 'Pleno',
     q: 'Qual a diferença entre Inference API e Inference Endpoints?',
     a: 'Inference API (serverless): gratuito com rate limit (~10 req/min), latência variável (cold start de 30s), compartilhado. Ideal para prototipagem e demos.\n\nInference Endpoints (dedicated): GPU dedicada, latência previsível (<200ms p99), autoscaling configurável. Cobra por hora GPU ativa. Para produção com SLA.\n\nDica: min_replica=0 escala para zero quando idle. min_replica=1 garante disponibilidade constante.',
+    tip: 'min_replica=0 vs 1 é a decisão de custo vs disponibilidade mais comum no onboarding de produção.',
   },
   {
     level: 'Pleno',
@@ -109,6 +110,7 @@ const QAS: QAItem[] = [
     level: 'Pleno',
     q: 'Como usar a pipeline API e quando preferir AutoModel direto?',
     a: 'Pipeline: alto nível, zero boilerplate. Ideal para prototipagem.\n\npipe = pipeline("text-generation", model="org/model")\nresult = pipe("Explique LoRA", max_new_tokens=200)\n\nAutoModel direto: quando precisa de controle total — temperature, sampling, KV cache, streaming, batching manual, logits, beam search customizado.\n\nProdução com volume alto: AutoModel + manual tokenization + vLLM/TGI para serving otimizado.',
+    tip: 'pipeline para protótipo, AutoModel para produção — essa distinção mostra que você foi além do tutorial.',
   },
   {
     level: 'Senior',
@@ -138,26 +140,31 @@ const QAS: QAItem[] = [
     level: 'Senior',
     q: 'Como criar um Space no Hugging Face para demo de modelo?',
     a: 'Space = repo no Hub com app.py + README com frontmatter sdk.\n\nREADME:\n---\ntitle: Meu Demo\nsdk: gradio\napp_file: app.py\n---\n\napp.py (Gradio):\nimport gradio as gr\nfrom transformers import pipeline\npipe = pipeline("text-generation", model="org/model")\n\ndef respond(msg): return pipe(msg)[0]["generated_text"]\n\ngr.Interface(fn=respond, inputs="text", outputs="text").launch()\n\nGPU paga: settings → hardware → T4 ou A10G. Secrets para HF_TOKEN privado.',
+    tip: 'Spaces com GPU são cobrados por hora ativa — configure auto-sleep ou use ZeroGPU para demos públicos.',
   },
   {
     level: 'Senior',
     q: 'Como usar evaluate para métricas padronizadas?',
     a: 'import evaluate\n\n# ROUGE para sumarização/geração\nrouge = evaluate.load("rouge")\nresults = rouge.compute(predictions=["texto gerado"], references=["referência"])\n\n# BLEU para tradução\nbleu = evaluate.load("bleu")\n\n# Accuracy para classificação\nacc = evaluate.load("accuracy")\n\n# Perplexidade para LMs\nperp = evaluate.load("perplexity", module_type="metric")\nresults = perp.compute(predictions=[...], model_id="gpt2")\n\nVantagem: métricas padronizadas, reproduzíveis, comparáveis entre trabalhos.',
+    tip: 'evaluate.load() padroniza métricas — resultados são reproduzíveis e comparáveis com a literatura.',
   },
   {
     level: 'Senior',
     q: 'Como implementar Inference Endpoint com autoscaling via API?',
     a: 'POST /v2/endpoint\n{\n  "name": "prod-llama",\n  "model": {"repository": "org/model"},\n  "compute": {"accelerator": "gpu", "instanceType": "nvidia-t4-xl"},\n  "scaling": {"minReplica": 0, "maxReplica": 4}\n}\n\nmin_replica=0: escala para zero, economiza custo, cold start ~30s.\nmin_replica=1: sempre disponível, custo mínimo garantido.\n\nPara latência crítica: min_replica=2 (ativo-ativo). Para dev: min_replica=0.',
+    tip: 'Citar o tradeoff min_replica=0 (custo) vs 1 (disponibilidade) mostra experiência real com o produto.',
   },
   {
     level: 'Senior',
     q: 'Qual o ecossistema HF para modelos de imagem e multimodal?',
     a: 'diffusers: Stable Diffusion, FLUX, ControlNet. pipeline("text-to-image").\n\nAutoProcessor: para modelos multimodais (LLaVA, Idefics, PaliGemma). Processa texto + imagem juntos.\n\nAutoModelForVision2Seq: geração de texto a partir de imagem.\n\nExemplo: PaliGemma, LLaVA-Next, Idefics — todos carregam com AutoModelForVision2Seq + AutoProcessor.\n\nO mesmo padrão from_pretrained() funciona para 99% dos modelos do Hub, incluindo multimodais.',
+    tip: 'AutoProcessor unifica texto + imagem — o mesmo padrão from_pretrained() funciona para todos os modelos multimodais.',
   },
   {
     level: 'Pleno',
     q: 'Como fazer fine-tuning de um modelo do Hub com SFTTrainer?',
     a: 'Pipeline:\n1. from_pretrained("org/model") — carrega base\n2. LoraConfig + get_peft_model() — aplica LoRA\n3. load_dataset() — carrega e formata dados\n4. tokenizer.apply_chat_template() — formato correto\n5. SFTTrainer(model, tokenizer, train_dataset, eval_dataset, args)\n6. trainer.train() + trainer.save_model()\n7. peft_model.push_to_hub("user/adapter")\n\nVantagem do HF: tudo integrado — Hub, transformers, PEFT, TRL numa cadeia coesa.',
+    tip: 'apply_chat_template() é obrigatório para chat models — omitir gera dados mal formatados silenciosamente.',
   },
   {
     level: 'Pleno',
@@ -175,11 +182,13 @@ const QAS: QAItem[] = [
     level: 'Pleno',
     q: 'Como usar streaming no datasets para processamento de dados massivos?',
     a: 'Sem streaming: load_dataset() baixa tudo para disco e RAM. Wikipedia PT = 20 GB+, C4 = TB.\n\nCom streaming:\nds = load_dataset("wikipedia", "20220301.pt", split="train", streaming=True)\nfor ex in ds.take(1000): # processa em batches sem carregar tudo\n    process(ex)\n\nStreamlit + streaming = processa e itera sem OOM.\n\nTreinamento com streaming:\nds = ds.shuffle(seed=42, buffer_size=10_000) # shuffle em janela\ntrainer = SFTTrainer(train_dataset=ds, ...) # SFTTrainer suporta IterableDataset',
+    tip: 'buffer_size no shuffle streaming define o tamanho da janela de randomização — muito pequeno gera viés de ordem.',
   },
   {
     level: 'Senior',
     q: 'Como usar o Hub programaticamente com huggingface_hub?',
     a: 'from huggingface_hub import HfApi, hf_hub_download, list_models\n\napi = HfApi(token=os.environ["HF_TOKEN"])\n\n# Listar modelos por tarefa\nmodels = list(list_models(task="text-generation", sort="downloads", limit=10))\n\n# Download de arquivo específico\npath = hf_hub_download(repo_id="org/model", filename="config.json")\n\n# Criar repo programaticamente\napi.create_repo("user/novo-modelo", private=True)\n\n# Upload de arquivo\napi.upload_file(path_or_fileobj="./weights.safetensors", path_in_repo="model.safetensors", repo_id="user/novo-modelo")',
+    tip: 'HfApi permite automação completa — CI/CD pode publicar modelos e adapters automaticamente após treinamento.',
   },
 ]
 

@@ -445,16 +445,20 @@ function HyperparamTutor() {
 
 const LORA_LAYERS: Layer[] = [
   {
+    id: 'embeddings',
     label: 'Input Embeddings',
     sublabel: 'tokens → vetores d-dimensional',
-    color: FGMUTE,
-    items: ['Token Embedding (vocab × d)', 'Position Embedding', 'Layer Norm'],
+    description: 'Token Embedding mapeia cada token para um vetor d-dimensional. Position Embedding adiciona informação de posição.',
+    color: '#64748b',
+    examples: ['Token Embedding (vocab × d)', 'Position Embedding', 'Layer Norm'],
   },
   {
+    id: 'transformer',
     label: 'Transformer Block (× N)',
     sublabel: 'onde LoRA é inserido',
+    description: 'Cada bloco contém Self-Attention e MLP. LoRA é inserido nas projeções Q, K, V, O da atenção e nas camadas MLP.',
     color: AMB,
-    items: [
+    examples: [
       'Self-Attention: Q, K, V, O projections ← LoRA aqui',
       'MLP: gate_proj, up_proj, down_proj ← LoRA aqui',
       'Layer Norm (RMSNorm)',
@@ -462,10 +466,12 @@ const LORA_LAYERS: Layer[] = [
     ],
   },
   {
+    id: 'adapter',
     label: 'LoRA Adapter (por camada)',
     sublabel: 'B (d×r) · A (r×d) — treinável',
+    description: 'Apenas B e A são treinados. B inicia em zero (delta_W=0), A inicia aleatório. Scaling controlado por alpha/r.',
     color: GRN,
-    items: [
+    examples: [
       'A: inicializado aleatório (Gaussian)',
       'B: inicializado em zero (delta_W=0 no início)',
       'Scaling: (alpha/r) × B × A',
@@ -473,10 +479,12 @@ const LORA_LAYERS: Layer[] = [
     ],
   },
   {
+    id: 'head',
     label: 'LM Head / Task Head',
     sublabel: 'output do modelo',
+    description: 'Linear projeta de d para vocab size. Softmax gera distribuição de probabilidade. Sampling ou greedy decodifica tokens.',
     color: SKY,
-    items: ['Linear (d → vocab)', 'Softmax → probabilidades', 'Greedy / sampling → tokens'],
+    examples: ['Linear (d → vocab)', 'Softmax → probabilidades', 'Greedy / sampling → tokens'],
   },
 ]
 

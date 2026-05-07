@@ -172,7 +172,6 @@ const fineTuningLora: SkillContent = {
     <strong style="color:#e2e8f0">Fórmula:</strong> W_eff = W + (alpha/r) · B · A — alpha controla o scaling do adapter. alpha=2r é o padrão.
   </div>
 </div>`,
-      css: `.lora-matrix-diagram { font-family: sans-serif; }`,
     },
     {
       title: 'Pipeline de Fine-tuning com LoRA',
@@ -192,7 +191,6 @@ const fineTuningLora: SkillContent = {
     </div>`).join('<div style="text-align:center;font-size:14px;color:#334155">↓</div>')}
   </div>
 </div>`,
-      css: `.lora-pipeline-diagram { font-family: sans-serif; }`,
     },
     {
       title: 'LoRA vs Full Fine-tuning vs QLoRA',
@@ -224,48 +222,23 @@ const fineTuningLora: SkillContent = {
     </tbody>
   </table>
 </div>`,
-      css: `.lora-comparison-table { font-family: sans-serif; }`,
     },
   ],
   mnemonics: [
     {
       label: 'Hiperparâmetros LoRA',
       trick: 'RATO',
-      expansion: [
-        ['R — rank (r)', 'Capacidade do adapter. r=8 padrão; r=32+ para domínio novo.'],
-        ['A — alpha', 'Scaling factor. alpha=2×r é a regra. Controla força do adapter.'],
-        ['T — target_modules', 'Onde aplicar: q/k/v/o_proj + gate/up/down_proj (MLP).'],
-        ['O — optimizer e lr', 'lr 1e-4 a 3e-4, maior que full FT. AdamW 8-bit com QLoRA.'],
-      ],
       explanation: 'RATO cobre os 4 hiperparâmetros que definem 90% do comportamento do LoRA.',
-      example: 'r=16, alpha=32, target_modules=all-linear, lr=2e-4 é um bom ponto de partida para instruction tuning.',
-      why: 'Em entrevista você precisa recitar os hiperparâmetros e o que cada um faz sem hesitar.',
     },
     {
       label: 'Pipeline de fine-tuning',
       trick: 'DAFED',
-      expansion: [
-        ['D — Dataset', 'Limpo, balanceado, 500–2k exemplos, formato ChatML, split 90/10.'],
-        ['A — Adapter (LoRA)', 'PEFT + LoraConfig. print_trainable_parameters() para sanidade.'],
-        ['F — Fine-tuning', 'SFTTrainer com packing + gradient checkpointing. Monitor val loss.'],
-        ['E — Evaluation', 'BLEU/ROUGE + LLM-as-judge + holdout anotado.'],
-        ['D — Deploy', 'merge_and_unload() ou vLLM multi-LoRA serving.'],
-      ],
       explanation: 'DAFED cobre o pipeline completo de fine-tuning de ponta a ponta.',
-      example: 'Em entrevista, descreva cada etapa de D→A→F→E→D em 1 frase cada.',
-      why: 'O pipeline completo é a pergunta mais comum sobre fine-tuning em entrevistas sênior.',
     },
     {
       label: 'Quando não usar fine-tuning',
       trick: 'FEF',
-      expansion: [
-        ['F — Fatos', 'Não fine-tune para injetar fatos. Use RAG. Modelo decora errado.'],
-        ['E — Escala de dados dinâmicos', 'Dados que mudam semanalmente pedem RAG, não retreino.'],
-        ['F — First try prompt', 'Tente prompt engineering antes. Fine-tuning é o último recurso.'],
-      ],
       explanation: 'FEF ajuda a evitar os três erros mais comuns de aplicação de fine-tuning.',
-      example: 'Cliente quer que o modelo "saiba" o catálogo de produtos. FEF: use RAG, não fine-tune.',
-      why: 'Saber quando NÃO usar fine-tuning impressiona mais do que saber implementá-lo.',
     },
   ],
   cheatsheet: {
@@ -321,7 +294,6 @@ const fineTuningLora: SkillContent = {
     </div>
   </div>
 </div>`,
-    css: `.lora-cheatsheet { font-family: sans-serif; }`,
   },
   mindmap: {
     title: 'Fine-tuning com LoRA — Mapa Mental',
@@ -343,44 +315,28 @@ const fineTuningLora: SkillContent = {
     </div>`).join('')}
   </div>
 </div>`,
-    css: `.lora-mindmap { font-family: sans-serif; }`,
   },
   exercises: [
     {
       level: 'iniciante',
       title: 'Fine-tuning LoRA básico com PEFT',
       description: 'Configure e execute um fine-tuning LoRA simples de um modelo de linguagem. Use o dataset Alpaca (ou subset) para instruction tuning.',
-      hints: [
-        'Instale: pip install transformers peft trl bitsandbytes datasets.',
-        'Use AutoModelForCausalLM.from_pretrained() + LoraConfig.',
-        'Chame get_peft_model() e verifique print_trainable_parameters().',
-        'Use SFTTrainer com train_dataset e eval_dataset separados.',
-        'Monitore eval_loss — pare quando começar a subir.',
-      ],
+      concepts: ['LoRA', 'PEFT', 'SFTTrainer', 'instruction tuning'],
+      hint: 'Instale: pip install transformers peft trl bitsandbytes datasets.',
     },
     {
       level: 'intermediario',
       title: 'QLoRA com Llama 3 e avaliação com LLM-as-judge',
       description: 'Faça fine-tuning QLoRA de Llama 3.1 8B-Instruct em um dataset de domínio específico (ex: Q&A jurídico, código Python). Avalie com LLM-as-judge usando GPT-4o-mini.',
-      hints: [
-        'Configure BitsAndBytesConfig para NF4 4-bit.',
-        'Use target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"].',
-        'Crie holdout set de 50–100 exemplos com resposta esperada.',
-        'Monte prompt de juiz: system role com rubrica 1–5, user com query + expected + generated.',
-        'Calcule média dos scores e compare com baseline (modelo sem fine-tuning).',
-      ],
+      concepts: ['QLoRA', 'BitsAndBytesConfig', 'LLM-as-judge', 'holdout set'],
+      hint: 'Configure BitsAndBytesConfig para NF4 4-bit. Crie holdout set de 50–100 exemplos. Monte prompt de juiz: rubrica 1–5, compare com baseline.',
     },
     {
       level: 'senior',
       title: 'Pipeline de fine-tuning com DPO e tracking',
       description: 'Implemente pipeline completo: SFT → DPO com dados de preferência. Rastreie experimentos com W&B. Faça deploy do adapter via vLLM multi-LoRA.',
-      hints: [
-        'SFT primeiro com SFTTrainer. Salve o checkpoint do modelo SFT.',
-        'Crie dataset de preferências: {prompt, chosen, rejected} no formato DPO.',
-        'Use DPOTrainer do TRL com o modelo SFT como referência e como modelo a ser otimizado.',
-        'Rastreie train/eval loss e KL divergência no W&B.',
-        'Suba o adapter para HF Hub e sirva com vLLM --enable-lora.',
-      ],
+      concepts: ['DPO', 'SFT', 'W&B experiment tracking', 'vLLM multi-LoRA', 'preference data'],
+      hint: 'SFT primeiro com SFTTrainer. Salve o checkpoint do modelo SFT.',
     },
   ],
   videos: [

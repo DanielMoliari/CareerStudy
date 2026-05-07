@@ -162,7 +162,6 @@ const huggingFace: SkillContent = {
     </div>`).join('')}
   </div>
 </div>`,
-      css: `.hf-ecosystem-diagram { font-family: sans-serif; }`,
     },
     {
       title: 'AutoModel — padrão de carregamento correto',
@@ -191,7 +190,6 @@ const huggingFace: SkillContent = {
     </div>
   </div>
 </div>`,
-      css: `.hf-automodel-diagram { font-family: sans-serif; }`,
     },
     {
       title: 'Ciclo de vida: do Hub ao deploy',
@@ -211,49 +209,23 @@ const huggingFace: SkillContent = {
     </div>`).join('<div style="text-align:center;color:#334155;font-size:13px">↓</div>')}
   </div>
 </div>`,
-      css: `.hf-lifecycle-diagram { font-family: sans-serif; }`,
     },
   ],
   mnemonics: [
     {
       label: 'Ecossistema HF — libs essenciais',
       trick: 'TAPID',
-      expansion: [
-        ['T — Transformers', 'Lib core: AutoModel, AutoTokenizer, pipeline(), Trainer.'],
-        ['A — Accelerate', 'Multi-GPU, mixed precision, FSDP. Mesmo código em single ou cluster.'],
-        ['P — PEFT', 'Fine-tuning eficiente: LoRA, QLoRA, IA3. 0,1% dos parâmetros.'],
-        ['I — Inference Endpoints', 'Deploy gerenciado com GPU dedicada, autoscaling, SLA.'],
-        ['D — Datasets', 'Carrega e processa dados: streaming, map, filter, cache.'],
-      ],
       explanation: 'TAPID cobre as 5 libs que um AI engineer usa diariamente no ecossistema HF.',
-      example: 'Sem TAPID você não treina, não distribui, não fine-tuna, não deploya e não carrega dados.',
-      why: 'Em entrevista, listar as libs com o que cada uma faz demonstra fluência no ecossistema.',
     },
     {
       label: 'AutoModel — escolha correta da classe',
       trick: 'CSTQ',
-      expansion: [
-        ['C — CausalLM', 'AutoModelForCausalLM → geração de texto (Llama, GPT, Mistral).'],
-        ['S — Seq2SeqLM', 'AutoModelForSeq2SeqLM → tradução, resumo (T5, BART, mT5).'],
-        ['T — TokenClassification', 'AutoModelForTokenClassification → NER, POS tagging.'],
-        ['Q — QuestionAnswering', 'AutoModelForQuestionAnswering → extração de spans (SQuAD).'],
-      ],
       explanation: 'CSTQ cobre os 4 padrões AutoModel mais comuns. Escolher errado resulta em head errada ou erro silencioso.',
-      example: 'Classificação de e-mail em spam/não-spam → SequenceClassification, não CausalLM.',
-      why: 'Confundir as classes AutoModel é erro comum em código que falha silenciosamente — saber de cor evita bugs.',
     },
     {
       label: 'Gotchas do HF em produção',
       trick: 'TSDL',
-      expansion: [
-        ['T — Token vaza', 'HF_TOKEN nunca no código ou git. Use env var ou secrets do CI/CD.'],
-        ['S — Streaming é obrigatório', 'Dataset grande sem streaming=True → OOM ou disco cheio.'],
-        ['D — Device map', 'Modelo grande sem device_map="auto" → OOM em CPU/GPU.'],
-        ['L — License check', 'Sempre verifique a licença antes de usar em produção comercial.'],
-      ],
       explanation: 'TSDL são os 4 erros que aparecem toda vez que alguém usa HF pela primeira vez em produção.',
-      example: 'Erro 1 de produção HF: "out of memory". Motivo: não usou device_map="auto". Fix em 1 linha.',
-      why: 'Gotchas de produção são mais cobrados em entrevistas sênior do que a API básica.',
     },
   ],
   cheatsheet: {
@@ -310,7 +282,6 @@ model = get_peft_model(model, lora)
     </div>
   </div>
 </div>`,
-    css: `.hf-cheatsheet { font-family: sans-serif; }`,
   },
   mindmap: {
     title: 'Hugging Face — Mapa Mental',
@@ -332,44 +303,28 @@ model = get_peft_model(model, lora)
     </div>`).join('')}
   </div>
 </div>`,
-    css: `.hf-mindmap { font-family: sans-serif; }`,
   },
   exercises: [
     {
       level: 'iniciante',
       title: 'Explorar o Hub e fazer inferência com pipeline',
       description: 'Use a pipeline API para fazer inferência com diferentes tarefas. Explore o Hub para encontrar modelos em português.',
-      hints: [
-        'pip install transformers torch datasets',
-        'Use pipeline("text-generation", model="Qwen/Qwen2.5-1.5B-Instruct") — modelo leve.',
-        'Teste pipeline("sentiment-analysis", model="neuralmind/bert-base-portuguese-cased") para PT-BR.',
-        'Use pipeline("translation", model="Helsinki-NLP/opus-mt-pt-en") para tradução.',
-        'Explore huggingface.co/models filtrando por idioma "pt" e task.',
-      ],
+      concepts: ['pipeline API', 'Hub', 'AutoModel', 'tokenizer'],
+      hint: 'pip install transformers torch datasets',
     },
     {
       level: 'intermediario',
       title: 'Fine-tuning QLoRA com SFTTrainer e publicação no Hub',
       description: 'Fine-tune um modelo de chat com SFTTrainer usando QLoRA. Publique o adapter no Hub e teste a inferência remota.',
-      hints: [
-        'pip install transformers peft trl bitsandbytes datasets accelerate',
-        'Use meta-llama/Llama-3.2-1B-Instruct (menor) ou Qwen/Qwen2.5-0.5B-Instruct.',
-        'Crie dataset de 100-200 exemplos no formato ChatML sobre sua especialidade.',
-        'Configure LoraConfig com r=8, e SFTConfig com num_train_epochs=3.',
-        'Publique: peft_model.push_to_hub("seu-user/meu-adapter"). Teste com PeftModel.from_pretrained().',
-      ],
+      concepts: ['SFTTrainer', 'QLoRA', 'PEFT', 'model card', 'Hub push'],
+      hint: 'pip install transformers peft trl bitsandbytes datasets accelerate',
     },
     {
       level: 'senior',
       title: 'Criar Space com comparação de dois modelos + deploy em Inference Endpoints',
       description: 'Crie um Space Gradio que compara dois modelos side-by-side para um benchmark customizado. Faça deploy do melhor modelo em Inference Endpoint.',
-      hints: [
-        'Space Gradio: app.py com gr.Interface ou gr.Blocks. gr.Row() para layout side-by-side.',
-        'Carregue dois modelos com pipeline() ou AutoModel. Shared prefix para eficiência.',
-        'Adicione métricas automáticas: latência, comprimento da resposta.',
-        'Para Inference Endpoints: use a API REST ou a UI de Endpoints no huggingface.co.',
-        'Configure min_replica=0 para scale-to-zero e maxReplica=2 para picos de tráfego.',
-      ],
+      concepts: ['Spaces', 'Gradio', 'Inference Endpoints', 'benchmarking', 'side-by-side eval'],
+      hint: 'Space Gradio: app.py com gr.Interface ou gr.Blocks. gr.Row() para layout side-by-side.',
     },
   ],
   videos: [

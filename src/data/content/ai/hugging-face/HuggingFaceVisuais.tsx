@@ -339,10 +339,12 @@ const API_CRITERIA: ComparisonCriterion[] = [
 
 const DEPLOY_LAYERS: Layer[] = [
   {
+    id: 'hub',
     label: 'Modelo no Hub',
     sublabel: 'modelo base ou adapter LoRA publicado',
+    description: 'from_pretrained("org/model") faz download e cache automático. Safetensors é o formato seguro recomendado.',
     color: C,
-    items: [
+    examples: [
       'from_pretrained("org/model") — download e cache',
       'Safetensors (seguro) ou pickle (legado)',
       'Versões via tags git — revision="v1.2"',
@@ -350,10 +352,12 @@ const DEPLOY_LAYERS: Layer[] = [
     ],
   },
   {
+    id: 'serving',
     label: 'Serving Framework',
     sublabel: 'escolha baseada em throughput vs. simplicidade',
+    description: 'vLLM usa PagedAttention e continuous batching para máximo throughput. TGI é a opção oficial HF mais simples.',
     color: AMB,
-    items: [
+    examples: [
       'vLLM: PagedAttention + continuous batching — maior throughput',
       'TGI (Text Generation Inference): HF oficial, simples de configurar',
       'llama.cpp: GGUF quantizado, CPU-friendly, zero GPU',
@@ -361,10 +365,12 @@ const DEPLOY_LAYERS: Layer[] = [
     ],
   },
   {
+    id: 'quant',
     label: 'Quantização (opcional)',
     sublabel: 'reduz memória 2–4× com perda mínima de qualidade',
-    color: PUR,
-    items: [
+    description: 'AWQ e GPTQ são para GPU; GGUF é para CPU. NF4/QLoRA é só para treino, não para serving em produção.',
+    color: '#a78bfa',
+    examples: [
       'AWQ: GPU, melhor qualidade/tamanho, supported by vLLM',
       'GPTQ: GPU, alternativa ao AWQ',
       'GGUF: CPU + GPU offload, llama.cpp',
@@ -372,10 +378,12 @@ const DEPLOY_LAYERS: Layer[] = [
     ],
   },
   {
+    id: 'infra',
     label: 'Infraestrutura',
     sublabel: 'onde roda o serving',
+    description: 'Inference Endpoints é a opção zero-ops da HF. EC2 G5/G6 oferece controle total. Spaces para demos públicos.',
     color: GRN,
-    items: [
+    examples: [
       'Inference Endpoints (HF): GPU dedicada, autoscaling, zero ops',
       'EC2 G5 / G6 (AWS): controle total, custo previsível',
       'RunPod / Lambda Labs: spot GPU barata para dev/staging',

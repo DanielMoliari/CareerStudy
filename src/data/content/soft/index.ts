@@ -1,5 +1,5 @@
 import type { SkillContentMap } from "@/types"
-import ingles from "./ingles"
+import ingles from "./ingles/ingles"
 import technicalWriting from "./technical-writing"
 import adrsRfcs from "./adrs-rfcs"
 import espanhol from "./espanhol"
