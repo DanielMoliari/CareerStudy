@@ -86,6 +86,8 @@ export const VISUAL_REGISTRY: Record<string, React.ComponentType> = {
   'b-tree-lsm-tree': dynamic(() => import('@/data/content/database/b-tree-lsm-tree/BTreeLsmTreeVisuais'), { ssr: false }),
   'qdrant': dynamic(() => import('@/data/content/database/qdrant/QdrantVisuais'), { ssr: false }),
   'linux': dynamic(() => import('@/data/content/devops/linux/LinuxVisuais'), { ssr: false }),
+  'fine-tuning-lora': dynamic(() => import('@/data/content/ai/fine-tuning-lora/FineTuningLoraVisuais'), { ssr: false }),
+  'hugging-face': dynamic(() => import('@/data/content/ai/hugging-face/HuggingFaceVisuais'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
 
@@ -174,5 +176,7 @@ export const PDF_REGISTRY: Record<string, React.ComponentType> = {
   'b-tree-lsm-tree': dynamic(() => import('@/data/content/database/b-tree-lsm-tree/BTreeLsmTreePdfs'), { ssr: false }),
   'qdrant': dynamic(() => import('@/data/content/database/qdrant/QdrantPdfs'), { ssr: false }),
   'linux': dynamic(() => import('@/data/content/devops/linux/LinuxPdfs'), { ssr: false }),
+  'fine-tuning-lora': dynamic(() => import('@/data/content/ai/fine-tuning-lora/FineTuningLoraPdfs'), { ssr: false }),
+  'hugging-face': dynamic(() => import('@/data/content/ai/hugging-face/HuggingFacePdfs'), { ssr: false }),
   // novas skills são adicionadas aqui
 }
