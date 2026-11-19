@@ -1,0 +1,14 @@
+Diferença entre Fan-out on Write e Fan-out on Read num feed de notícias?;Fan-out on write: pré-computa o feed de cada seguidor no momento do post (rápido de ler, caro de escrever). Fan-out on read: monta o feed na hora de ler (mais barato de escrever, mais lento de ler).
+Quando Fan-out on Write se justifica melhor?;Quando o usuário tem poucos seguidores e posta com pouca frequência — o custo de pré-computar é baixo.
+WebSockets vs Polling num chat em tempo real: qual a diferença central?;WebSockets mantêm conexão aberta bidirecional. Polling faz o cliente perguntar repetidamente "tem novidade?" em intervalos.
+O que significa garantia de entrega "at-least-once" numa mensagem de chat?;A mensagem pode ser entregue mais de uma vez, mas nunca é perdida — o sistema prioriza não perder sobre não duplicar.
+O que é Token Bucket num rate limiter?;Cada request consome um "token" de um balde que se reabastece a uma taxa fixa — se o balde esvazia, novas requests são bloqueadas.
+O que é Sliding Window num rate limiter?;Conta requests dentro de uma janela de tempo móvel (não fixa), evitando picos nas bordas de janelas fixas.
+Por que um rate limiter distribuído precisa de estado compartilhado?;Porque múltiplas instâncias do rate limiter precisam saber a contagem umas das outras (ex: via Redis) pra não permitir mais requests do que o limite real.
+O que é Consistent Hashing e que problema resolve?;Técnica de distribuir dados/chaves entre nós minimizando redistribuição quando um nó é adicionado ou removido (usado em sharding e cache distribuído).
+Onde Consistent Hashing aparece na prática?;Cache distribuído e sharding de banco de dados.
+O que é Circuit Breaker e pra que serve?;Padrão que evita falha em cascata entre serviços dependentes.
+Quais são os 3 estados de um Circuit Breaker?;Closed (tudo normal), Open (bloqueia chamadas após falhas), Half-open (testa se o serviço voltou antes de reabrir totalmente).
+Como responder bem a um follow-up "por que não X ao invés de Y"?;Reconhecer o trade-off real de X, explicar por que Y atende melhor o requisito específico da sessão, sem se contradizer.
+Como admitir uma limitação da própria solução sem parecer inseguro numa entrevista?;Nomear a limitação de forma direta e já indicar como mitigaria ou monitoraria isso em produção.
+O que uma sessão de mock interview de System Design deve simular?;Tempo real de entrevista (45-60min), com alguém dando feedback estruturado ao final.

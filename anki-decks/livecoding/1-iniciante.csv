@@ -1,0 +1,15 @@
+Diferença entre let, const e var no escopo?;let e const têm escopo de bloco. var tem escopo de função (ou global), o que pode causar vazamento de valor fora do bloco esperado.
+Por que usar sempre === em vez de ==?;=== compara valor e tipo sem conversão implícita. == faz coerção de tipo, o que gera resultados inesperados (ex: "1" == 1 é true).
+O que é hoisting em JavaScript?;Declarações de var e function são "içadas" para o topo do escopo antes da execução — var vira undefined até a linha de atribuição, function fica disponível inteira.
+Diferença de comportamento do "this" entre função declarada e arrow function?;Função declarada tem "this" dinâmico (depende de como é chamada). Arrow function herda o "this" do escopo léxico onde foi criada.
+Diferença entre null e undefined?;undefined é valor padrão de algo não inicializado. null é ausência de valor atribuída intencionalmente pelo programador.
+O que é closure? Dê um exemplo curto.;Função que "lembra" variáveis do escopo onde foi criada, mesmo depois desse escopo terminar. Ex: função contador que mantém uma variável interna entre chamadas.
+Diferença entre Promise e async/await?;async/await é açúcar sintático sobre Promise — mesmo mecanismo, mas com sintaxe mais legível e sequencial (sem encadear .then()).
+Diferença entre map e forEach?;map retorna um novo array transformado. forEach apenas itera e não retorna nada útil (retorna undefined).
+Para que serve o método reduce em arrays?;Ferramenta genérica que acumula um único valor a partir de todos os itens do array (soma, agrupamento, transformação em objeto, etc).
+Diferença entre split, slice e substring em strings?;split separa string em array por um delimitador. slice extrai parte da string por índice (aceita negativo). substring é parecido com slice mas não aceita índice negativo.
+O que são template literals?;Strings com crase (`) que permitem interpolação de variável direto com ${variavel}, sem concatenação manual.
+O que é destructuring de objeto/array?;Sintaxe que extrai valores de um objeto ou array diretamente em variáveis nomeadas, sem acessar propriedade por propriedade.
+Quando usar for...of em vez de for clássico?;Quando só precisa iterar valores de um iterável (array, string) sem precisar controlar o índice manualmente.
+Quando um loop aninhado indica um problema de complexidade?;Quando gera O(n²) sem necessidade — sinal de alerta pra buscar uma estrutura de dado (ex: hash map) que evite a segunda passada.
+O que fazem os operadores && e || em short-circuit?;&& retorna o primeiro valor falsy ou o último valor. || retorna o primeiro valor truthy ou o último valor — usados para valores default e checagens condicionais curtas.

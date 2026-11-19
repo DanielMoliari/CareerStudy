@@ -1,0 +1,12 @@
+How do you justify Big-O out loud in an interview instead of just naming the formula?;Explain the reason: "this is O(n) because I traverse the array only once, with no nested loop."
+What's the complexity difference between brute force and hash map for Two Sum?;Brute force is O(n²) comparing every pair. Hash map solves it in O(n) by storing seen values for O(1) lookup.
+When should you use Two Pointers?;On sorted arrays/strings, with pointers at both ends or moving in the same direction (e.g. removing duplicates in-place).
+When does Sliding Window replace a nested O(n²) loop?;When the problem asks about a contiguous subarray/substring (e.g. longest substring without repetition) — the window slides instead of restarting from scratch at each position.
+What's the difference between a fixed-size and variable-size Sliding Window?;Fixed: size never changes (e.g. moving average of k elements). Variable: grows/shrinks based on a condition (e.g. substring without repetition).
+What is the base case in a recursive function?;The condition that stops the recursion, preventing infinite calls — it's the "when to stop."
+What's the risk of very deep recursion without optimization?;Stack overflow — each recursive call pushes a new execution frame onto the call stack.
+What's the practical difference between a problem solved with simple recursion and one solved with DP?;DP kicks in when there are repeated subproblems that can be cached (memoized) to avoid recomputation.
+Why is narrating your reasoning out loud part of what's evaluated in a live coding interview?;Because communicating your plan before/during solving shows your thought process, not just the final code result.
+What's a good step order when solving a new LeetCode problem live?;1) Understand and restate the problem in your own words. 2) Think of examples/edge cases. 3) Verbalize your approach. 4) Code it. 5) Mentally test with the examples.
+How do you detect a duplicate in an array efficiently?;Use a Set — traverse the array, if the value is already in the Set it's a duplicate, otherwise add it.
+How do you group items (e.g. anagrams) efficiently?;Use a Map, where the key is a normalized "signature" of the item (e.g. sorted string) and the value is the array of items sharing that signature.

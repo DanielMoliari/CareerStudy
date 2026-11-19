@@ -1,0 +1,15 @@
+Qual é o framework fixo de uma sessão de System Design?;Requisitos → estimativas → API → dados → arquitetura → gargalos.
+O que é Cache-aside?;A aplicação gerencia o cache manualmente — busca no cache, se não achar busca no banco e popula o cache.
+O que é Write-through?;Escreve no cache e no banco ao mesmo tempo, de forma síncrona.
+O que é Write-back (write-behind)?;Escreve só no cache primeiro, sincroniza com o banco depois — risco de perda de dado se o cache cair antes de sincronizar.
+Quando escolher banco relacional (SQL) em vez de NoSQL?;Quando precisa de ACID, dados estruturados e previsíveis, e joins complexos.
+Quando escolher NoSQL em vez de relacional?;Quando precisa de escala horizontal fácil e schema flexível.
+O que o CAP Theorem afirma, de forma simplificada?;Sob partição de rede, um sistema distribuído escolhe entre Consistência e Disponibilidade — não pode garantir os dois ao mesmo tempo.
+Por que "escolher 2 de 3" no CAP Theorem é uma simplificação?;Porque partição de rede é praticamente inevitável em sistema distribuído real — na prática o trade-off é entre C e A quando P acontece.
+Por que usar filas de mensagem (message queues) num sistema?;Desacopla produtor e consumidor, absorve picos de carga sem travar a resposta ao usuário.
+Exemplo prático de uso de fila de mensagem;Processar upload de foto de forma assíncrona, sem travar a resposta imediata ao usuário.
+Para que serve Rate Limiting?;Protege contra abuso/spam e contra sobrecarga acidental do sistema.
+Onde o rate limiter costuma ficar na arquitetura?;Perto do load balancer ou de um API gateway, antes de chegar nos servidores de aplicação.
+O que testar ao praticar "Design a URL Shortener" do zero?;Aplicar o framework fixo do início ao fim, cronometrado (45min), sem IA, e comparar depois com uma solução de referência.
+Ao desenhar um sistema de likes/contadores (LLD), qual o principal cuidado de consistência?;Aceitar consistência eventual — não precisa refletir o número exato em tempo real (like 45 no banco, 41 na tela, sem problema real).
+Qual a diferença entre HLD e LLD ao desenhar "Design the Like Feature"?;HLD seria decidir onde o contador vive e como escala. LLD é a função específica que incrementa/lê o contador.

@@ -1,0 +1,10 @@
+Diferença entre BFS e DFS numa árvore?;BFS percorre nível por nível (usando fila). DFS percorre um ramo inteiro antes de voltar (usando recursão ou pilha).
+O que caracteriza uma Árvore Binária de Busca (BST)?;Para cada nó, todos os valores à esquerda são menores e todos à direita são maiores — permite busca em O(log n) em árvore balanceada.
+Como representar um grafo na prática?;Lista de adjacência — um mapa/objeto onde cada nó aponta para a lista de nós conectados a ele.
+BFS/DFS em grafo resolve que tipo de problema clássico?;Problemas de "existe caminho entre A e B" ou "quantas conexões/componentes existem".
+O que é memoização em programação dinâmica?;Guardar o resultado de subproblemas já calculados para não recalcular — otimização de recursão.
+Como reconhecer que um problema tem "subestrutura ótima" (indício de DP)?;Quando a solução do problema maior pode ser construída a partir de soluções de subproblemas menores e repetidos.
+Exemplo clássico de DP pra praticar memoização;Fibonacci memoizado — sem memoização é O(2^n), com memoização vira O(n).
+Quando usar Set em vez de Array para checagem de existência?;Quando precisa verificar "esse valor já existe?" repetidamente — Set dá O(1) de lookup, Array daria O(n).
+Quando usar Map em vez de objeto comum para contagem/agrupamento?;Quando as chaves não são strings simples ou quando a ordem de inserção e performance de iteração importam — Map foi feito pra isso.
+O que muda numa entrevista real de live coding em relação a treinar sozinho?;Precisa narrar o raciocínio em voz alta (idealmente em inglês) enquanto resolve, não só entregar o código funcionando.

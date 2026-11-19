@@ -1,0 +1,14 @@
+What's the difference between Fan-out on Write and Fan-out on Read in a news feed?;Fan-out on write: pre-computes each follower's feed at post time (fast to read, expensive to write). Fan-out on read: builds the feed at read time (cheaper to write, slower to read).
+When does Fan-out on Write make more sense?;When the user has few followers and posts infrequently — the cost of pre-computing is low.
+WebSockets vs Polling in a real-time chat: what's the key difference?;WebSockets keep an open bidirectional connection. Polling has the client repeatedly ask "anything new?" at intervals.
+What does "at-least-once" delivery guarantee mean in a chat message?;The message may be delivered more than once, but is never lost — the system prioritizes not losing messages over not duplicating them.
+What is Token Bucket in a rate limiter?;Each request consumes a "token" from a bucket that refills at a fixed rate — if the bucket is empty, new requests are blocked.
+What is Sliding Window in a rate limiter?;Counts requests within a moving time window (not fixed), avoiding spikes at the edges of fixed windows.
+Why does a distributed rate limiter need shared state?;Because multiple rate limiter instances need to know each other's counts (e.g. via Redis) to avoid allowing more requests than the real limit.
+What is Consistent Hashing, and what problem does it solve?;A technique to distribute data/keys across nodes while minimizing redistribution when a node is added or removed (used in sharding and distributed caching).
+Where does Consistent Hashing show up in practice?;Distributed caching and database sharding.
+What is a Circuit Breaker for?;A pattern that prevents cascading failure between dependent services.
+What are the 3 states of a Circuit Breaker?;Closed (normal operation), Open (blocks calls after failures), Half-open (tests whether the service recovered before fully reopening).
+How do you answer a follow-up like "why not X instead of Y" well?;Acknowledge the real trade-off of X, explain why Y better serves the specific requirement of this session, without contradicting yourself.
+How do you admit a limitation of your own solution without sounding insecure in an interview?;Name the limitation directly and immediately indicate how you'd mitigate or monitor it in production.
+What should a System Design mock interview session simulate?;Real interview time (45-60min), with someone giving structured feedback at the end.

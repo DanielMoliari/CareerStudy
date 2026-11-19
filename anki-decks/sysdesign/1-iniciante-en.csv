@@ -1,0 +1,34 @@
+What is HLD (High-Level Design)?;The overall blueprint of the system — what's likely to break first and which high-level components fix that (cache, CDN, load balancer, replicas).
+What is LLD (Low-Level Design)?;The implementation-level detail — how a specific function saves data, how an update operation works.
+Is "Design Instagram" an HLD or LLD question?;HLD — it's the whole system, overall architecture.
+Is "Design the Like Feature" an HLD or LLD question?;LLD — it's one specific function inside the system.
+Why should you state the "altitude" of your answer at the start of an interview?;Starting at the wrong level (e.g. detailing a function when they asked for overall architecture) is a common, highly-noticed mistake. Stating it upfront avoids confusion.
+What's the difference between Functional and Non-functional requirements?;Functional = what the system should do. Non-functional = how well it must do it (latency, availability, cost, scale).
+Why can a Family App and Instagram share the exact same features but be completely different systems?;The real difference lies in the non-functional requirements needed to support scale (e.g. 1 billion users).
+Users never ask for "cache" — what do they actually ask for?;They ask for "the site to load faster." Cache is the technical solution, not the user's actual requirement.
+Why do non-functional requirements compete with each other?;A faster app costs more money to run — speed and cost are a trade-off, not something you can freely add together.
+What are the 5 clarifying questions before designing any system?;1) How many users, growing how fast? 2) Read-heavy or write-heavy? 3) What data can you never lose? 4) How much latency can you afford? 5) What's the acceptable cost?
+Read-heavy or write-heavy: scrolling 1000 photos/month vs posting 5 photos/month?;Read-heavy — optimize the read path.
+Why is losing 1 uploaded photo serious but losing exact like-count precision is not?;Losing the photo can cost you that user forever (critical data). Likes have acceptable eventual consistency (nobody notices 45 vs 41).
+Acceptable latency: opening the feed vs uploading a photo?;Feed must be near-instant (<200ms). Upload can tolerate a few seconds of wait.
+Why doesn't "more components" mean "better design"?;Every component has a monthly cost. The right design answers the requirements while spending the least possible.
+Strong interview phrase: "I'll add a cache because..." — how do you complete it well?;"...this system is read-heavy and X is the most accessed piece of data" — justify by requirement, not by trend.
+What's the core problem with Vertical Scaling?;It hits a capacity ceiling fast, is a single point of failure, and cost vs. capacity tends to be exponential (double the price for ~20% more efficiency).
+What does Horizontal Scaling solve, and what does it require?;It solves the single point of failure by using several smaller servers. It requires a load balancer and shared storage across servers.
+What does a Load Balancer do beyond distributing traffic evenly?;Runs periodic health checks, knows which servers are "dead"/"overloaded", uses least-connections and weighted distribution.
+What is "least-connections" in a load balancer?;An algorithm that routes the next request to the server with the fewest active connections at that moment.
+What's another common name for a Load Balancer?;Reverse proxy.
+Why is it common to run two load balancers in production?;Because if the load balancer itself dies, the whole application goes down — it needs redundancy.
+What does it mean for an application to be "Stateless"?;Each server follows the cycle Handle → Answer → Forget — it doesn't keep memory of past requests locally.
+What's the practical test to know if a design is "Stateful"?;Ask: "if this server disappeared right now, would any user lose something?" If yes, it's stateful.
+Why isn't "does my app store data?" the right question to check statefulness?;Because data saved outside the server (external database, S3) doesn't count as stateful. It only counts if the data lives "inside" the server itself.
+What are Sticky Sessions, and why are they a trap?;They force the load balancer to always route the same user to the same server. This reintroduces the single-server fragility that horizontal scaling was meant to avoid.
+What's the most common way an app accidentally becomes Stateful?;Login session stored locally on the server, without shared storage.
+What's the path a request takes from URL to response?;Client types URL → DNS resolves name to IP → IP contacts server over HTTPS → server responds → back to client.
+What's the difference between Latency and Bandwidth?;Latency = round-trip time of a single request. Bandwidth = how much data fits in a single request.
+What does caching "hot data" solve?;Database overload — one of the 3 classic failure scenarios.
+What is a Single Point of Failure, and how do database replicas help?;A single component whose failure brings down the whole system. Database replicas ensure the data survives even if one node goes down.
+When is a Monolith the right choice?;For a few thousand users — it ships faster and is easier for the whole team to understand.
+What are the 2 real reasons to migrate from Monolith to Microservices?;1) Independent scaling (dedicate servers per service based on real traffic). 2) Team size (squads work independently without stepping on each other).
+What are the 2 main costs of Microservices?;Network dependency between services (can fail/slow down) and fragmented debugging (one request spans multiple logs to piece together).
+What is a "Monolith with satellites"?;A middle ground: keep a central monolith and extract only the parts that truly benefit as separate services — avoids both a giant monolith and excessive microservices.

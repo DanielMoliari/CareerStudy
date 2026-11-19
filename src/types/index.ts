@@ -107,3 +107,90 @@ export interface SkillContent {
 }
 
 export type SkillContentMap = Record<string, SkillContent>
+
+/* ─── Log de tentativas: DSA & System Design ─── */
+
+export type AttemptTrack = 'dsa' | 'sysdesign'
+export type AttemptSource = 'js-basico' | 'leetcode' | 'system-design'
+export type AttemptOutcome = 'resolvido' | 'resolvido-com-ajuda' | 'travou' | 'parcial' | 'estudo'
+
+export interface AttemptGap {
+  categoria: string
+  descricao: string
+}
+
+export interface StudyTopic {
+  titulo: string
+  corpo: string
+}
+
+export interface Attempt {
+  id: string
+  date: string
+  track: AttemptTrack
+  source: AttemptSource
+  title: string
+  level?: 'facil' | 'medio' | 'dificil'
+  timeSpent?: string
+  outcome: AttemptOutcome
+  /** Código ou desenho submetido — obrigatório para tentativas práticas, ausente em sessões de estudo puro. */
+  submission?: string
+  submissionLang?: string
+  narrative: string
+  /** Presente só quando outcome === 'estudo': tópicos/conceitos organizados da sessão. */
+  studyTopics?: StudyTopic[]
+  gaps: AttemptGap[]
+  analysis: string
+  nextStep?: string
+}
+
+/* ─── Currículo por blocos: DSA & System Design ─── */
+
+export type CurriculumTrack = 'sysdesign' | 'livecoding' | 'narrativa'
+export type CurriculumLevel = 'iniciante' | 'intermediario' | 'avancado'
+export type TopicState = 'pendente' | 'estudando' | 'dominado'
+
+export interface CurriculumTopic {
+  slug: string
+  title: string
+  why: string
+  /** Pontos de pesquisa dentro do tópico — não é passo a passo, é o que vale a pena estudar/buscar. */
+  subtopics?: string[]
+}
+
+export interface PracticeQuestion {
+  q_pt: string
+  q_en: string
+  /** Dica do que uma resposta forte cobre — não é gabarito fechado, é estrutura esperada. */
+  hint: string
+}
+
+export interface CurriculumBlock {
+  level: CurriculumLevel
+  title: string
+  goal: string
+  topics: CurriculumTopic[]
+  /** Só usado pela trilha de Narrativa Técnica: perguntas-modelo prontas para praticar. */
+  practiceQuestions?: PracticeQuestion[]
+  /** Referência leve de prazo, não cobrança de data (ex: "ideal até out/2026"). */
+  paceRef?: string
+}
+
+export interface ExamQuestion {
+  q_pt: string
+  q_en: string
+  answer_en: string
+  score: number
+  feedback: string
+}
+
+export interface BlockExam {
+  id: string
+  date: string
+  track: CurriculumTrack
+  level: CurriculumLevel
+  questions: ExamQuestion[]
+  overallScore: number
+  verdict: 'aprovado' | 'revisar'
+  summary: string
+}

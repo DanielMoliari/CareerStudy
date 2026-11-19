@@ -1,0 +1,15 @@
+What's the fixed framework for a System Design session?;Requirements → estimates → API → data → architecture → bottlenecks.
+What is Cache-aside?;The application manages the cache manually — checks the cache, and on a miss, fetches from the database and populates the cache.
+What is Write-through?;Writes to the cache and the database at the same time, synchronously.
+What is Write-back (write-behind)?;Writes to the cache first only, syncing to the database later — risk of data loss if the cache dies before syncing.
+When should you choose a relational database (SQL) over NoSQL?;When you need ACID guarantees, structured and predictable data, and complex joins.
+When should you choose NoSQL over relational?;When you need easy horizontal scaling and a flexible schema.
+What does the CAP Theorem state, in simplified terms?;Under a network partition, a distributed system must choose between Consistency and Availability — it can't guarantee both at once.
+Why is "pick 2 of 3" in CAP Theorem a simplification?;Because network partitions are practically unavoidable in a real distributed system — in practice the trade-off is between C and A once P happens.
+Why use message queues in a system?;They decouple producer and consumer, absorbing traffic spikes without blocking the response to the user.
+Practical example of using a message queue;Processing a photo upload asynchronously, without blocking the immediate response to the user.
+What is Rate Limiting for?;Protects against abuse/spam and against accidental system overload.
+Where does a rate limiter typically sit in the architecture?;Near the load balancer or an API gateway, before requests reach the application servers.
+What should you test when practicing "Design a URL Shortener" from scratch?;Apply the fixed framework start to finish, timed (45min), no AI, then compare against a reference solution.
+When designing a likes/counter system (LLD), what's the main consistency concern?;Accepting eventual consistency — it doesn't need to reflect the exact count in real time (45 in the database, 41 on screen is fine).
+What's the difference between HLD and LLD when designing "the Like Feature"?;HLD would be deciding where the counter lives and how it scales. LLD is the specific function that increments/reads the counter.

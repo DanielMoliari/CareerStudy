@@ -1,0 +1,15 @@
+What's the scoping difference between let, const, and var?;let and const are block-scoped. var is function-scoped (or global), which can leak values outside the expected block.
+Why always use === instead of ==?;=== compares value and type with no implicit conversion. == performs type coercion, producing unexpected results (e.g. "1" == 1 is true).
+What is hoisting in JavaScript?;var and function declarations are "hoisted" to the top of their scope before execution — var becomes undefined until its assignment line, while function is fully available.
+What's the "this" behavior difference between a declared function and an arrow function?;A declared function has dynamic "this" (depends on how it's called). An arrow function inherits "this" from the lexical scope where it was created.
+What's the difference between null and undefined?;undefined is the default value of something not yet initialized. null is an absence of value assigned intentionally by the programmer.
+What is a closure? Give a short example.;A function that "remembers" variables from the scope where it was created, even after that scope has ended. Example: a counter function that keeps an internal variable between calls.
+What's the difference between Promise and async/await?;async/await is syntactic sugar over Promise — same underlying mechanism, but with more readable, sequential-looking syntax (no chained .then()).
+What's the difference between map and forEach?;map returns a new, transformed array. forEach only iterates and returns nothing useful (returns undefined).
+What is reduce used for in arrays?;A generic tool that accumulates a single value from all array items (sum, grouping, transforming into an object, etc).
+What's the difference between split, slice, and substring on strings?;split breaks a string into an array by a delimiter. slice extracts part of a string by index (accepts negative). substring is similar to slice but doesn't accept negative indexes.
+What are template literals?;Backtick strings (`) that allow direct variable interpolation with ${variable}, without manual concatenation.
+What is object/array destructuring?;Syntax that extracts values from an object or array directly into named variables, without accessing property by property.
+When should you use for...of instead of a classic for loop?;When you just need to iterate values of an iterable (array, string) without manually controlling the index.
+When does a nested loop signal a complexity problem?;When it produces unnecessary O(n²) — a signal to look for a data structure (e.g. hash map) that avoids the second pass.
+What do the && and || operators do in short-circuit evaluation?;&& returns the first falsy value or the last value. || returns the first truthy value or the last value — used for default values and short conditional checks.

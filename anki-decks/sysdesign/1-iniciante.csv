@@ -1,0 +1,34 @@
+O que é HLD (High-Level Design)?;O blueprint geral do sistema — o que provavelmente vai quebrar primeiro e quais componentes de alto nível resolvem isso (cache, CDN, load balancer, réplicas).
+O que é LLD (Low-Level Design)?;Nível de detalhe de implementação — como uma função específica salva dado, como funciona o update de um registro.
+"Design Instagram" é pergunta de HLD ou LLD?;HLD — é o sistema inteiro, arquitetura geral.
+"Design the Like Feature" é pergunta de HLD ou LLD?;LLD — é uma função específica dentro do sistema.
+Por que declarar a "altitude" da resposta logo no início da entrevista?;Erro comum e muito notado é começar a responder no nível errado (ex: detalhar função quando pediram arquitetura geral). Declarar evita mal-entendido.
+Diferença entre Functional e Non-functional requirements?;Functional = o que o sistema deve fazer. Non-functional = quão bem deve fazer (latência, disponibilidade, custo, escala).
+Por que Family App e Instagram podem ter as mesmas features mas serem sistemas totalmente diferentes?;A diferença real está nos requisitos non-functional necessários pra suportar escala (ex: 1 bilhão de usuários).
+Usuário nunca pede "cache" — o que ele realmente pede?;Pede "o site carregar mais rápido". Cache é a solução técnica, não o requisito do usuário.
+Por que non-functional requirements competem entre si?;Um app mais rápido custa mais dinheiro pra operar — velocidade e custo são trade-offs, não somam livremente.
+Quais são as 5 perguntas de clarificação antes de desenhar qualquer sistema?;1) Quantos usuários e crescimento? 2) Read-heavy ou write-heavy? 3) Que dado nunca pode se perder? 4) Quanta latência é tolerável? 5) Qual o custo aceitável?
+Read-heavy ou write-heavy: rolar 1000 fotos/mês no feed vs postar 5 fotos/mês?;Read-heavy — otimizar o caminho de leitura (read path).
+Por que perder 1 foto postada é grave mas perder precisão no contador de likes não é?;Perder a foto pode custar o usuário pra sempre (dado crítico). Likes têm consistência eventual aceitável (ninguém nota 45 vs 41).
+Latência tolerável: abrir o feed vs fazer upload de uma foto?;Feed precisa ser quase instantâneo (<200ms). Upload pode tolerar até uns 5 segundos.
+Por que "mais componentes" não significa "design melhor"?;Cada componente tem custo mensal. O design certo responde os requisitos gastando o mínimo possível.
+Frase forte de entrevista: "vou adicionar cache porque..." — como completar bem?;"...este sistema é read-heavy e X é o dado mais acessado" — justificar por requisito, não por modismo.
+Qual o problema central do Vertical Scaling?;Tem teto de capacidade rápido, é single point of failure, e custo x capacidade tende a ser exponencial (dobra o preço por ~20% de ganho).
+O que resolve o Horizontal Scaling e o que ele exige?;Resolve single point of failure ao usar vários servidores menores. Exige load balancer e storage compartilhado entre os servidores.
+O que um Load Balancer faz além de distribuir tráfego igualmente?;Faz health checks periódicos, sabe quais servidores estão "dead"/"overloaded", usa least-connections e distribuição por peso.
+O que é "least-connections" num load balancer?;Algoritmo que direciona a próxima request pro servidor com menos conexões ativas no momento.
+Um Load Balancer também é conhecido por qual outro nome?;Reverse proxy.
+Por que é comum ter dois load balancers em produção?;Porque se o load balancer morre, a aplicação inteira cai — precisa de redundância.
+O que significa uma aplicação ser "Stateless"?;Cada servidor segue o ciclo Handle → Answer → Forget — não retém memória de requests passadas localmente.
+Qual o teste prático pra saber se um design é "Stateful"?;Perguntar: "se este servidor sumir agora, algum usuário perde alguma coisa?" Se sim, é stateful.
+Por que "minha app guarda dados?" não é a pergunta certa pra saber se é stateful?;Porque dado salvo fora do servidor (banco externo, S3) não conta como stateful. Só conta se o dado vive "inside" do próprio servidor.
+O que são Sticky Sessions e por que são uma armadilha?;Forçam o load balancer a sempre mandar o mesmo usuário pro mesmo servidor. Reintroduz a fragilidade de servidor único que o horizontal scaling tentava evitar.
+Qual a causa mais comum de uma aplicação virar Stateful sem querer?;Sessão de login guardada localmente no servidor, sem shared storage.
+Qual o caminho de uma request desde a URL até a resposta?;Cliente digita URL → DNS resolve nome para IP → IP contacta servidor via HTTPS → servidor responde → volta ao cliente.
+Diferença entre Latência e Bandwidth?;Latência = tempo de ida e volta de uma request. Bandwidth = quanto dado cabe numa única request.
+O que resolve o cache para "hot data"?;Sobrecarga do banco de dados (database overload) — um dos 3 cenários clássicos de falha.
+O que é Single Point of Failure e como réplicas de banco ajudam?;É um componente único cuja queda derruba o sistema inteiro. Réplicas de banco garantem que o dado sobrevive mesmo se um nó cair.
+Quando Monolito é a escolha certa?;Para poucos milhares de usuários — entrega mais rápido e é mais fácil pro time inteiro entender.
+Quais são as 2 razões reais pra migrar de Monolito pra Microsserviços?;1) Escalonamento independente (dedicar servidores por serviço conforme tráfego real). 2) Tamanho de time (squads trabalham isolados sem atrapalhar uns aos outros).
+Quais são os 2 principais custos de Microsserviços?;Dependência de rede entre serviços (pode falhar/atrasar) e debugging fragmentado (uma request gera múltiplos logs pra cruzar).
+O que é um "Monolito com satélites"?;Meio-termo: mantém um monolito central e extrai como serviço separado só as partes que realmente se beneficiam disso — evita tanto o monolito gigante quanto microsserviços em excesso.

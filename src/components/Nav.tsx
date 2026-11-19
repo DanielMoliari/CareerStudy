@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { href: '/coverage', label: 'cobertura',  ico: '▣' },
   { href: '/graph',    label: 'grafo',      ico: '○' },
   { href: '/routine',  label: 'rotina',     ico: '◑' },
+  { href: '/gap',      label: 'gap',        ico: '◆' },
+  { href: '/log',      label: 'log',        ico: '≡' },
 ]
 
 export default function Nav() {

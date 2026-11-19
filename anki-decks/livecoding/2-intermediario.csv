@@ -1,0 +1,12 @@
+Como justificar Big-O em voz alta numa entrevista, em vez de só citar a fórmula?;Explicar o motivo: "isso é O(n) porque eu percorro o array uma única vez, sem loop aninhado".
+Qual a diferença de complexidade entre força bruta e hash map no problema Two Sum?;Força bruta é O(n²) comparando todos os pares. Hash map resolve em O(n) guardando valores já vistos pra lookup O(1).
+Quando usar Two Pointers?;Em arrays/strings ordenados, com ponteiros nas extremidades ou andando na mesma direção (ex: remover duplicata in-place).
+Quando Sliding Window substitui um loop aninhado O(n²)?;Quando o problema pede algo sobre subarray/substring contínuo (ex: maior substring sem repetição) — a janela desliza em vez de recomeçar do zero a cada posição.
+Diferença entre janela de tamanho fixo e variável no Sliding Window?;Fixa: tamanho não muda (ex: média móvel de k elementos). Variável: cresce/encolhe conforme uma condição (ex: substring sem repetição).
+O que é caso base numa função recursiva?;Condição que interrompe a recursão, evitando chamada infinita — é o "quando parar".
+Qual o risco de recursão muito profunda sem otimização?;Estouro de call stack (stack overflow) — cada chamada recursiva empilha um novo frame de execução.
+Qual a diferença prática entre um problema resolvido por recursão simples e um por DP?;DP entra quando existem subproblemas repetidos que podem ser cacheados (memoizados) para evitar recomputação.
+Por que narrar o raciocínio em voz alta é parte avaliada numa entrevista de live coding?;Porque comunicar o plano antes/durante a resolução mostra processo de pensamento, não só o resultado final do código.
+Qual é uma boa ordem de passos ao resolver um problema novo de LeetCode ao vivo?;1) Entender e reformular o problema com próprias palavras. 2) Pensar em exemplos/casos-limite. 3) Verbalizar a abordagia. 4) Codar. 5) Testar mentalmente com os exemplos.
+Como detectar duplicata num array de forma eficiente?;Usar um Set — percorrer o array, se o valor já está no Set é duplicata, senão adiciona.
+Como agrupar itens (ex: anagramas) de forma eficiente?;Usar um Map, chave é uma "assinatura" normalizada do item (ex: string ordenada), valor é o array de itens que compartilham a assinatura.
